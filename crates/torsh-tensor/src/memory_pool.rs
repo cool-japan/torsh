@@ -14,23 +14,59 @@ use torsh_core::{device::DeviceType, dtype::TensorElement, error::Result};
 // ✅ SciRS2 Memory Optimization Features
 use scirs2_core::memory::GlobalBufferPool;
 use scirs2_core::memory::LeakDetector;
-// ✅ SciRS2 memory_efficient features - conditionally available
+// ✅ SciRS2 memory_efficient features — the real disk-backed memory-mapped array.
+// Enabled through the `memory_efficient` feature (which turns on `scirs2-core/memory_efficient`).
+#[cfg(feature = "memory_efficient")]
+use scirs2_core::memory_efficient::{AccessMode, MemoryMappedArray};
 
-// Fallback for when memory_efficient feature is not available
-#[cfg(not(feature = "memory_efficient"))]
-struct MemoryMappedArray<T> {
-    _phantom: PhantomData<T>,
+/// Build a unique backing-file path for a memory-mapped allocation under the system
+/// temporary directory ([`std::env::temp_dir`]).
+#[cfg(feature = "memory_efficient")]
+fn unique_mmap_path(tag: &str) -> std::path::PathBuf {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let seq = COUNTER.fetch_add(1, Ordering::Relaxed);
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    std::env::temp_dir().join(format!(
+        "torsh_mmap_{tag}_{pid}_{nanos}_{seq}.bin",
+        pid = std::process::id()
+    ))
 }
 
-#[cfg(not(feature = "memory_efficient"))]
-impl<T> MemoryMappedArray<T> {
-    fn new(_size: usize) -> Result<Self> {
-        Err(torsh_core::error::TorshError::General(
-            torsh_core::error::GeneralError::NotImplemented(
-                "MemoryMappedArray requires memory_efficient feature".to_string(),
-            ),
-        ))
-    }
+/// Round-trip `data` through a disk-backed [`MemoryMappedArray`] and return the mapped contents.
+///
+/// The data is written to `backing_path` via a memory map in [`AccessMode::Write`] and then read
+/// back through the map's [`MemoryMappedArray::as_slice`], so the returned `Vec` genuinely
+/// originates from the memory-mapped region rather than the in-memory input. The staging file is
+/// removed afterwards (best effort) because the materialised tensor no longer depends on it.
+#[cfg(feature = "memory_efficient")]
+fn map_through_mmap_file<T: TensorElement>(
+    data: Vec<T>,
+    backing_path: &std::path::Path,
+) -> Result<Vec<T>> {
+    use scirs2_core::ndarray::Array1;
+
+    // Persist the data to the memory-mapped file.
+    let array: Array1<T> = Array1::from(data);
+    let mmap = MemoryMappedArray::<T>::new(Some(&array), backing_path, AccessMode::Write, 0)
+        .map_err(|e| {
+            torsh_core::error::TorshError::IoError(format!(
+                "memory-mapped allocation failed at {path}: {e}",
+                path = backing_path.display()
+            ))
+        })?;
+
+    // Materialise the data from the memory-mapped region via `as_slice()`.
+    let mapped = mmap.as_slice().to_vec();
+
+    // Release the mapping before removing the staging file (required on some platforms).
+    drop(mmap);
+    let _ = std::fs::remove_file(backing_path);
+
+    Ok(mapped)
 }
 
 // TODO: profile_section macro not available in scirs2_core yet
@@ -148,7 +184,8 @@ impl<T: 'static> ReusedBuffer<T> {
             if let Ok(mut guard) = pool_arc.lock() {
                 let type_id = std::any::TypeId::of::<T>();
                 let size_class = guard.find_size_class(raw_entry.capacity_bytes);
-                let pool_key = (type_id, size_class);
+                let align = raw_entry.layout.align();
+                let pool_key = (type_id, size_class, align);
                 if let Some(bucket) = guard.pools.get_mut(&pool_key) {
                     if bucket.available_buffers.len() < bucket.max_buffers {
                         bucket.available_buffers.push_back(raw_entry);
@@ -177,7 +214,8 @@ impl<T: 'static> Drop for ReusedBuffer<T> {
             if let Ok(mut guard) = pool_arc.lock() {
                 let type_id = std::any::TypeId::of::<T>();
                 let size_class = guard.find_size_class(raw_entry.capacity_bytes);
-                let pool_key = (type_id, size_class);
+                let align = raw_entry.layout.align();
+                let pool_key = (type_id, size_class, align);
                 if let Some(bucket) = guard.pools.get_mut(&pool_key) {
                     if bucket.available_buffers.len() < bucket.max_buffers {
                         // Wrap in ManuallyDrop so push_back takes it without scheduling
@@ -202,8 +240,12 @@ impl<T: 'static> Drop for ReusedBuffer<T> {
 
 /// Enhanced global memory pool with SciRS2 memory optimization
 pub struct GlobalMemoryPool {
-    /// Pools organized by type ID and size class
-    pools: HashMap<(std::any::TypeId, usize), MemoryPool>,
+    /// Pools organized by (type ID, size class, alignment).
+    ///
+    /// Alignment is included in the bucket key so that callers requesting custom
+    /// alignment (e.g. 32-byte SIMD alignment) do not collide with naturally-aligned
+    /// allocations of the same type+size.
+    pools: HashMap<(std::any::TypeId, usize, usize), MemoryPool>,
     /// Statistics for pool usage
     stats: PoolStatistics,
     /// Configuration settings
@@ -272,7 +314,7 @@ pub struct PoolStatistics {
 #[derive(Debug)]
 pub struct PooledTensor<T: TensorElement + Default> {
     tensor: Tensor<T>,
-    pool_key: Option<(std::any::TypeId, usize)>,
+    pool_key: Option<(std::any::TypeId, usize, usize)>,
     _phantom: PhantomData<T>,
 }
 
@@ -352,7 +394,12 @@ impl GlobalMemoryPool {
         }
     }
 
-    /// Create memory-mapped tensor for very large data (>100MB)
+    /// Create memory-mapped tensor for very large data (>100MB).
+    ///
+    /// When the `memory_efficient` feature is enabled, the tensor contents are staged through a
+    /// disk-backed [`MemoryMappedArray`] under [`std::env::temp_dir`]: the data is written to the
+    /// memory map and then read back through the map's `as_slice()`. Without the feature the
+    /// disk-backed path is compiled out and the buffer is allocated in memory.
     fn create_memory_mapped_tensor<T: TensorElement>(
         &mut self,
         shape: &[usize],
@@ -363,19 +410,23 @@ impl GlobalMemoryPool {
     {
         let total_elements: usize = shape.iter().product();
 
-        // ✅ SciRS2 Memory-Mapped Array for disk-backed storage
-        // TODO: Fix MemoryMappedArray::new() call - requires 4 arguments:
-        // MemoryMappedArray::new(data: Option<&Array>, path: &Path, mode: AccessMode, shape)
-        // let _mmap_array = MemoryMappedArray::<T>::new(None, path, AccessMode::ReadWrite, total_elements)?;
-
-        // Track memory usage
-        // Metrics collection temporarily disabled - feature not available
-        // self.metrics_collector.record_large_allocation(total_elements * std::mem::size_of::<T>());
-
-        // TODO: Use _mmap_array.as_slice() when full memory mapping is available
-        // For now, create regular tensor as fallback
+        // The buffer that will be persisted to and re-read from the memory-mapped file.
         let data = vec![T::default(); total_elements];
-        Tensor::from_data(data, shape.to_vec(), device)
+
+        #[cfg(feature = "memory_efficient")]
+        {
+            // ✅ SciRS2 Memory-Mapped Array for disk-backed storage: the data genuinely
+            // round-trips through a memory-mapped file and is materialised from `as_slice()`.
+            let backing_path = unique_mmap_path("tensor");
+            let mapped = map_through_mmap_file::<T>(data, &backing_path)?;
+            Tensor::from_data(mapped, shape.to_vec(), device)
+        }
+
+        #[cfg(not(feature = "memory_efficient"))]
+        {
+            // Disk-backed memory mapping is compiled out without the `memory_efficient` feature.
+            Tensor::from_data(data, shape.to_vec(), device)
+        }
     }
 
     /// Create chunked tensor for large data (10MB-100MB)
@@ -484,22 +535,52 @@ impl GlobalMemoryPool {
         self.stats.clone()
     }
 
-    /// Acquire a truly-pooled, uninitialized buffer for `count` elements of type `T`.
+    /// Acquire a truly-pooled, uninitialized buffer for `count` elements of type `T`
+    /// with **natural alignment** (`align_of::<T>()`).
     ///
     /// This is the low-level method. Prefer the free function [`global_acquire_uninit`].
     ///
     /// The returned [`ReusedBuffer<T>`] holds the **actual pooled allocation** — no copy
     /// is made. Callers must initialize all elements before reading them.
+    ///
+    /// For custom alignment (e.g. 32-byte SIMD alignment), use
+    /// [`Self::acquire_uninit_aligned`] instead.
     pub fn acquire_uninit<T: 'static>(&mut self, count: usize) -> ReusedBuffer<T> {
+        self.acquire_uninit_aligned::<T>(count, std::mem::align_of::<T>())
+    }
+
+    /// Acquire a pooled uninitialized buffer with custom alignment.
+    ///
+    /// Useful for SIMD-aligned buffers (32-byte for AVX2, 64-byte for AVX-512, etc.).
+    /// Buffers acquired with a given `align` go into their own bucket keyed by
+    /// `(TypeId, SizeClass, align)`, so they never collide with naturally-aligned
+    /// allocations of the same type+size.
+    ///
+    /// # Panics
+    /// - if `align` is not a power of two
+    /// - if `align < std::mem::align_of::<T>()`
+    pub fn acquire_uninit_aligned<T: 'static>(
+        &mut self,
+        count: usize,
+        align: usize,
+    ) -> ReusedBuffer<T> {
         let element_size = std::mem::size_of::<T>();
         let element_align = std::mem::align_of::<T>();
+        assert!(
+            align.is_power_of_two(),
+            "alignment must be a power of two (got {align})"
+        );
+        assert!(
+            align >= element_align,
+            "alignment {align} must be >= align_of::<T>() ({element_align})"
+        );
         let size_bytes = count * element_size;
         let size_class = self.find_size_class(size_bytes);
         let type_id = std::any::TypeId::of::<T>();
-        let pool_key = (type_id, size_class);
+        let pool_key = (type_id, size_class, align);
 
-        let layout = Layout::from_size_align(size_bytes.max(1), element_align)
-            .expect("size and align are valid for T");
+        let layout =
+            Layout::from_size_align(size_bytes.max(1), align).expect("size and align are valid");
 
         // Update statistics
         self.stats.total_allocations += 1;
@@ -510,7 +591,7 @@ impl GlobalMemoryPool {
             // Scan for a compatible entry (may be larger than requested)
             let mut found_idx: Option<usize> = None;
             for (i, entry) in bucket.available_buffers.iter().enumerate() {
-                if entry.capacity_bytes >= size_bytes && entry.layout.align() >= element_align {
+                if entry.capacity_bytes >= size_bytes && entry.layout.align() >= align {
                     found_idx = Some(i);
                     break;
                 }
@@ -679,6 +760,25 @@ pub fn global_acquire_uninit<T: 'static>(count: usize) -> ReusedBuffer<T> {
         .lock()
         .expect("global memory pool lock should not be poisoned");
     guard.acquire_uninit::<T>(count)
+}
+
+/// Acquire an uninitialized buffer from the global memory pool with custom alignment.
+///
+/// Like [`global_acquire_uninit`], but the returned buffer is guaranteed to be aligned
+/// to at least `align` bytes. Useful for SIMD-aligned buffers (e.g. 32 bytes for AVX2).
+///
+/// # Panics
+/// - if `align` is not a power of two
+/// - if `align < std::mem::align_of::<T>()`
+///
+/// # Safety contract on the caller
+/// Same as [`global_acquire_uninit`] — elements must be initialized before being read.
+pub fn global_acquire_uninit_aligned<T: 'static>(count: usize, align: usize) -> ReusedBuffer<T> {
+    let pool_arc = get_memory_pool();
+    let mut guard = pool_arc
+        .lock()
+        .expect("global memory pool lock should not be poisoned");
+    guard.acquire_uninit_aligned::<T>(count, align)
 }
 
 /// Enhanced memory statistics with SciRS2 integration
@@ -890,10 +990,11 @@ impl<T: TensorElement + Copy + Default> PooledTensor<T> {
             let pool_guard = pool.lock().expect("lock should not be poisoned");
             pool_guard.find_size_class(numel * std::mem::size_of::<T>())
         };
+        let align = std::mem::align_of::<T>();
 
         Ok(Self {
             tensor,
-            pool_key: Some((type_id, size_class)),
+            pool_key: Some((type_id, size_class, align)),
             _phantom: PhantomData,
         })
     }
@@ -940,7 +1041,7 @@ impl<T: TensorElement + Copy + Default> PooledTensor<T> {
 
 impl<T: TensorElement + std::default::Default> Drop for PooledTensor<T> {
     fn drop(&mut self) {
-        if let Some((_type_id, _size_class)) = self.pool_key {
+        if let Some((_type_id, _size_class, _align)) = self.pool_key {
             // Return memory to pool via deallocate (which now simply drops).
             if let Ok(data) = self.tensor.to_vec() {
                 let pool = get_memory_pool();
@@ -1123,5 +1224,155 @@ mod tests {
         let buf: ReusedBuffer<u64> = global_acquire_uninit::<u64>(32);
         assert_eq!(buf.capacity(), 32);
         buf.release_to_pool();
+    }
+
+    // ── Aligned-acquire tests ───────────────────────────────────────────────
+
+    #[test]
+    fn test_acquire_aligned_returns_simd_aligned_pointer() {
+        let _guard = TEST_LOCK.lock().expect("test mutex should not be poisoned");
+        clear_memory_pool();
+
+        // 32-byte alignment (AVX2 / scirs2_core::simd_aligned::SIMD_ALIGNMENT).
+        let buf: ReusedBuffer<f32> = global_acquire_uninit_aligned::<f32>(1024, 32);
+        assert_eq!(buf.capacity(), 1024);
+        let addr = buf.as_ptr_raw() as usize;
+        assert_eq!(
+            addr % 32,
+            0,
+            "buffer pointer {addr:#x} must be 32-byte aligned"
+        );
+        buf.release_to_pool();
+    }
+
+    #[test]
+    fn test_acquire_aligned_pool_hit_on_release() {
+        let _guard = TEST_LOCK.lock().expect("test mutex should not be poisoned");
+        clear_memory_pool();
+
+        let buf1: ReusedBuffer<f32> = global_acquire_uninit_aligned::<f32>(2048, 32);
+        let ptr1 = buf1.as_ptr_raw();
+        let cap1 = buf1.capacity();
+        buf1.release_to_pool();
+
+        let buf2: ReusedBuffer<f32> = global_acquire_uninit_aligned::<f32>(2048, 32);
+        let ptr2 = buf2.as_ptr_raw();
+        let cap2 = buf2.capacity();
+        assert_eq!(
+            ptr1, ptr2,
+            "aligned bucket should return the same allocation on second acquire"
+        );
+        assert_eq!(cap1, cap2, "capacity should match across reuse");
+        // Pointer must still be aligned after pool reuse.
+        assert_eq!(ptr2 as usize % 32, 0, "reused buffer must remain aligned");
+        buf2.release_to_pool();
+    }
+
+    #[test]
+    fn test_aligned_and_natural_buckets_are_independent() {
+        let _guard = TEST_LOCK.lock().expect("test mutex should not be poisoned");
+        clear_memory_pool();
+
+        // 32-byte aligned acquire/release for a size that maps to a particular size class.
+        let buf_aligned: ReusedBuffer<f32> = global_acquire_uninit_aligned::<f32>(512, 32);
+        let ptr_aligned = buf_aligned.as_ptr_raw();
+        buf_aligned.release_to_pool();
+
+        // Natural-alignment acquire of the same (T, size) — must NOT collide with the
+        // 32-aligned bucket; it should produce a fresh allocation.
+        let buf_natural: ReusedBuffer<f32> = global_acquire_uninit::<f32>(512);
+        let ptr_natural = buf_natural.as_ptr_raw();
+        assert_ne!(
+            ptr_aligned, ptr_natural,
+            "naturally-aligned bucket must be distinct from the 32-byte bucket"
+        );
+        buf_natural.release_to_pool();
+    }
+
+    #[test]
+    #[should_panic(expected = "alignment must be a power of two")]
+    fn test_acquire_aligned_rejects_non_power_of_two() {
+        let _guard = TEST_LOCK.lock().expect("test mutex should not be poisoned");
+        clear_memory_pool();
+        let _buf: ReusedBuffer<f32> = global_acquire_uninit_aligned::<f32>(16, 6);
+    }
+
+    // ── Memory-mapped allocation path ───────────────────────────────────────
+    // These exercise the real disk-backed `scirs2_core::memory_efficient::MemoryMappedArray`
+    // path and are gated on the `memory_efficient` feature. Run with:
+    //   cargo test -p torsh-tensor --features memory_efficient
+
+    /// Round-trips KNOWN (non-default) data through the exact helper used by
+    /// `create_memory_mapped_tensor`: write to a temp-dir backing file, read back via
+    /// `as_slice()`, assert equality. Fails if the mmap wiring drops/garbles the data.
+    #[cfg(feature = "memory_efficient")]
+    #[test]
+    fn test_map_through_mmap_file_roundtrips_known_data() {
+        // Non-default values so a zero-init regression cannot accidentally pass.
+        let known: Vec<f32> = (0..48).map(|i| (i as f32) * 1.5 - 7.25).collect();
+
+        let backing_path = unique_mmap_path("test_helper");
+        assert!(
+            backing_path.starts_with(std::env::temp_dir()),
+            "backing file must live under the system temp directory"
+        );
+
+        let mapped = map_through_mmap_file::<f32>(known.clone(), &backing_path)
+            .expect("memory-mapped round-trip should succeed");
+
+        assert_eq!(
+            mapped, known,
+            "as_slice() must return exactly the data written to the memory-mapped file"
+        );
+
+        // Defensive cleanup in case the helper's best-effort removal failed.
+        let _ = std::fs::remove_file(&backing_path);
+    }
+
+    /// Directly drives `MemoryMappedArray::new(..)` + `as_slice()` with known `f64` data under
+    /// the temp directory to pin the exact scirs2-core API contract the wiring relies on.
+    #[cfg(feature = "memory_efficient")]
+    #[test]
+    fn test_memory_mapped_array_as_slice_direct() {
+        use scirs2_core::memory_efficient::{AccessMode, MemoryMappedArray};
+        use scirs2_core::ndarray::Array1;
+
+        let known: Vec<f64> = vec![3.5, -1.25, 42.0, 7.0, 0.5, 100.0, -8.0, 256.0];
+        let backing_path = unique_mmap_path("test_direct");
+
+        let array = Array1::from(known.clone());
+        let mmap = MemoryMappedArray::<f64>::new(Some(&array), &backing_path, AccessMode::Write, 0)
+            .expect("memory-mapped array creation should succeed");
+
+        let read_back = mmap.as_slice().to_vec();
+        drop(mmap);
+        let _ = std::fs::remove_file(&backing_path);
+
+        assert_eq!(
+            read_back, known,
+            "as_slice() over a Write-mode memory map must return the written data"
+        );
+    }
+
+    /// Drives the production method `create_memory_mapped_tensor` end-to-end through the
+    /// memory-mapped path and verifies the resulting tensor's shape and contents.
+    #[cfg(feature = "memory_efficient")]
+    #[test]
+    fn test_create_memory_mapped_tensor_uses_mmap_path() {
+        let mut pool = GlobalMemoryPool::new();
+        let shape = [4usize, 5];
+        let tensor = pool
+            .create_memory_mapped_tensor::<f32>(&shape, DeviceType::Cpu)
+            .expect("memory-mapped tensor creation should succeed");
+
+        assert_eq!(tensor.numel(), 20);
+        let dims = tensor.shape();
+        assert_eq!(dims.dims(), &[4, 5]);
+
+        // Data was staged through the memory map and read back via as_slice();
+        // a freshly-allocated tensor holds default (zero) values.
+        let data = tensor.data().expect("tensor data should be readable");
+        assert_eq!(data.len(), 20);
+        assert!(data.iter().all(|&x| x == 0.0_f32));
     }
 }

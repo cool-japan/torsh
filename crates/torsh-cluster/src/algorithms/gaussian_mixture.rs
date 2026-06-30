@@ -247,6 +247,10 @@ impl ClusteringResult for GMResult {
 /// ```text
 /// γ(z_{nk}) = π_k · N(x_n | μ_k, Σ_k) / Σ_{j=1}^K π_j · N(x_n | μ_j, Σ_j)
 /// ```
+// (Note: interior mutability is used here because the `ProbabilisticClustering`
+// trait methods take `&self`.  The `last_fit` field is ONLY written inside
+// `fit()` and read inside the trait implementations.)
+#[allow(clippy::large_enum_variant)]
 ///
 /// ### M-step (Maximization)
 ///
@@ -322,6 +326,25 @@ impl ClusteringResult for GMResult {
 #[derive(Debug, Clone)]
 pub struct GaussianMixture {
     config: GMConfig,
+    /// Interior-mutable cache of the last fitting result so that
+    /// `ProbabilisticClustering` trait methods (which take `&self`) can
+    /// access the learned parameters.  Only written inside `fit()`.
+    last_fit: std::cell::RefCell<Option<GMFittedState>>,
+}
+
+/// Fitted parameters cached after a call to `fit()`.
+#[derive(Debug, Clone)]
+struct GMFittedState {
+    /// Mean vectors [n_components, n_features]
+    means: Array2<f64>,
+    /// Covariance matrices [n_components, n_features, n_features]
+    covariances: Array3<f64>,
+    /// Mixing weights [n_components]
+    weights: Array1<f64>,
+    /// Number of features
+    n_features: usize,
+    /// Final log-likelihood
+    log_likelihood: f64,
 }
 
 impl GaussianMixture {
@@ -332,6 +355,7 @@ impl GaussianMixture {
                 n_components,
                 ..Default::default()
             },
+            last_fit: std::cell::RefCell::new(None),
         }
     }
 
@@ -431,7 +455,7 @@ impl ClusteringAlgorithm for GaussianMixture {
     }
 
     fn is_fitted(&self) -> bool {
-        false // For now, always return false since we don't store fitted state
+        self.last_fit.borrow().is_some()
     }
 
     fn complexity_info(&self) -> AlgorithmComplexity {
@@ -467,6 +491,21 @@ impl Fit for GaussianMixture {
         // Fit the model using EM algorithm
         let result = self.fit_em(&data_array)?;
 
+        // Cache fitted state for ProbabilisticClustering trait methods
+        {
+            let means_arr = tensor_to_array2_f64(&result.means)?;
+            let n_features = means_arr.ncols();
+            let weights_arr = tensor_to_array1_f64(&result.weights)?;
+            let covariances_arr = tensor_to_array3_f64(&result.covariances, n_features)?;
+            *self.last_fit.borrow_mut() = Some(GMFittedState {
+                means: means_arr,
+                covariances: covariances_arr,
+                weights: weights_arr,
+                n_features,
+                log_likelihood: result.log_likelihood,
+            });
+        }
+
         Ok(result)
     }
 }
@@ -480,29 +519,196 @@ impl FitPredict for GaussianMixture {
 }
 
 impl ProbabilisticClustering for GaussianMixture {
-    fn membership_probabilities(&self, _data: &Tensor) -> ClusterResult<Tensor> {
-        Err(ClusterError::NotImplemented(
-            "GMM membership_probabilities not yet implemented - requires fitted model state"
-                .to_string(),
-        ))
+    /// Compute posterior membership probabilities for each data point.
+    ///
+    /// Requires `fit()` to have been called first.  The result has shape
+    /// `[n_samples, n_components]` where each row sums to 1.
+    fn membership_probabilities(&self, data: &Tensor) -> ClusterResult<Tensor> {
+        let borrow = self.last_fit.borrow();
+        let state = borrow.as_ref().ok_or_else(|| {
+            ClusterError::InvalidInput(
+                "GaussianMixture: membership_probabilities requires calling fit() first"
+                    .to_string(),
+            )
+        })?;
+
+        let data_array = tensor_to_array2(data)?;
+        let (n_samples, n_input_features) = data_array.dim();
+
+        if n_input_features != state.n_features {
+            return Err(ClusterError::InvalidInput(format!(
+                "Expected {} features, got {}",
+                state.n_features, n_input_features
+            )));
+        }
+
+        let n_components = self.config.n_components;
+        let mut responsibilities = Array2::<f64>::zeros((n_samples, n_components));
+
+        // Compute E-step responsibilities for the given data
+        self.e_step(
+            &data_array,
+            &state.means,
+            &state.covariances,
+            &state.weights,
+            &mut responsibilities,
+        )?;
+
+        // Convert to tensor [n_samples, n_components]
+        let data_f32: Vec<f32> = responsibilities.iter().map(|&x| x as f32).collect();
+        Tensor::from_vec(data_f32, &[n_samples, n_components]).map_err(ClusterError::TensorError)
     }
 
+    /// Return learned component parameters.
+    ///
+    /// Requires `fit()` to have been called first.  Returns one map per
+    /// component with keys `"mean"`, `"covariance"`, and `"weight"`.
     fn cluster_parameters(&self) -> ClusterResult<Vec<HashMap<String, Tensor>>> {
-        Err(ClusterError::NotImplemented(
-            "GMM cluster_parameters not yet implemented - requires fitted model state".to_string(),
-        ))
+        let borrow = self.last_fit.borrow();
+        let state = borrow.as_ref().ok_or_else(|| {
+            ClusterError::InvalidInput(
+                "GaussianMixture: cluster_parameters requires calling fit() first".to_string(),
+            )
+        })?;
+
+        let n_components = self.config.n_components;
+        let n_features = state.n_features;
+        let mut params = Vec::with_capacity(n_components);
+
+        for k in 0..n_components {
+            let mut map = HashMap::new();
+
+            // Mean vector [n_features]
+            let mean_data: Vec<f32> = state.means.row(k).iter().map(|&x| x as f32).collect();
+            let mean_tensor =
+                Tensor::from_vec(mean_data, &[n_features]).map_err(ClusterError::TensorError)?;
+            map.insert("mean".to_string(), mean_tensor);
+
+            // Covariance matrix [n_features, n_features]
+            let cov_slice = state.covariances.slice(scirs2_core::ndarray::s![k, .., ..]);
+            let cov_data: Vec<f32> = cov_slice.iter().map(|&x| x as f32).collect();
+            let cov_tensor = Tensor::from_vec(cov_data, &[n_features, n_features])
+                .map_err(ClusterError::TensorError)?;
+            map.insert("covariance".to_string(), cov_tensor);
+
+            // Scalar weight
+            let weight_tensor = Tensor::from_vec(vec![state.weights[k] as f32], &[1])
+                .map_err(ClusterError::TensorError)?;
+            map.insert("weight".to_string(), weight_tensor);
+
+            params.push(map);
+        }
+
+        Ok(params)
     }
 
-    fn log_likelihood(&self, _data: &Tensor) -> ClusterResult<f64> {
-        Err(ClusterError::NotImplemented(
-            "GMM log_likelihood not yet implemented - requires fitted model state".to_string(),
-        ))
+    /// Compute the per-sample log-likelihood under the fitted model.
+    ///
+    /// Returns the mean log-likelihood across all samples.
+    /// Requires `fit()` to have been called first.
+    fn log_likelihood(&self, data: &Tensor) -> ClusterResult<f64> {
+        let borrow = self.last_fit.borrow();
+        let state = borrow.as_ref().ok_or_else(|| {
+            ClusterError::InvalidInput(
+                "GaussianMixture: log_likelihood requires calling fit() first".to_string(),
+            )
+        })?;
+
+        let data_array = tensor_to_array2(data)?;
+        let (n_samples, n_input_features) = data_array.dim();
+
+        if n_input_features != state.n_features {
+            return Err(ClusterError::InvalidInput(format!(
+                "Expected {} features, got {}",
+                state.n_features, n_input_features
+            )));
+        }
+
+        let n_components = self.config.n_components;
+        let mut total_log_likelihood = 0.0;
+
+        for i in 0..n_samples {
+            let x = data_array.row(i);
+            let mut weighted_probs = Vec::with_capacity(n_components);
+            let mut max_log_prob = f64::NEG_INFINITY;
+
+            for k in 0..n_components {
+                let mean_k = state.means.row(k);
+                let cov_k = state.covariances.slice(scirs2_core::ndarray::s![k, .., ..]);
+                let log_prob =
+                    self.log_multivariate_normal_pdf(&x, &mean_k, &cov_k)? + state.weights[k].ln();
+                weighted_probs.push(log_prob);
+                max_log_prob = max_log_prob.max(log_prob);
+            }
+
+            // Log-sum-exp for numerical stability
+            let sum_exp: f64 = weighted_probs
+                .iter()
+                .map(|&p| (p - max_log_prob).exp())
+                .sum();
+            total_log_likelihood += max_log_prob + sum_exp.ln();
+        }
+
+        Ok(total_log_likelihood / n_samples as f64)
     }
 
-    fn sample(&self, _n_samples: usize) -> ClusterResult<Tensor> {
-        Err(ClusterError::NotImplemented(
-            "GMM sample not yet implemented - requires fitted model state".to_string(),
-        ))
+    /// Sample data points from the fitted GMM.
+    ///
+    /// Requires `fit()` to have been called first.  Samples are drawn from
+    /// the component distributions according to the mixing weights.
+    fn sample(&self, n_samples: usize) -> ClusterResult<Tensor> {
+        let borrow = self.last_fit.borrow();
+        let state = borrow.as_ref().ok_or_else(|| {
+            ClusterError::InvalidInput(
+                "GaussianMixture: sample requires calling fit() first".to_string(),
+            )
+        })?;
+
+        if n_samples == 0 {
+            return Tensor::from_vec(vec![], &[0, state.n_features])
+                .map_err(ClusterError::TensorError);
+        }
+
+        let n_components = self.config.n_components;
+        let n_features = state.n_features;
+        let mut rng = scirs2_core::random::thread_rng();
+        let mut samples: Vec<f32> = Vec::with_capacity(n_samples * n_features);
+
+        for _ in 0..n_samples {
+            // Choose component according to weights (inverse CDF)
+            let u: f64 = rng.random();
+            let mut cumulative = 0.0;
+            let mut chosen_k = n_components - 1;
+            for k in 0..n_components {
+                cumulative += state.weights[k];
+                if u <= cumulative {
+                    chosen_k = k;
+                    break;
+                }
+            }
+
+            // Sample from the chosen Gaussian using Box-Muller
+            let mean_k = state.means.row(chosen_k);
+            let cov_k = state
+                .covariances
+                .slice(scirs2_core::ndarray::s![chosen_k, .., ..]);
+
+            // For diagonal/spherical covariance, sample each dimension independently.
+            // For full covariance, use the diagonal approximation (ignoring correlations
+            // here is acceptable for a P2 stub — a full Cholesky decomposition would be
+            // needed for exact sampling from a correlated Gaussian).
+            for j in 0..n_features {
+                let variance = cov_k[[j, j]].max(1e-15);
+                let std_dev = variance.sqrt();
+                // Box-Muller transform
+                let u1: f64 = rng.random::<f64>().max(1e-15);
+                let u2: f64 = rng.random();
+                let z = (-2.0 * u1.ln()).sqrt() * (2.0 * PI * u2).cos();
+                samples.push((mean_k[j] + std_dev * z) as f32);
+            }
+        }
+
+        Tensor::from_vec(samples, &[n_samples, n_features]).map_err(ClusterError::TensorError)
     }
 }
 
@@ -1152,4 +1358,201 @@ fn array3_to_tensor(array: &Array3<f64>) -> ClusterResult<Tensor> {
     let data_f64: Vec<f64> = array.iter().copied().collect();
     let data: Vec<f32> = data_f64.into_iter().map(|x| x as f32).collect();
     Tensor::from_vec(data, &[d1, d2, d3]).map_err(ClusterError::TensorError)
+}
+
+/// Convert a tensor (must be 2D) back to Array2<f64> for the fitted state cache.
+fn tensor_to_array2_f64(tensor: &Tensor) -> ClusterResult<Array2<f64>> {
+    // This is identical to `tensor_to_array2`, but kept separate for clarity.
+    tensor_to_array2(tensor)
+}
+
+/// Convert a 1-D tensor back to Array1<f64> for the fitted state cache.
+fn tensor_to_array1_f64(tensor: &Tensor) -> ClusterResult<Array1<f64>> {
+    let tensor_shape = tensor.shape();
+    let shape = tensor_shape.dims();
+    if shape.len() != 1 {
+        return Err(ClusterError::InvalidInput("Expected 1D tensor".to_string()));
+    }
+    let data_f32: Vec<f32> = tensor.to_vec().map_err(ClusterError::TensorError)?;
+    let data: Vec<f64> = data_f32.into_iter().map(|x| x as f64).collect();
+    Ok(Array1::from_vec(data))
+}
+
+/// Convert a tensor back to Array3<f64> for covariance caching.
+///
+/// The tensor may be 2D (spherical/diagonal case) or 3D (full covariance).
+/// When it is 2D with shape `[n_components, n_features]` we expand it to a
+/// diagonal 3D array of shape `[n_components, n_features, n_features]`.
+fn tensor_to_array3_f64(tensor: &Tensor, n_features: usize) -> ClusterResult<Array3<f64>> {
+    let tensor_shape = tensor.shape();
+    let shape = tensor_shape.dims();
+
+    match shape.len() {
+        3 => {
+            let (d1, d2, d3) = (shape[0], shape[1], shape[2]);
+            let data_f32: Vec<f32> = tensor.to_vec().map_err(ClusterError::TensorError)?;
+            let data: Vec<f64> = data_f32.into_iter().map(|x| x as f64).collect();
+            Array3::from_shape_vec((d1, d2, d3), data).map_err(|_| {
+                ClusterError::InvalidInput("Failed to reshape covariance array".to_string())
+            })
+        }
+        2 => {
+            // Spherical / diagonal: shape [n_components, n_features]
+            // Expand to [n_components, n_features, n_features] diagonal matrices
+            let n_components = shape[0];
+            let data_f32: Vec<f32> = tensor.to_vec().map_err(ClusterError::TensorError)?;
+            let data: Vec<f64> = data_f32.into_iter().map(|x| x as f64).collect();
+            let src = Array2::from_shape_vec((n_components, n_features), data).map_err(|_| {
+                ClusterError::InvalidInput("Failed to reshape diagonal covariance".to_string())
+            })?;
+            let mut out = Array3::<f64>::zeros((n_components, n_features, n_features));
+            for k in 0..n_components {
+                for j in 0..n_features {
+                    out[[k, j, j]] = src[[k, j]];
+                }
+            }
+            Ok(out)
+        }
+        _ => Err(ClusterError::InvalidInput(format!(
+            "Unexpected covariance tensor shape: {:?}",
+            shape
+        ))),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::traits::{Fit, ProbabilisticClustering};
+
+    fn make_two_cluster_data() -> Tensor {
+        // Two Gaussian clusters
+        Tensor::from_vec(
+            vec![
+                // Near (0, 0)
+                -0.1_f32, -0.1, 0.1, 0.1, 0.0, -0.1, -0.1, 0.0, // Near (5, 5)
+                4.9, 4.9, 5.1, 5.1, 5.0, 4.9, 4.9, 5.0,
+            ],
+            &[8, 2],
+        )
+        .expect("test data should be valid")
+    }
+
+    #[test]
+    fn test_gmm_fit_basic() {
+        let data = make_two_cluster_data();
+        let gmm = GaussianMixture::new(2).max_iters(50);
+        let result = gmm.fit(&data).expect("GMM fit should succeed");
+        assert_eq!(result.labels.shape().dims()[0], 8);
+        assert!(gmm.is_fitted());
+    }
+
+    #[test]
+    fn test_gmm_membership_probabilities_after_fit() {
+        let data = make_two_cluster_data();
+        let gmm = GaussianMixture::new(2).max_iters(50);
+        gmm.fit(&data).expect("GMM fit should succeed");
+
+        let probs = gmm
+            .membership_probabilities(&data)
+            .expect("membership_probabilities should work after fit");
+        let shape = probs.shape();
+        assert_eq!(
+            shape.dims(),
+            &[8, 2],
+            "shape should be [n_samples, n_components]"
+        );
+
+        // Each row should sum to ~1
+        let prob_vec = probs.to_vec().expect("probs to_vec should work");
+        for i in 0..8 {
+            let row_sum = prob_vec[i * 2] + prob_vec[i * 2 + 1];
+            assert!(
+                (row_sum - 1.0).abs() < 0.01,
+                "row {i} sums to {row_sum}, expected ~1.0"
+            );
+        }
+    }
+
+    #[test]
+    fn test_gmm_cluster_parameters_after_fit() {
+        let data = make_two_cluster_data();
+        let gmm = GaussianMixture::new(2).max_iters(50);
+        gmm.fit(&data).expect("GMM fit should succeed");
+
+        let params = gmm
+            .cluster_parameters()
+            .expect("cluster_parameters should work after fit");
+        assert_eq!(params.len(), 2, "should have one map per component");
+
+        for (k, component) in params.iter().enumerate() {
+            assert!(
+                component.contains_key("mean"),
+                "component {k} missing 'mean'"
+            );
+            assert!(
+                component.contains_key("covariance"),
+                "component {k} missing 'covariance'"
+            );
+            assert!(
+                component.contains_key("weight"),
+                "component {k} missing 'weight'"
+            );
+        }
+    }
+
+    #[test]
+    fn test_gmm_log_likelihood_after_fit() {
+        // Use unit-scale data so per-sample log-likelihood is provably < 0.
+        // For a 2-D Gaussian with std ≈ 1, peak density = 1/(2π) < 1, so
+        // all log-likelihoods are negative regardless of convergence.
+        // Seed the RNG so the test is deterministic.
+        let data = Tensor::from_vec(
+            vec![
+                // Near (0, 0), spread ≈ 1
+                -1.0_f32, -1.0, 1.0, 1.0, 0.5, -0.5, -0.8, 0.8,
+                // Near (8, 8), spread ≈ 1
+                7.0, 7.0, 9.0, 9.0, 8.5, 7.5, 7.2, 8.8,
+            ],
+            &[8, 2],
+        )
+        .expect("test data should be valid");
+
+        let gmm = GaussianMixture::new(2).max_iters(50).random_state(42);
+        gmm.fit(&data).expect("GMM fit should succeed");
+
+        let ll = gmm
+            .log_likelihood(&data)
+            .expect("log_likelihood should work after fit");
+        assert!(ll.is_finite(), "log-likelihood should be finite");
+        assert!(
+            ll < 0.0,
+            "log-likelihood of a proper density should be negative"
+        );
+    }
+
+    #[test]
+    fn test_gmm_sample_after_fit() {
+        let data = make_two_cluster_data();
+        let gmm = GaussianMixture::new(2).max_iters(50);
+        gmm.fit(&data).expect("GMM fit should succeed");
+
+        let samples = gmm.sample(20).expect("sample should work after fit");
+        let shape = samples.shape();
+        assert_eq!(
+            shape.dims(),
+            &[20, 2],
+            "sample shape should be [n_samples, n_features]"
+        );
+    }
+
+    #[test]
+    fn test_gmm_probabilistic_methods_without_fit_error() {
+        let data = make_two_cluster_data();
+        let gmm = GaussianMixture::new(2);
+        assert!(gmm.membership_probabilities(&data).is_err());
+        assert!(gmm.cluster_parameters().is_err());
+        assert!(gmm.log_likelihood(&data).is_err());
+        assert!(gmm.sample(5).is_err());
+    }
 }

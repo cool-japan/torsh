@@ -298,17 +298,19 @@ pub struct CudaMemoryStats {
     pub total: usize,
 }
 
-/// Get CUDA memory statistics for a device
+/// Get CUDA memory statistics for a device.
+///
+/// Requires a CUDA runtime to be present at run time. The `cust` crate is not a
+/// dependency of this crate, so real `cudaMemGetInfo` / `cudaSetDevice` calls cannot
+/// be made. This function returns `TorshError::NotImplemented` rather than fabricating
+/// plausible-looking but entirely fictional memory figures.
 pub fn get_cuda_memory_stats(_device_id: i32) -> TorshResult<CudaMemoryStats> {
-    // In a real implementation, we would call cudaMemGetInfo and other CUDA APIs
-    // For now, return placeholder values
-    Ok(CudaMemoryStats {
-        allocated: 1024 * 1024 * 512,  // 512 MB
-        reserved: 1024 * 1024 * 1024,  // 1 GB
-        active: 1024 * 1024 * 400,     // 400 MB
-        inactive: 1024 * 1024 * 112,   // 112 MB
-        total: 1024 * 1024 * 1024 * 8, // 8 GB
-    })
+    Err(TorshError::NotImplemented(
+        "CUDA memory statistics require a CUDA runtime. \
+         Add the `cust` crate as a dependency and implement \
+         cudaMemGetInfo / cudaSetDevice calls to obtain real values."
+            .to_string(),
+    ))
 }
 
 /// CUDA device properties
@@ -323,19 +325,20 @@ pub struct CudaDeviceProperties {
     pub total_memory: usize,
 }
 
-/// Get CUDA device properties
-pub fn get_cuda_device_properties(device_id: i32) -> TorshResult<CudaDeviceProperties> {
-    // In a real implementation, we would call cudaGetDeviceProperties
-    // For now, return placeholder values (simulating an RTX 3080)
-    Ok(CudaDeviceProperties {
-        name: format!("CUDA Device {device_id}"),
-        compute_capability: (8, 6),
-        multiprocessor_count: 68,
-        clock_rate: 1710000,        // 1.71 GHz
-        memory_clock_rate: 9501000, // 9.5 GHz
-        memory_bus_width: 320,
-        total_memory: 10 * 1024 * 1024 * 1024, // 10 GB
-    })
+/// Get CUDA device properties.
+///
+/// Requires a CUDA runtime to be present at run time. The `cust` crate is not a
+/// dependency of this crate, so real `cudaGetDeviceProperties` calls cannot be made.
+/// This function returns `TorshError::NotImplemented` rather than fabricating invented
+/// hardware specifications (e.g., a "simulated RTX 3080" with hardcoded compute
+/// capability, SM count, and clock rates).
+pub fn get_cuda_device_properties(_device_id: i32) -> TorshResult<CudaDeviceProperties> {
+    Err(TorshError::NotImplemented(
+        "CUDA device properties require a CUDA runtime. \
+         Add the `cust` crate as a dependency and implement \
+         cudaGetDeviceProperties calls to obtain real values."
+            .to_string(),
+    ))
 }
 
 /// Profile CUDA operations
@@ -511,20 +514,25 @@ mod tests {
     }
 
     #[test]
-    fn test_cuda_memory_stats() {
-        let stats = get_cuda_memory_stats(0).unwrap();
-        assert!(stats.total > 0);
-        assert!(stats.allocated <= stats.reserved);
-        assert!(stats.reserved <= stats.total);
+    fn test_cuda_memory_stats_requires_runtime() {
+        // Without the `cust` crate wired in, this must return an honest error rather
+        // than inventing fake memory figures for a nonexistent CUDA device.
+        let result = get_cuda_memory_stats(0);
+        assert!(
+            result.is_err(),
+            "expected NotImplemented error without CUDA runtime"
+        );
     }
 
     #[test]
-    fn test_cuda_device_properties() {
-        let props = get_cuda_device_properties(0).unwrap();
-        assert!(!props.name.is_empty());
-        assert!(props.compute_capability.0 > 0);
-        assert!(props.multiprocessor_count > 0);
-        assert!(props.total_memory > 0);
+    fn test_cuda_device_properties_requires_runtime() {
+        // Without the `cust` crate wired in, this must return an honest error rather
+        // than returning fabricated RTX 3080 specifications.
+        let result = get_cuda_device_properties(0);
+        assert!(
+            result.is_err(),
+            "expected NotImplemented error without CUDA runtime"
+        );
     }
 
     #[test]

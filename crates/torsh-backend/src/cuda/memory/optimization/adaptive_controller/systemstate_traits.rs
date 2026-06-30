@@ -8,8 +8,8 @@
 //!
 //! 🤖 Generated with [SplitRS](https://github.com/cool-japan/splitrs)
 
-use std::collections::{HashMap, VecDeque};
-use std::time::{Duration, Instant};
+use std::collections::HashMap;
+use std::time::Instant;
 
 use super::types::{StateQualityIndicators, SystemState};
 
@@ -31,4 +31,3 @@ impl Default for SystemState {
         }
     }
 }
-

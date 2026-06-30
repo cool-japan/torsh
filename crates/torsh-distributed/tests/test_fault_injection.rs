@@ -534,6 +534,7 @@ async fn test_elastic_training_with_node_failure() -> Result<()> {
         enable_elastic_scheduling: true,
         rendezvous_backend: "static".to_string(),
         rendezvous_endpoint: "localhost:29605".to_string(),
+        heartbeat_timeout: Duration::from_secs(60),
     };
 
     let checkpoint_config = CheckpointConfig {

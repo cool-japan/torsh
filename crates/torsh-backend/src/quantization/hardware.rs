@@ -170,22 +170,23 @@ impl QuantizationHardwareFeatures {
 
     /// Detect NVIDIA DP4A support
     ///
-    /// DP4A (4-element dot product and accumulate) is available on
-    /// modern NVIDIA GPUs and provides efficient INT8 matrix operations.
+    /// DP4A (4-element dot product and accumulate) is a CUDA device instruction
+    /// (compute capability >= 6.1). This crate has no CUDA driver dependency to
+    /// query, so this honestly reports `false` rather than assuming availability.
+    /// Real detection must read the live device's compute capability in the CUDA
+    /// backend.
     fn detect_dp4a() -> bool {
-        // In a real implementation, this would query CUDA device properties
-        // For now, assume modern CUDA GPUs have DP4A support
-        true
+        false
     }
 
     /// Detect tensor core support
     ///
-    /// Tensor cores provide specialized acceleration for mixed-precision
-    /// and quantized neural network operations on modern GPUs.
+    /// Tensor Cores are a CUDA GPU feature (compute capability >= 7.0). Without a
+    /// CUDA driver dependency to query the device architecture, this honestly
+    /// reports `false` rather than assuming availability. Real detection must
+    /// read the live device's compute capability in the CUDA backend.
     fn detect_tensor_cores() -> bool {
-        // In a real implementation, this would check GPU architecture
-        // (Volta, Turing, Ampere, etc.) for tensor core availability
-        true
+        false
     }
 
     /// Check if the hardware supports a specific quantization data type efficiently

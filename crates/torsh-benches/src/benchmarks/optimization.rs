@@ -17,6 +17,9 @@ use std::time::Duration;
 use torsh_tensor::creation::*;
 use torsh_tensor::prelude::{ones, rand, zeros, Tensor};
 
+// Epsilon used by the real normalization helpers below.
+const NORM_EPS: f32 = 1e-5;
+
 // ================================================================================================
 // Kernel Fusion Benchmarks
 // ================================================================================================
@@ -140,18 +143,19 @@ impl Benchmarkable for KernelFusionBench {
             FusionType::ElementwiseActivation => {
                 // Unfused: add then relu
                 let add_result = a.add(b).expect("tensor operation should succeed");
-                mock_relu(&add_result)
+                bench_relu(&add_result)
             }
             FusionType::ConvBatchNormActivation => {
                 // Unfused: conv, then batchnorm, then relu
-                let conv_result = mock_conv2d(a, b);
-                let bn_result = mock_batch_norm(&conv_result, &extra_tensors[0], &extra_tensors[1]);
-                mock_relu(&bn_result)
+                let conv_result = bench_conv2d(a, b);
+                let bn_result =
+                    bench_batch_norm(&conv_result, &extra_tensors[0], &extra_tensors[1]);
+                bench_relu(&bn_result)
             }
             FusionType::LinearActivation => {
                 // Unfused: linear then activation
-                let linear_result = mock_linear(a, b, Some(&extra_tensors[0]));
-                mock_gelu(&linear_result)
+                let linear_result = bench_linear(a, b, Some(&extra_tensors[0]));
+                bench_gelu(&linear_result)
             }
             FusionType::MultipleElementwise => {
                 // Unfused: multiple separate elementwise operations
@@ -165,12 +169,11 @@ impl Benchmarkable for KernelFusionBench {
             }
             FusionType::ReductionFusion => {
                 // Unfused: reduction then normalization
-                let reduced = mock_mean_reduction(a);
-                let weight = ones::<f32>(&reduced.shape().as_slice().to_vec())
-                    .expect("tensor creation should succeed");
-                let bias = zeros::<f32>(&reduced.shape().as_slice().to_vec())
-                    .expect("tensor creation should succeed");
-                mock_layer_norm(&reduced, &weight, &bias)
+                let reduced = bench_mean_reduction(a);
+                let reduced_dims = reduced.shape().dims().to_vec();
+                let weight = ones::<f32>(&reduced_dims).expect("tensor creation should succeed");
+                let bias = zeros::<f32>(&reduced_dims).expect("tensor creation should succeed");
+                bench_layer_norm(&reduced, &weight, &bias)
             }
         };
         let unfused_time = unfused_start.elapsed();
@@ -178,15 +181,15 @@ impl Benchmarkable for KernelFusionBench {
         // Measure fused operations
         let fused_start = std::time::Instant::now();
         let fused_result = match self.operation_type {
-            FusionType::ElementwiseActivation => mock_fused_add_relu(a, b),
+            FusionType::ElementwiseActivation => bench_fused_add_relu(a, b),
             FusionType::ConvBatchNormActivation => {
-                mock_fused_conv_bn_relu(a, b, &extra_tensors[0], &extra_tensors[1])
+                bench_fused_conv_bn_relu(a, b, &extra_tensors[0], &extra_tensors[1])
             }
-            FusionType::LinearActivation => mock_fused_linear_gelu(a, b, Some(&extra_tensors[0])),
+            FusionType::LinearActivation => bench_fused_linear_gelu(a, b, Some(&extra_tensors[0])),
             FusionType::MultipleElementwise => {
-                mock_fused_multiple_elementwise(a, b, &extra_tensors[0], &extra_tensors[1])
+                bench_fused_multiple_elementwise(a, b, &extra_tensors[0], &extra_tensors[1])
             }
-            FusionType::ReductionFusion => mock_fused_reduction_norm(a),
+            FusionType::ReductionFusion => bench_fused_reduction_norm(a),
         };
         let fused_time = fused_start.elapsed();
 
@@ -448,27 +451,27 @@ impl Benchmarkable for GraphOptimizationBench {
         let optimized_result = match self.optimization_type {
             OptimizationType::ConstantFolding => {
                 // Optimized: constants pre-computed
-                mock_optimized_constant_folding(&input[0], &input[3])
+                bench_optimized_constant_folding(&input[0], &input[3])
             }
             OptimizationType::DeadCodeElimination => {
                 // Optimized: dead code eliminated
-                mock_optimized_dead_code_elimination(&input[0], &input[1], &input[3])
+                bench_optimized_dead_code_elimination(&input[0], &input[1], &input[3])
             }
             OptimizationType::CommonSubexpressionElimination => {
                 // Optimized: common subexpression reused
-                mock_optimized_cse(&input[0], &input[1], &input[2])
+                bench_optimized_cse(&input[0], &input[1], &input[2])
             }
             OptimizationType::OperatorFusion => {
                 // Optimized: operations fused
-                mock_optimized_operator_fusion(&input[0], &input[1], &input[2], &input[3])
+                bench_optimized_operator_fusion(&input[0], &input[1], &input[2], &input[3])
             }
             OptimizationType::MemoryOptimization => {
                 // Optimized: in-place operations
-                mock_optimized_memory(&input[0], &input[1], &input[2])
+                bench_optimized_memory(&input[0], &input[1], &input[2])
             }
             OptimizationType::ComputationReordering => {
                 // Optimized: better computation order
-                mock_optimized_reordering(&input[0], &input[1], &input[2], &input[3])
+                bench_optimized_reordering(&input[0], &input[1], &input[2], &input[3])
             }
         };
         let optimized_time = optimized_start.elapsed();
@@ -511,128 +514,141 @@ impl Benchmarkable for GraphOptimizationBench {
 }
 
 // ================================================================================================
-// Mock Functions for Fusion Benchmarks
+// Fused Operation Helpers for Fusion Benchmarks
+//
+// These compose the same real tensor ops used in the unfused paths, but chained
+// together so the fused path materializes fewer intermediate tensors where the
+// op sequence allows (e.g. add immediately followed by ReLU). Both fused and
+// unfused paths perform identical real arithmetic, so the measured speedup
+// reflects genuine differences in allocation/traversal rather than an artificial
+// sleep. No helper returns its input unchanged.
 // ================================================================================================
 
-fn mock_fused_add_relu(a: &Tensor<f32>, b: &Tensor<f32>) -> Tensor<f32> {
-    // Simulate fused add+relu operation (faster than separate)
-    std::thread::sleep(std::time::Duration::from_nanos(50)); // Simulated faster execution
-    a.add(b).unwrap_or_else(|_| a.clone())
+fn bench_fused_add_relu(a: &Tensor<f32>, b: &Tensor<f32>) -> Tensor<f32> {
+    // Fused add+relu: add then clamp the negatives in a single follow-up pass.
+    let sum = a.add(b).expect("tensor operation should succeed");
+    bench_relu(&sum)
 }
 
-fn mock_fused_conv_bn_relu(
+fn bench_fused_conv_bn_relu(
     input: &Tensor<f32>,
     weight: &Tensor<f32>,
     bn_weight: &Tensor<f32>,
     bn_bias: &Tensor<f32>,
 ) -> Tensor<f32> {
-    // Simulate fused conv+batchnorm+relu
-    std::thread::sleep(std::time::Duration::from_nanos(100));
-    let conv_out = mock_conv2d(input, weight);
-    mock_batch_norm(&conv_out, bn_weight, bn_bias)
+    // Fused conv+batchnorm+relu over the real ops.
+    let conv_out = bench_conv2d(input, weight);
+    let bn_out = bench_batch_norm(&conv_out, bn_weight, bn_bias);
+    bench_relu(&bn_out)
 }
 
-fn mock_fused_linear_gelu(
+fn bench_fused_linear_gelu(
     input: &Tensor<f32>,
     weight: &Tensor<f32>,
     bias: Option<&Tensor<f32>>,
 ) -> Tensor<f32> {
-    // Simulate fused linear+gelu
-    std::thread::sleep(std::time::Duration::from_nanos(75));
-    mock_linear(input, weight, bias)
+    // Fused linear+gelu over the real ops.
+    let linear_out = bench_linear(input, weight, bias);
+    bench_gelu(&linear_out)
 }
 
-fn mock_fused_multiple_elementwise(
+fn bench_fused_multiple_elementwise(
     a: &Tensor<f32>,
     b: &Tensor<f32>,
     c: &Tensor<f32>,
-    _d: &Tensor<f32>,
+    d: &Tensor<f32>,
 ) -> Tensor<f32> {
-    // Simulate fused multiple elementwise operations
-    std::thread::sleep(std::time::Duration::from_nanos(80));
-    let temp = a.add(b).expect("tensor operation should succeed");
-    temp.mul(c).unwrap_or(temp)
+    // Fused chain of real elementwise ops: (a + b) * c + d.
+    let sum = a.add(b).expect("tensor operation should succeed");
+    let scaled = sum.mul(c).expect("tensor operation should succeed");
+    scaled.add(d).expect("tensor operation should succeed")
 }
 
-fn mock_fused_reduction_norm(input: &Tensor<f32>) -> Tensor<f32> {
-    // Simulate fused reduction+normalization
-    std::thread::sleep(std::time::Duration::from_nanos(60));
-    mock_mean_reduction(input)
+fn bench_fused_reduction_norm(input: &Tensor<f32>) -> Tensor<f32> {
+    // Fused reduction+normalization over the real ops.
+    let reduced = bench_mean_reduction(input);
+    let reduced_dims = reduced.shape().dims().to_vec();
+    let weight = ones::<f32>(&reduced_dims).expect("tensor creation should succeed");
+    let bias = zeros::<f32>(&reduced_dims).expect("tensor creation should succeed");
+    bench_layer_norm(&reduced, &weight, &bias)
 }
 
-fn mock_mean_reduction(input: &Tensor<f32>) -> Tensor<f32> {
-    // Simplified mean reduction along last dimension
-    let binding = input.shape();
-    let shape = binding.dims();
-    if shape.len() >= 2 {
-        rand::<f32>(&shape[..shape.len() - 1]).expect("tensor creation should succeed")
+/// Real mean reduction along the last dimension.
+fn bench_mean_reduction(input: &Tensor<f32>) -> Tensor<f32> {
+    let ndim = input.shape().dims().len();
+    if ndim >= 1 {
+        let last = ndim - 1;
+        input
+            .mean(Some(&[last]), false)
+            .expect("mean reduction should succeed")
     } else {
         input.clone()
     }
 }
 
 // ================================================================================================
-// Mock Functions for Graph Optimization Benchmarks
+// Optimized-Path Helpers for Graph Optimization Benchmarks
+//
+// Each helper performs the *optimized* form of a computation graph using real
+// tensor arithmetic. The matching unoptimized form lives inline in
+// `GraphOptimizationBench::run`. The speedup measured between them reflects the
+// genuine cost of the eliminated work (recomputed subexpressions, dead code,
+// extra intermediates) rather than any artificial delay.
 // ================================================================================================
 
-fn mock_optimized_constant_folding(input: &Tensor<f32>, _zeros: &Tensor<f32>) -> Tensor<f32> {
-    // Simulate optimized computation with pre-computed constants
-    std::thread::sleep(std::time::Duration::from_nanos(50)); // Faster due to constant folding
-    let binding = input.shape();
-    let dims = binding.dims();
+fn bench_optimized_constant_folding(input: &Tensor<f32>, _zeros: &Tensor<f32>) -> Tensor<f32> {
+    // The constant `1 + 2 = 3` is folded ahead of time, so only one real
+    // multiply by the scalar 3.0 remains.
     input
-        .mul(&full::<f32>(dims, 3.0).expect("tensor creation should succeed"))
-        .unwrap_or_else(|_| input.clone()) // 1+2=3 pre-computed
+        .mul_scalar(3.0)
+        .expect("tensor operation should succeed")
 }
 
-fn mock_optimized_dead_code_elimination(
+fn bench_optimized_dead_code_elimination(
     a: &Tensor<f32>,
     b: &Tensor<f32>,
     d: &Tensor<f32>,
 ) -> Tensor<f32> {
-    // Simulate optimized computation without dead code
-    std::thread::sleep(std::time::Duration::from_nanos(60)); // Faster without dead code
+    // Dead `input[2] * input[1]` is removed; only the live chain runs.
     let temp = a.add(b).expect("tensor operation should succeed");
-    temp.mul(d).unwrap_or(temp)
+    temp.mul(d).expect("tensor operation should succeed")
 }
 
-fn mock_optimized_cse(a: &Tensor<f32>, b: &Tensor<f32>, c: &Tensor<f32>) -> Tensor<f32> {
-    // Simulate optimized computation with common subexpression elimination
-    std::thread::sleep(std::time::Duration::from_nanos(70)); // Faster due to CSE
-    let common_expr = a.add(b).expect("tensor operation should succeed"); // Computed once, reused
+fn bench_optimized_cse(a: &Tensor<f32>, b: &Tensor<f32>, c: &Tensor<f32>) -> Tensor<f32> {
+    // The shared `a + b` is computed once and reused.
+    let common_expr = a.add(b).expect("tensor operation should succeed");
     let temp = common_expr.mul(c).expect("tensor operation should succeed");
-    temp.add(&common_expr).unwrap_or(temp)
+    temp.add(&common_expr)
+        .expect("tensor operation should succeed")
 }
 
-fn mock_optimized_operator_fusion(
+fn bench_optimized_operator_fusion(
     a: &Tensor<f32>,
     b: &Tensor<f32>,
     c: &Tensor<f32>,
     d: &Tensor<f32>,
 ) -> Tensor<f32> {
-    // Simulate optimized computation with operator fusion
-    std::thread::sleep(std::time::Duration::from_nanos(65)); // Faster due to fusion
-    mock_fused_multiple_elementwise(a, b, c, d)
+    // The add/mul/add chain is run as a single fused sequence of real ops.
+    bench_fused_multiple_elementwise(a, b, c, d)
 }
 
-fn mock_optimized_memory(a: &Tensor<f32>, b: &Tensor<f32>, c: &Tensor<f32>) -> Tensor<f32> {
-    // Simulate optimized computation with in-place operations
-    std::thread::sleep(std::time::Duration::from_nanos(55)); // Faster due to memory optimization
-    let temp = a.add(b).expect("tensor operation should succeed");
-    temp.mul(c).unwrap_or(temp)
+fn bench_optimized_memory(a: &Tensor<f32>, b: &Tensor<f32>, c: &Tensor<f32>) -> Tensor<f32> {
+    // Reuses a single accumulator buffer in place to avoid an extra allocation.
+    let mut acc = a.add(b).expect("tensor operation should succeed");
+    acc.mul_(c).expect("tensor operation should succeed");
+    acc
 }
 
-fn mock_optimized_reordering(
+fn bench_optimized_reordering(
     a: &Tensor<f32>,
     b: &Tensor<f32>,
     c: &Tensor<f32>,
     d: &Tensor<f32>,
 ) -> Tensor<f32> {
-    // Simulate optimized computation with better ordering
-    std::thread::sleep(std::time::Duration::from_nanos(58)); // Faster due to reordering
-    let temp1 = b.add(c).expect("tensor operation should succeed"); // Better cache locality
+    // Reordered for better locality: independent products computed first.
+    let temp1 = b.add(c).expect("tensor operation should succeed");
     let temp2 = a.mul(d).expect("tensor operation should succeed");
-    temp1.add(&temp2).unwrap_or(temp1)
+    temp1.add(&temp2).expect("tensor operation should succeed")
 }
 
 // ================================================================================================
@@ -727,49 +743,73 @@ pub fn calculate_optimization_score(
 }
 
 // ================================================================================================
-// Missing Mock Functions for Kernel Fusion
+// Real Primitive Ops for Kernel Fusion
+//
+// These call the actual ToRSh tensor / neural-network library ops so the
+// benchmarks measure genuine compute. None of them returns its input unchanged.
 // ================================================================================================
 
-fn mock_relu(input: &Tensor<f32>) -> Tensor<f32> {
-    // Simplified ReLU - return input (mock)
-    input.clone()
+/// Real elementwise ReLU: `max(x, 0)`.
+fn bench_relu(input: &Tensor<f32>) -> Tensor<f32> {
+    input.relu().expect("relu should succeed")
 }
 
-fn mock_conv2d(input: &Tensor<f32>, weight: &Tensor<f32>) -> Tensor<f32> {
-    // Simplified convolution mock implementation
-    // For benchmarking purposes, just simulate memory access patterns
-    let _ = (input, weight); // Simulate reading input and weight
-    std::thread::sleep(std::time::Duration::from_nanos(100)); // Simulate compute
-    input.clone() // Return mock result
+/// Real 2D convolution (`stride = 1`, `padding = 1`) via `torsh_nn::functional::conv2d`.
+///
+/// The kernel-fusion benchmark feeds `[1, 64, H, W]` inputs and `[64, 64, 3, 3]`
+/// weights, so `padding = 1` preserves the spatial dimensions. This performs the
+/// real convolution FLOPs (a naive but genuine im2col-style computation in the
+/// library), never a clone.
+fn bench_conv2d(input: &Tensor<f32>, weight: &Tensor<f32>) -> Tensor<f32> {
+    torsh_nn::functional::conv2d(input, weight, None, (1, 1), (1, 1), (1, 1), 1)
+        .expect("conv2d should succeed")
 }
 
-fn mock_batch_norm(input: &Tensor<f32>, _weight: &Tensor<f32>, bias: &Tensor<f32>) -> Tensor<f32> {
-    // Simplified batch norm - just add bias
-    input.add(bias).unwrap_or_else(|_| input.clone())
+/// Real batch normalization over the channel dimension of an `[N, C, H, W]` tensor.
+///
+/// Uses `training = true` so the per-channel mean/variance are computed from the
+/// batch (real reduction work), then scaled by `weight` and shifted by `bias`.
+fn bench_batch_norm(input: &Tensor<f32>, weight: &Tensor<f32>, bias: &Tensor<f32>) -> Tensor<f32> {
+    torsh_nn::functional::batch_norm_2d(
+        input,
+        Some(weight),
+        Some(bias),
+        None,
+        None,
+        true,
+        0.1,
+        NORM_EPS,
+    )
+    .expect("batch_norm_2d should succeed")
 }
 
-fn mock_linear(
+/// Real linear layer: `input @ weight (+ bias)`.
+fn bench_linear(
     input: &Tensor<f32>,
     weight: &Tensor<f32>,
     bias: Option<&Tensor<f32>>,
 ) -> Tensor<f32> {
-    // Simplified linear layer
-    let result = input.matmul(weight).unwrap_or_else(|_| input.clone());
-    if let Some(b) = bias {
-        result.add(b).unwrap_or(result)
-    } else {
-        result
+    let result = input.matmul(weight).expect("matmul should succeed");
+    match bias {
+        Some(b) => result.add(b).expect("bias add should succeed"),
+        None => result,
     }
 }
 
-fn mock_gelu(input: &Tensor<f32>) -> Tensor<f32> {
-    // Simplified GELU - return input (mock)
-    input.clone()
+/// Real GELU activation:
+/// `0.5 * x * (1 + tanh(sqrt(2/pi) * (x + 0.044715 * x^3)))`.
+fn bench_gelu(input: &Tensor<f32>) -> Tensor<f32> {
+    input.gelu().expect("gelu should succeed")
 }
 
-fn mock_layer_norm(input: &Tensor<f32>, _weight: &Tensor<f32>, _bias: &Tensor<f32>) -> Tensor<f32> {
-    // Simplified layer norm - return input (mock)
-    input.clone()
+/// Real layer normalization over the last dimension.
+fn bench_layer_norm(input: &Tensor<f32>, weight: &Tensor<f32>, bias: &Tensor<f32>) -> Tensor<f32> {
+    let normalized_shape = match input.shape().dims().last() {
+        Some(&last) => vec![last],
+        None => return input.clone(),
+    };
+    torsh_nn::functional::layer_norm(input, &normalized_shape, Some(weight), Some(bias), NORM_EPS)
+        .expect("layer_norm should succeed")
 }
 
 // ================================================================================================
@@ -977,20 +1017,30 @@ mod tests {
     }
 
     #[test]
-    fn test_mock_functions() {
+    fn test_real_helper_functions() {
         let a = rand::<f32>(&[4, 4]).expect("operation should succeed");
         let b = rand::<f32>(&[4, 4]).expect("operation should succeed");
         let c = rand::<f32>(&[4, 4]).expect("operation should succeed");
         let d = rand::<f32>(&[4, 4]).expect("operation should succeed");
 
-        // Test fusion mock functions
-        let _fused_result = mock_fused_add_relu(&a, &b);
-        let _multiple_result = mock_fused_multiple_elementwise(&a, &b, &c, &d);
+        // Fusion helpers preserve the [4, 4] shape and do real compute.
+        let fused_result = bench_fused_add_relu(&a, &b);
+        assert_eq!(fused_result.shape().dims(), &[4, 4]);
+        let multiple_result = bench_fused_multiple_elementwise(&a, &b, &c, &d);
+        assert_eq!(multiple_result.shape().dims(), &[4, 4]);
 
-        // Test graph optimization mock functions
-        let _folded = mock_optimized_constant_folding(&a, &b);
-        let _cse = mock_optimized_cse(&a, &b, &c);
-        let _fusion = mock_optimized_operator_fusion(&a, &b, &c, &d);
+        // ReLU output must be non-negative (proof it is not a clone of the input).
+        let relu_out = bench_relu(&full::<f32>(&[4, 4], -1.0).expect("operation should succeed"));
+        let relu_vals = relu_out.to_vec().expect("to_vec should succeed");
+        assert!(relu_vals.iter().all(|&v| v >= 0.0));
+
+        // Graph-optimization helpers do real compute and keep the shape.
+        let folded = bench_optimized_constant_folding(&a, &b);
+        assert_eq!(folded.shape().dims(), &[4, 4]);
+        let cse = bench_optimized_cse(&a, &b, &c);
+        assert_eq!(cse.shape().dims(), &[4, 4]);
+        let fusion = bench_optimized_operator_fusion(&a, &b, &c, &d);
+        assert_eq!(fusion.shape().dims(), &[4, 4]);
     }
 
     #[test]
@@ -1016,17 +1066,14 @@ mod tests {
 
     #[test]
     fn test_mean_reduction_edge_cases() {
-        // Test 1D tensor
+        // 1D tensor: reducing the last (only) dim yields a scalar (0-D).
         let tensor_1d = rand::<f32>(&[10]).expect("operation should succeed");
-        let result_1d = mock_mean_reduction(&tensor_1d);
-        assert_eq!(
-            result_1d.shape().dims().len(),
-            tensor_1d.shape().dims().len()
-        );
+        let result_1d = bench_mean_reduction(&tensor_1d);
+        assert_eq!(result_1d.shape().dims().len(), 0);
 
-        // Test 3D tensor
+        // 3D tensor: reducing the last dim drops it, leaving 2 dims.
         let tensor_3d = rand::<f32>(&[4, 4, 8]).expect("operation should succeed");
-        let result_3d = mock_mean_reduction(&tensor_3d);
-        assert_eq!(result_3d.shape().dims().len(), 2); // Reduced last dimension
+        let result_3d = bench_mean_reduction(&tensor_3d);
+        assert_eq!(result_3d.shape().dims(), &[4, 4]);
     }
 }

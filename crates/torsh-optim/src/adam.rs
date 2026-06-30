@@ -205,7 +205,6 @@ use crate::{
 // use scirs2::optim::adam::{Adam as SciAdam, AdamW as SciAdamW};
 use parking_lot::RwLock;
 use std::collections::HashMap;
-use std::ops::Add;
 use std::sync::Arc;
 use torsh_core::error::Result;
 use torsh_tensor::{creation::zeros_like, Tensor};
@@ -460,18 +459,23 @@ impl Optimizer for Adam {
                         .map_err(OptimizerError::TensorError)?;
                 }
 
-                // Update biased first moment estimate
+                // Update biased first moment estimate:
+                // m_t = beta1 * m_{t-1} + (1 - beta1) * g_t
+                // `mul_scalar_` mutates in place, but `add` is non-mutating and
+                // returns a new tensor, so its result MUST be reassigned back into
+                // `exp_avg` — otherwise the moment never accumulates.
                 exp_avg
                     .mul_scalar_(self.betas.0)
                     .map_err(OptimizerError::TensorError)?;
                 let grad_term = grad
                     .mul_scalar(1.0 - self.betas.0)
                     .map_err(OptimizerError::TensorError)?;
-                exp_avg
+                exp_avg = exp_avg
                     .add(&grad_term)
                     .map_err(OptimizerError::TensorError)?;
 
-                // Update biased second raw moment estimate
+                // Update biased second raw moment estimate:
+                // v_t = beta2 * v_{t-1} + (1 - beta2) * g_t^2
                 exp_avg_sq
                     .mul_scalar_(self.betas.1)
                     .map_err(OptimizerError::TensorError)?;
@@ -479,7 +483,7 @@ impl Optimizer for Adam {
                 let grad_sq_term = grad_squared
                     .mul_scalar(1.0 - self.betas.1)
                     .map_err(OptimizerError::TensorError)?;
-                exp_avg_sq
+                exp_avg_sq = exp_avg_sq
                     .add(&grad_sq_term)
                     .map_err(OptimizerError::TensorError)?;
 
@@ -500,13 +504,10 @@ impl Optimizer for Adam {
                         .add_scalar(self.eps)
                         .map_err(OptimizerError::TensorError)?
                 } else {
-                    // Bias correction
-                    let bias_correction1 = 1.0 - self.betas.0.powi(step);
+                    // Bias correction for the second moment (the first moment is
+                    // bias-corrected below when forming the update).
                     let bias_correction2 = 1.0 - self.betas.1.powi(step);
 
-                    let _corrected_exp_avg = exp_avg
-                        .div_scalar(bias_correction1)
-                        .map_err(OptimizerError::TensorError)?;
                     let corrected_exp_avg_sq = exp_avg_sq
                         .div_scalar(bias_correction2)
                         .map_err(OptimizerError::TensorError)?;
@@ -531,7 +532,9 @@ impl Optimizer for Adam {
                     .map_err(OptimizerError::TensorError)?
                     .mul_scalar(step_size)
                     .map_err(OptimizerError::TensorError)?;
-                param.sub(&update).map_err(OptimizerError::TensorError)?;
+                // `sub` is non-mutating: the new tensor MUST be written back into
+                // `*param`, otherwise the parameter is never updated.
+                *param = param.sub(&update).map_err(OptimizerError::TensorError)?;
 
                 // Update state
                 state.insert("step".to_string(), step_tensor);
@@ -557,6 +560,10 @@ impl Optimizer for Adam {
 
     fn add_param_group(&mut self, params: Vec<Arc<RwLock<Tensor>>>, options: HashMap<String, f32>) {
         self.base.add_param_group(params, options);
+    }
+
+    fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {
+        self.base.parameters()
     }
 
     fn state_dict(&self) -> OptimizerResult<OptimizerState> {
@@ -848,28 +855,33 @@ impl Optimizer for AdamW {
                     .map_err(OptimizerError::TensorError)?;
                 let step = step_tensor.to_vec().map_err(OptimizerError::TensorError)?[0] as i32;
 
-                // Apply weight decay directly to the parameter (decoupled)
+                // Apply weight decay directly to the parameter (decoupled).
+                // `sub` is non-mutating, so the result MUST be reassigned into
+                // `*param` for the decoupled weight decay to take effect.
                 if self.weight_decay != 0.0 {
                     let weight_decay_update = param
                         .mul_scalar(group.lr * self.weight_decay)
                         .map_err(OptimizerError::TensorError)?;
-                    param
+                    *param = param
                         .sub(&weight_decay_update)
                         .map_err(OptimizerError::TensorError)?;
                 }
 
-                // Update biased first moment estimate
+                // Update biased first moment estimate:
+                // m_t = beta1 * m_{t-1} + (1 - beta1) * g_t
+                // `add` is non-mutating; reassign its result back into `exp_avg`.
                 exp_avg
                     .mul_scalar_(self.betas.0)
                     .map_err(OptimizerError::TensorError)?;
                 let grad_term = grad
                     .mul_scalar(1.0 - self.betas.0)
                     .map_err(OptimizerError::TensorError)?;
-                exp_avg
+                exp_avg = exp_avg
                     .add(&grad_term)
                     .map_err(OptimizerError::TensorError)?;
 
-                // Update biased second raw moment estimate
+                // Update biased second raw moment estimate:
+                // v_t = beta2 * v_{t-1} + (1 - beta2) * g_t^2
                 exp_avg_sq
                     .mul_scalar_(self.betas.1)
                     .map_err(OptimizerError::TensorError)?;
@@ -877,7 +889,7 @@ impl Optimizer for AdamW {
                 let grad_sq_term = grad_squared
                     .mul_scalar(1.0 - self.betas.1)
                     .map_err(OptimizerError::TensorError)?;
-                exp_avg_sq
+                exp_avg_sq = exp_avg_sq
                     .add(&grad_sq_term)
                     .map_err(OptimizerError::TensorError)?;
 
@@ -924,7 +936,8 @@ impl Optimizer for AdamW {
                     .map_err(OptimizerError::TensorError)?
                     .mul_scalar(step_size)
                     .map_err(OptimizerError::TensorError)?;
-                param.sub(&update).map_err(OptimizerError::TensorError)?;
+                // `sub` is non-mutating: write the new tensor back into `*param`.
+                *param = param.sub(&update).map_err(OptimizerError::TensorError)?;
 
                 // Update state
                 state.insert("step".to_string(), step_tensor);
@@ -950,6 +963,10 @@ impl Optimizer for AdamW {
 
     fn add_param_group(&mut self, params: Vec<Arc<RwLock<Tensor>>>, options: HashMap<String, f32>) {
         self.base.add_param_group(params, options);
+    }
+
+    fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {
+        self.base.parameters()
     }
 
     fn state_dict(&self) -> OptimizerResult<OptimizerState> {
@@ -1032,5 +1049,167 @@ impl AdamBuilder {
 impl Default for AdamBuilder {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use torsh_core::device::DeviceType;
+
+    /// Build a parameter tensor with every element set to `value`.
+    fn const_param(value: f32, shape: &[usize]) -> OptimizerResult<Arc<RwLock<Tensor>>> {
+        let numel: usize = shape.iter().product();
+        let tensor = Tensor::from_data(vec![value; numel], shape.to_vec(), DeviceType::Cpu)
+            .map_err(OptimizerError::TensorError)?;
+        Ok(Arc::new(RwLock::new(tensor)))
+    }
+
+    /// Build a constant gradient tensor with every element set to `value`.
+    fn const_grad(value: f32, shape: &[usize]) -> OptimizerResult<Tensor> {
+        let numel: usize = shape.iter().product();
+        Tensor::from_data(vec![value; numel], shape.to_vec(), DeviceType::Cpu)
+            .map_err(OptimizerError::TensorError)
+    }
+
+    /// REGRESSION TEST for the silent no-op fabrication.
+    ///
+    /// Previously Adam's moment updates (`exp_avg.add(..)?`) and parameter update
+    /// (`param.sub(..)?`) discarded their non-mutating results, so parameters never
+    /// moved. This test feeds a constant non-zero gradient for several steps and
+    /// asserts the parameter actually changes.
+    #[test]
+    fn test_adam_actually_updates_parameters() -> OptimizerResult<()> {
+        let shape = [4, 4];
+        let param = const_param(1.0, &shape)?;
+        let initial = param.read().to_vec().map_err(OptimizerError::TensorError)?;
+
+        let mut optimizer = Adam::new(vec![param.clone()], Some(1e-2), None, None, None, false);
+
+        for _ in 0..10 {
+            // The optimizer reads `param.grad()`, so the gradient must be (re)set
+            // before every step.
+            param.read().set_grad(Some(const_grad(0.5, &shape)?));
+            optimizer.step()?;
+        }
+
+        let updated = param.read().to_vec().map_err(OptimizerError::TensorError)?;
+
+        // The parameter MUST have moved away from its initial value.
+        let total_change: f32 = initial
+            .iter()
+            .zip(updated.iter())
+            .map(|(a, b)| (a - b).abs())
+            .sum();
+        assert!(
+            total_change > 1e-4,
+            "Adam must update parameters: initial={initial:?}, updated={updated:?}, total_change={total_change}"
+        );
+
+        // With a positive constant gradient, parameters must DECREASE.
+        for (a, b) in initial.iter().zip(updated.iter()) {
+            assert!(
+                b < a,
+                "positive gradient must decrease the parameter: {a} -> {b}"
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Proves the Adam first/second moment buffers actually accumulate (they used
+    /// to stay at zero forever, which made the update `0 / (0 + eps) = 0`).
+    #[test]
+    fn test_adam_moments_accumulate() -> OptimizerResult<()> {
+        let shape = [3];
+        let param = const_param(2.0, &shape)?;
+        let mut optimizer = Adam::new(vec![param.clone()], Some(1e-3), None, None, None, false);
+
+        param.read().set_grad(Some(const_grad(1.0, &shape)?));
+        optimizer.step()?;
+
+        let param_id = format!("{:p}", param.as_ref());
+        let state = optimizer
+            .base
+            .state
+            .get(&param_id)
+            .expect("optimizer state must exist after a step");
+
+        let exp_avg = state
+            .get("exp_avg")
+            .expect("exp_avg state must exist")
+            .to_vec()
+            .map_err(OptimizerError::TensorError)?;
+        let exp_avg_sq = state
+            .get("exp_avg_sq")
+            .expect("exp_avg_sq state must exist")
+            .to_vec()
+            .map_err(OptimizerError::TensorError)?;
+
+        // m_1 = (1 - beta1) * g = 0.1 * 1.0 = 0.1 ; v_1 = (1 - beta2) * g^2 = 0.001
+        assert!(
+            exp_avg.iter().all(|&m| (m - 0.1).abs() < 1e-6),
+            "first moment must accumulate, got {exp_avg:?}"
+        );
+        assert!(
+            exp_avg_sq.iter().all(|&v| (v - 0.001).abs() < 1e-6),
+            "second moment must accumulate, got {exp_avg_sq:?}"
+        );
+
+        Ok(())
+    }
+
+    /// Same regression guard for AdamW (which also had the discarded weight-decay
+    /// and final parameter updates).
+    #[test]
+    fn test_adamw_actually_updates_parameters() -> OptimizerResult<()> {
+        let shape = [4, 4];
+        let param = const_param(1.0, &shape)?;
+        let initial = param.read().to_vec().map_err(OptimizerError::TensorError)?;
+
+        let mut optimizer = AdamW::new(
+            vec![param.clone()],
+            Some(1e-2),
+            None,
+            None,
+            Some(0.01),
+            false,
+        );
+
+        for _ in 0..10 {
+            param.read().set_grad(Some(const_grad(0.5, &shape)?));
+            optimizer.step()?;
+        }
+
+        let updated = param.read().to_vec().map_err(OptimizerError::TensorError)?;
+        let total_change: f32 = initial
+            .iter()
+            .zip(updated.iter())
+            .map(|(a, b)| (a - b).abs())
+            .sum();
+        assert!(
+            total_change > 1e-4,
+            "AdamW must update parameters: total_change={total_change}"
+        );
+
+        Ok(())
+    }
+
+    /// Without any gradient, parameters must stay put (sanity check that the
+    /// update is genuinely gradient-driven and not random drift).
+    #[test]
+    fn test_adam_no_grad_no_change() -> OptimizerResult<()> {
+        let shape = [4];
+        let param = const_param(1.0, &shape)?;
+        // Ensure there is no gradient attached.
+        param.write().set_grad(None);
+        let before = param.read().to_vec().map_err(OptimizerError::TensorError)?;
+
+        let mut optimizer = Adam::new(vec![param.clone()], Some(1e-2), None, None, None, false);
+        optimizer.step()?;
+
+        let after = param.read().to_vec().map_err(OptimizerError::TensorError)?;
+        assert_eq!(before, after, "Adam must not move params with no gradient");
+        Ok(())
     }
 }

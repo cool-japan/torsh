@@ -23,6 +23,12 @@ use super::core::NormOrd;
 /// - (A×B)×C: pqr + prs operations
 /// - A×(B×C): qrs + pqs operations
 ///
+/// This function picks the cost-minimal parenthesization automatically via the
+/// O(n³) matrix-chain-order dynamic program, then performs the products in that
+/// order. The numeric result is identical for every valid order; only the number
+/// of scalar multiplications changes. See [`matrix_chain_optimal_cost`] to query
+/// the minimal cost for a dimension sequence.
+///
 /// ## Parameters
 /// * `matrices` - Slice of 2D tensors to multiply in sequence
 ///
@@ -84,14 +90,111 @@ pub fn chain_matmul(matrices: &[Tensor]) -> TorshResult<Tensor> {
         }
     }
 
-    // Perform chain multiplication
-    // TODO: Use dynamic programming for optimal parenthesization
-    let mut result = matrices[0].clone();
-    for i in 1..matrices.len() {
-        result = result.matmul(&matrices[i])?;
+    // Determine the cost-minimal multiplication order via the matrix-chain-order
+    // dynamic program, then perform the products in that order.
+    //
+    // The dimension sequence has length `matrices.len() + 1`: matrix `i` has
+    // shape `dim_seq[i] x dim_seq[i + 1]`. Adjacent dimensions are guaranteed
+    // consistent by the validation above.
+    let mut dim_seq = Vec::with_capacity(matrices.len() + 1);
+    dim_seq.push(matrices[0].shape().dims()[0]);
+    for mat in matrices {
+        dim_seq.push(mat.shape().dims()[1]);
     }
 
-    Ok(result)
+    let (_cost, split) = matrix_chain_order(&dim_seq);
+    multiply_chain(matrices, &split, 0, matrices.len() - 1)
+}
+
+/// Compute the optimal matrix-chain multiplication order via dynamic programming.
+///
+/// `dim_seq` is the dimension sequence of length `n + 1` describing a chain of
+/// `n` matrices, where the `i`-th matrix has shape `dim_seq[i] × dim_seq[i + 1]`.
+///
+/// This is the classic O(n³)-time / O(n²)-space "Matrix-Chain-Order" dynamic
+/// program (Cormen, Leiserson, Rivest, Stein — *Introduction to Algorithms*).
+///
+/// # Returns
+/// A tuple `(cost, split)` where:
+/// * `cost` is the minimal number of scalar multiplications required.
+/// * `split[i][j]` is the index `k` for which the optimal parenthesization of
+///   `Aᵢ … Aⱼ` is `(Aᵢ … Aₖ)(Aₖ₊₁ … Aⱼ)`.
+///
+/// Requires `dim_seq.len() >= 2` (i.e. at least one matrix); callers guarantee this.
+fn matrix_chain_order(dim_seq: &[usize]) -> (u128, Vec<Vec<usize>>) {
+    let n = dim_seq.len() - 1; // number of matrices in the chain
+
+    // m[i][j] = minimal cost (scalar multiplications) to compute Aᵢ … Aⱼ.
+    // A single matrix costs nothing, so the diagonal stays zero.
+    let mut m = vec![vec![0u128; n]; n];
+    // split[i][j] = optimal split point k for the sub-chain Aᵢ … Aⱼ.
+    let mut split = vec![vec![0usize; n]; n];
+
+    // Consider sub-chains of increasing length (2 .. n matrices).
+    for chain_len in 2..=n {
+        for i in 0..=(n - chain_len) {
+            let j = i + chain_len - 1;
+            m[i][j] = u128::MAX;
+            // Try every split point k: (Aᵢ … Aₖ)(Aₖ₊₁ … Aⱼ).
+            for k in i..j {
+                // Multiplying the (dim_seq[i] × dim_seq[k+1]) left product by the
+                // (dim_seq[k+1] × dim_seq[j+1]) right product costs
+                // dim_seq[i] * dim_seq[k+1] * dim_seq[j+1] scalar multiplications.
+                let cost = m[i][k]
+                    + m[k + 1][j]
+                    + (dim_seq[i] as u128) * (dim_seq[k + 1] as u128) * (dim_seq[j + 1] as u128);
+                if cost < m[i][j] {
+                    m[i][j] = cost;
+                    split[i][j] = k;
+                }
+            }
+        }
+    }
+
+    (m[0][n - 1], split)
+}
+
+/// Multiply the sub-chain `Aᵢ … Aⱼ` (inclusive) following the optimal split table.
+///
+/// The split table is produced by [`matrix_chain_order`]; this performs the actual
+/// tensor products in the cost-minimal parenthesization. The numeric result is
+/// identical to any other valid multiplication order.
+fn multiply_chain(
+    matrices: &[Tensor],
+    split: &[Vec<usize>],
+    i: usize,
+    j: usize,
+) -> TorshResult<Tensor> {
+    if i == j {
+        return Ok(matrices[i].clone());
+    }
+    let k = split[i][j];
+    let left = multiply_chain(matrices, split, i, k)?;
+    let right = multiply_chain(matrices, split, k + 1, j)?;
+    left.matmul(&right)
+}
+
+/// Minimal number of scalar multiplications to evaluate a matrix chain.
+///
+/// Given the dimension sequence `dim_seq` (length `n + 1` for a chain of `n`
+/// matrices, where matrix `i` has shape `dim_seq[i] × dim_seq[i + 1]`), this
+/// returns the optimal cost computed by the matrix-chain-order dynamic program
+/// used internally by [`chain_matmul`].
+///
+/// Returns `0` for an empty chain or a single matrix (no multiplication needed).
+///
+/// ## Example
+/// ```rust
+/// # use torsh_functional::linalg::matrix_chain_optimal_cost;
+/// // A₁: 10×100, A₂: 100×5, A₃: 5×50  →  optimal 7500 (vs 75000 for the
+/// // opposite parenthesization).
+/// assert_eq!(matrix_chain_optimal_cost(&[10, 100, 5, 50]), 7500);
+/// ```
+pub fn matrix_chain_optimal_cost(dim_seq: &[usize]) -> u128 {
+    if dim_seq.len() < 2 {
+        return 0;
+    }
+    matrix_chain_order(dim_seq).0
 }
 
 /// Compute matrix norm with various norm types
@@ -358,4 +461,124 @@ pub fn baddbmm(
     let scaled_mm = mm_result.mul_scalar(alpha)?;
 
     scaled_input.add_op(&scaled_mm)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use torsh_core::device::DeviceType;
+
+    /// Build a deterministic matrix with small integer entries in `{0, 1, 2}`.
+    ///
+    /// Small bounded entries keep every partial sum well within f32's exact
+    /// integer range (< 2²⁴), so products are bit-exact regardless of the
+    /// multiplication order — which lets us compare orderings directly.
+    fn pattern_matrix(rows: usize, cols: usize, seed: usize) -> TorshResult<Tensor> {
+        let mut data = Vec::with_capacity(rows * cols);
+        for i in 0..rows {
+            for j in 0..cols {
+                data.push(((i + j + seed) % 3) as f32);
+            }
+        }
+        Tensor::from_data(data, vec![rows, cols], DeviceType::Cpu)
+    }
+
+    #[test]
+    fn test_matrix_chain_optimal_cost_known_values() {
+        // Classic example: A1=10×100, A2=100×5, A3=5×50.
+        //   (A1·A2)·A3 = 10·100·5 + 10·5·50  = 5000 + 2500  =  7500  (optimal)
+        //   A1·(A2·A3) = 100·5·50 + 10·100·50 = 25000 + 50000 = 75000
+        assert_eq!(matrix_chain_optimal_cost(&[10, 100, 5, 50]), 7500);
+
+        // Reversed dimensions: here LEFT-to-right is the *expensive* order.
+        // A1=50×5, A2=5×100, A3=100×10.
+        //   (A1·A2)·A3 = 50·5·100 + 50·100·10 = 25000 + 50000 = 75000  (naive)
+        //   A1·(A2·A3) = 5·100·10 + 50·5·10   =  5000 +  2500 =  7500  (optimal)
+        // A correct DP must return 7500, NOT the naive left-to-right 75000.
+        assert_eq!(matrix_chain_optimal_cost(&[50, 5, 100, 10]), 7500);
+
+        // CLRS textbook six-matrix chain p=<30,35,15,5,10,20,25> → optimal 15125.
+        assert_eq!(
+            matrix_chain_optimal_cost(&[30, 35, 15, 5, 10, 20, 25]),
+            15125
+        );
+
+        // Degenerate chains require no multiplication.
+        assert_eq!(matrix_chain_optimal_cost(&[7, 3]), 0); // single matrix
+        assert_eq!(matrix_chain_optimal_cost(&[42]), 0); // no matrix
+        assert_eq!(matrix_chain_optimal_cost(&[]), 0); // empty
+    }
+
+    #[test]
+    fn test_chain_matmul_uses_optimal_order_and_matches_reference() -> TorshResult<()> {
+        // Reversed classic example: the optimal order A1·(A2·A3) differs from the
+        // naive left-to-right (A1·A2)·A3. chain_matmul must evaluate the optimal
+        // order yet still produce the same numeric product.
+        let a1 = pattern_matrix(50, 5, 0)?;
+        let a2 = pattern_matrix(5, 100, 1)?;
+        let a3 = pattern_matrix(100, 10, 2)?;
+
+        // Optimal cost for these dimensions is 7500 (not the naive 75000).
+        assert_eq!(matrix_chain_optimal_cost(&[50, 5, 100, 10]), 7500);
+
+        let result = chain_matmul(&[a1.clone(), a2.clone(), a3.clone()])?;
+        assert_eq!(result.shape().dims(), &[50, 10]);
+
+        // Reference computed independently via explicit left-to-right products.
+        let reference = a1.matmul(&a2)?.matmul(&a3)?;
+        assert_eq!(reference.shape().dims(), &[50, 10]);
+
+        let result_data = result.to_vec()?;
+        let reference_data = reference.to_vec()?;
+        assert_eq!(result_data.len(), reference_data.len());
+        // Sanity: the product is non-trivial (not all zeros).
+        assert!(result_data.iter().any(|&v| v > 0.0));
+        for (idx, (&got, &want)) in result_data.iter().zip(reference_data.iter()).enumerate() {
+            assert!(
+                (got - want).abs() < 1e-3,
+                "element {idx}: chain_matmul={got}, reference={want}"
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_chain_matmul_four_matrices_matches_reference() -> TorshResult<()> {
+        // Four-matrix chain to exercise deeper recursion through the split table.
+        // Binary {0,1} entries keep all partial sums exact in f32.
+        let dims = [4usize, 5, 3, 6, 2];
+        let mut mats = Vec::new();
+        for w in dims.windows(2).enumerate() {
+            let (seed, pair) = w;
+            let rows = pair[0];
+            let cols = pair[1];
+            let mut data = Vec::with_capacity(rows * cols);
+            for idx in 0..rows * cols {
+                data.push(((idx + seed) % 2) as f32);
+            }
+            mats.push(Tensor::from_data(data, vec![rows, cols], DeviceType::Cpu)?);
+        }
+
+        let result = chain_matmul(&mats)?;
+        assert_eq!(result.shape().dims(), &[4, 2]);
+
+        let reference = mats[0]
+            .matmul(&mats[1])?
+            .matmul(&mats[2])?
+            .matmul(&mats[3])?;
+        let result_data = result.to_vec()?;
+        let reference_data = reference.to_vec()?;
+        for (&got, &want) in result_data.iter().zip(reference_data.iter()) {
+            assert!((got - want).abs() < 1e-3, "chain={got}, reference={want}");
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_chain_matmul_single_matrix_is_identity() -> TorshResult<()> {
+        let a = pattern_matrix(3, 4, 0)?;
+        let result = chain_matmul(std::slice::from_ref(&a))?;
+        assert_eq!(result.to_vec()?, a.to_vec()?);
+        Ok(())
+    }
 }

@@ -80,7 +80,7 @@ default-members = [
 ]
 
 [workspace.package]
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 authors = ["COOLJAPAN OU (Team KitaSan)"]
 license = "Apache-2.0"
@@ -95,60 +95,61 @@ categories = ["science", "mathematics", "algorithms"]
 
 [workspace.dependencies]
 # Internal ToRSh crates - workspace management
-torsh = { version = "0.1.2", path = "crates/torsh" }
-torsh-core = { version = "0.1.2", path = "crates/torsh-core" }
-torsh-backend = { version = "0.1.2", path = "crates/torsh-backend" }
-torsh-tensor = { version = "0.1.2", path = "crates/torsh-tensor" }
-torsh-autograd = { version = "0.1.2", path = "crates/torsh-autograd" }
-torsh-linalg = { version = "0.1.2", path = "crates/torsh-linalg" }
-torsh-optim = { version = "0.1.2", path = "crates/torsh-optim" }
-torsh-sparse = { version = "0.1.2", path = "crates/torsh-sparse" }
-torsh-special = { version = "0.1.2", path = "crates/torsh-special" }
-torsh-functional = { version = "0.1.2", path = "crates/torsh-functional" }
-torsh-data = { version = "0.1.2", path = "crates/torsh-data" }
-torsh-nn = { version = "0.1.2", path = "crates/torsh-nn" }
-torsh-vision = { version = "0.1.2", path = "crates/torsh-vision" }
-torsh-text = { version = "0.1.2", path = "crates/torsh-text" }
-torsh-graph = { version = "0.1.2", path = "crates/torsh-graph" }
-torsh-series = { version = "0.1.2", path = "crates/torsh-series" }
-torsh-signal = { version = "0.1.2", path = "crates/torsh-signal" }
-torsh-cluster = { version = "0.1.2", path = "crates/torsh-cluster" }
-torsh-metrics = { version = "0.1.2", path = "crates/torsh-metrics" }
-torsh-jit = { version = "0.1.2", path = "crates/torsh-jit" }
-torsh-distributed = { version = "0.1.2", path = "crates/torsh-distributed" }
-torsh-quantization = { version = "0.1.2", path = "crates/torsh-quantization" }
-torsh-fx = { version = "0.1.2", path = "crates/torsh-fx" }
-torsh-hub = { version = "0.1.2", path = "crates/torsh-hub" }
-torsh-utils = { version = "0.1.2", path = "crates/torsh-utils" }
-torsh-package = { version = "0.1.2", path = "crates/torsh-package" }
-torsh-profiler = { version = "0.1.2", path = "crates/torsh-profiler" }
-torsh-python = { version = "0.1.2", path = "crates/torsh-python" }
-torsh-ffi = { version = "0.1.2", path = "crates/torsh-ffi" }
-torsh-models = { version = "0.1.2", path = "crates/torsh-models" }
-torsh-benches = { version = "0.1.2", path = "crates/torsh-benches" }
+torsh = { version = "0.1.3", path = "crates/torsh" }
+torsh-core = { version = "0.1.3", path = "crates/torsh-core" }
+torsh-backend = { version = "0.1.3", path = "crates/torsh-backend" }
+torsh-tensor = { version = "0.1.3", path = "crates/torsh-tensor" }
+torsh-autograd = { version = "0.1.3", path = "crates/torsh-autograd" }
+torsh-linalg = { version = "0.1.3", path = "crates/torsh-linalg" }
+torsh-optim = { version = "0.1.3", path = "crates/torsh-optim" }
+torsh-sparse = { version = "0.1.3", path = "crates/torsh-sparse" }
+torsh-special = { version = "0.1.3", path = "crates/torsh-special" }
+torsh-functional = { version = "0.1.3", path = "crates/torsh-functional" }
+torsh-data = { version = "0.1.3", path = "crates/torsh-data" }
+torsh-nn = { version = "0.1.3", path = "crates/torsh-nn" }
+torsh-vision = { version = "0.1.3", path = "crates/torsh-vision" }
+torsh-text = { version = "0.1.3", path = "crates/torsh-text" }
+torsh-graph = { version = "0.1.3", path = "crates/torsh-graph" }
+torsh-series = { version = "0.1.3", path = "crates/torsh-series" }
+torsh-signal = { version = "0.1.3", path = "crates/torsh-signal" }
+torsh-cluster = { version = "0.1.3", path = "crates/torsh-cluster" }
+torsh-metrics = { version = "0.1.3", path = "crates/torsh-metrics" }
+torsh-jit = { version = "0.1.3", path = "crates/torsh-jit" }
+torsh-distributed = { version = "0.1.3", path = "crates/torsh-distributed" }
+torsh-quantization = { version = "0.1.3", path = "crates/torsh-quantization" }
+torsh-fx = { version = "0.1.3", path = "crates/torsh-fx" }
+torsh-hub = { version = "0.1.3", path = "crates/torsh-hub" }
+torsh-utils = { version = "0.1.3", path = "crates/torsh-utils" }
+torsh-package = { version = "0.1.3", path = "crates/torsh-package" }
+torsh-profiler = { version = "0.1.3", path = "crates/torsh-profiler" }
+torsh-python = { version = "0.1.3", path = "crates/torsh-python" }
+torsh-ffi = { version = "0.1.3", path = "crates/torsh-ffi" }
+torsh-models = { version = "0.1.3", path = "crates/torsh-models" }
+torsh-benches = { version = "0.1.3", path = "crates/torsh-benches" }
 
 # Core dependencies - CRATES.IO VERSION 0.1.1 (Stable) with SIMD, OxiBLAS 0.1.2, and OxiCode support
 # NOTE: scirs2 meta crate removed to speed up compilation - use specific sub-crates instead
 # NOTE: SciRS2 0.1.1 now includes OxiBLAS 0.1.2 (optimized BLAS/LAPACK) and OxiCode (modern serialization)
-scirs2-core = { version = "0.4.2", features = ["simd", "parallel", "memory_management", "serialization", "oxicode", "oxiblas-blas", "oxiblas-lapack", "oxiblas-ndarray", "validation", "types", "random"] }
-scirs2-autograd = { version = "0.4.2" }
-scirs2-special = { version = "0.4.2" }
-scirs2-sparse = { version = "0.4.2" }
-scirs2-optimize = { version = "0.4.2" }
-scirs2-signal = { version = "0.4.2" }
-scirs2-fft = { version = "0.4.2" }
+# NOTE: GPU migrated off scirs2-core onto oxicuda (see oxicuda-backend below); "gpu" feature removed.
+scirs2-core = { version = "0.5.1", features = ["simd", "parallel", "memory_management", "serialization", "oxicode", "oxiblas-blas", "oxiblas-lapack", "oxiblas-ndarray", "validation", "types", "random"] }
+scirs2-autograd = { version = "0.5.1" }
+scirs2-special = { version = "0.5.1" }
+scirs2-sparse = { version = "0.5.1" }
+scirs2-optimize = { version = "0.5.1" }
+scirs2-signal = { version = "0.5.1" }
+scirs2-fft = { version = "0.5.1" }
 # Additional SciRS2 crates for comprehensive integration
-scirs2-cluster = { version = "0.4.2" }
-scirs2-datasets = { version = "0.4.2" }
-scirs2-graph = { version = "0.4.2" }
-scirs2-metrics = { version = "0.4.2" }
-scirs2-series = { version = "0.4.2" }
-scirs2-spatial = { version = "0.4.2" }
-scirs2-stats = { version = "0.4.2" }
-scirs2-text = { version = "0.4.2" }
-scirs2-vision = { version = "0.4.2" }
-scirs2-linalg = { version = "0.4.2" }
-scirs2-neural = { version = "0.4.2" }
+scirs2-cluster = { version = "0.5.1" }
+scirs2-datasets = { version = "0.5.1" }
+scirs2-graph = { version = "0.5.1" }
+scirs2-metrics = { version = "0.5.1" }
+scirs2-series = { version = "0.5.1" }
+scirs2-spatial = { version = "0.5.1" }
+scirs2-stats = { version = "0.5.1" }
+scirs2-text = { version = "0.5.1" }
+scirs2-vision = { version = "0.5.1" }
+scirs2-linalg = { version = "0.5.1" }
+scirs2-neural = { version = "0.5.1" }
 # OptiRS - Advanced ML optimization (now available on crates.io - still in RC)
 optirs = { version = "0.3.1", default-features = false }
 optirs-core = { version = "0.3.1", default-features = false }
@@ -164,8 +165,8 @@ crossbeam = "0.8"
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-oxicode = { version = "0.2", features = ["serde"] }  # Modern binary serialization - successor to bincode (now on crates.io)
-safetensors = "0.7.0"
+oxicode = { version = "0.2.4", features = ["serde"] }  # Modern binary serialization - successor to bincode (now on crates.io)
+safetensors = "0.8.0"
 
 # Error handling
 thiserror = "2.0"
@@ -175,12 +176,12 @@ anyhow = "1.0"
 cust = "0.3"
 cuda-sys = "0.2"
 cudnn-sys = "0.0.3"
-wgpu = "29.0.1"
+wgpu = "29.0.3"
 metal = "0.33"
 bytemuck = "1.25"
 
 # SIMD
-wide = "1.3"
+wide = "1.5"
 packed_simd_2 = "0.3"
 
 # Testing and benchmarking
@@ -205,22 +206,22 @@ indexmap = { version = "2.14", features = ["serde"] }
 
 # FFI
 # libc = "0.2"  # REMOVED: Pure Rust (SciRS2 ecosystem) - replaced with sysinfo
-pyo3 = { version = "0.28" }
+pyo3 = { version = "0.28.3" }
 numpy = "0.28"
-scirs2-numpy = { version = "0.4.2", default-features = false }  # SciRS2-compatible numpy bindings
+scirs2-numpy = { version = "0.5.1", default-features = false }  # SciRS2-compatible numpy bindings
 
 # Additional utilities
 hostname = "0.4"
 rustc-version = "0.4"
 which = "8.0"
-sysinfo = "0.38"
-oxiarc-archive = { version = "0.2.7", default-features = false }
-oxiarc-core = { version = "0.2.7" }
+sysinfo = "0.39"
+oxiarc-archive = { version = "0.3.3", default-features = false }
+oxiarc-core = { version = "0.3.3" }
 reqwest = { version = "0.13", features = ["json", "stream", "blocking"] }
 clap = { version = "4.6.1", features = ["derive"] }
 hdf5 = { version = "0.8" }
-arrow = { version = "58.1" }
-parquet = { version = "58.1" }
+arrow = { version = "59.0" }
+parquet = { version = "59.0" }
 memmap2 = "0.9"
 image = { version = "0.25" }
 csv = { version = "1.4" }
@@ -233,13 +234,13 @@ chrono = { version = "0.4", features = ["serde"] }
 prost = "0.14"
 tonic = "0.14"
 tonic-build = "0.14"
-redis = "1.2"
+redis = { version = "1.3", features = ["connection-manager"] }
 tokio-test = "0.4"
 futures-util = "0.3"
 uuid = { version = "1.23", features = ["v4", "serde"] }
 
 # Updated dependencies to fix security issues
-cached = "0.59"  # Replace 0.48.1 to fix instant dependency
+cached = "2.0"  # Replace 0.48.1 to fix instant dependency
 tempfile = "3.27"  # Updated version
 
 # Build dependencies
@@ -254,7 +255,7 @@ num-derive = "0.4"  # LEGACY ONLY - prefer scirs2-core::numeric
 num-complex = "0.4"  # LEGACY ONLY - prefer scirs2-core::{Complex, Complex32, Complex64}
 once_cell = "1.21"
 parking_lot = "0.12"
-dashmap = "6.1"
+dashmap = "6.2"
 # SciRS2 POLICY COMPLIANCE - Use scirs2_core::random instead
 # rand = "0.9.2"         # REMOVED: Use scirs2_core::random instead (SciRS2 POLICY)
 # rand_distr = "0.5.1"   # REMOVED: Use scirs2_core::random::prelude instead (SciRS2 POLICY)
@@ -270,24 +271,38 @@ hex = "0.4"
 semver = "1.0"
 
 # Advanced compression for package management (COOLJAPAN Pure Rust Policy)
-oxiarc-deflate = "0.2"
-oxiarc-zstd = "0.2"
+oxiarc-deflate = "0.3.3"
+oxiarc-zstd = "0.3.3"
 lzma-rs = "0.3"
 
 # Security features for package signing and encryption
-ring = "0.17"
+# Pure-Rust RustCrypto AEAD + KDF (replaces the C/asm `ring` dependency).
+aes-gcm = "0.11.0"
+chacha20poly1305 = "0.11.0"
+pbkdf2 = "0.13"
+hmac = "0.13"
 ed25519-dalek = "2.2"
 
 # JIT compilation
-cranelift = "0.131"
-cranelift-module = "0.131"
-cranelift-codegen = "0.131"
-cranelift-frontend = "0.131"
+cranelift = "0.133"
+cranelift-module = "0.133"
+cranelift-codegen = "0.133"
+cranelift-frontend = "0.133"
 
 # FFT operations
-oxifft = "0.3"
-cranelift-native = "0.131"
-cranelift-object = "0.131"
+oxifft = "0.3.2"
+
+# GPU compute backend — pure-Rust CUDA replacement.
+# `oxicuda-backend` = dependency-free `ComputeBackend` trait + CpuBackend (always builds).
+# The lean leaf crates below back ToRSh's own thin `CudaBackend` (torsh-tensor/src/
+# cuda_backend) so we avoid the heavyweight `oxicuda` umbrella facade. No CUDA SDK is
+# needed at build time (the driver is loaded at runtime via libloading).
+oxicuda-backend = "0.3"
+oxicuda-driver = "0.3"
+oxicuda-launch = "0.3"
+oxicuda-ptx = "0.3"
+cranelift-native = "0.133"
+cranelift-object = "0.133"
 
 [profile.release]
 lto = true

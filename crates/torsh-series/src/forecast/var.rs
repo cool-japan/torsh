@@ -11,6 +11,173 @@ use scirs2_core::ndarray::{Array1, Array2};
 use torsh_core::error::{Result, TorshError};
 use torsh_tensor::Tensor;
 
+// ============================================================
+// Pure-Rust math helpers for p-value computation
+// ============================================================
+
+fn regularised_incomplete_beta(x: f64, a: f64, b: f64) -> f64 {
+    if x <= 0.0 {
+        return 0.0;
+    }
+    if x >= 1.0 {
+        return 1.0;
+    }
+    let lbeta = ln_gamma_var(a) + ln_gamma_var(b) - ln_gamma_var(a + b);
+    let front = (a * x.ln() + b * (1.0 - x).ln() - lbeta).exp() / a;
+    front * beta_cf_var(a, b, x)
+}
+
+fn beta_cf_var(a: f64, b: f64, x: f64) -> f64 {
+    let max_iter = 200;
+    let eps = 3e-10;
+    let fpmin = f64::MIN_POSITIVE / eps;
+    let qab = a + b;
+    let qap = a + 1.0;
+    let qam = a - 1.0;
+    let mut c = 1.0;
+    let mut d = 1.0 - qab * x / qap;
+    if d.abs() < fpmin {
+        d = fpmin;
+    }
+    d = 1.0 / d;
+    let mut h = d;
+    for m in 1..=max_iter {
+        let mf = m as f64;
+        let m2 = 2.0 * mf;
+        let mut aa = mf * (b - mf) * x / ((qam + m2) * (a + m2));
+        d = 1.0 + aa * d;
+        if d.abs() < fpmin {
+            d = fpmin;
+        }
+        c = 1.0 + aa / c;
+        if c.abs() < fpmin {
+            c = fpmin;
+        }
+        d = 1.0 / d;
+        h *= d * c;
+        aa = -(a + mf) * (qab + mf) * x / ((a + m2) * (qap + m2));
+        d = 1.0 + aa * d;
+        if d.abs() < fpmin {
+            d = fpmin;
+        }
+        c = 1.0 + aa / c;
+        if c.abs() < fpmin {
+            c = fpmin;
+        }
+        d = 1.0 / d;
+        let del = d * c;
+        h *= del;
+        if (del - 1.0).abs() < eps {
+            break;
+        }
+    }
+    h
+}
+
+/// ln(Gamma(x)) via Lanczos approximation (g=7, n=9).
+///
+/// Uses the recurrence `ln Γ(x) = ln Γ(x+1) − ln(x)` for 0 < x < 1
+/// so the Lanczos kernel is always evaluated at x ≥ 1 where it is
+/// numerically stable.  No recursion — the loop terminates in at most
+/// one iteration for the arguments that arise in beta-function p-values.
+fn ln_gamma_var(x: f64) -> f64 {
+    const G: f64 = 7.0;
+    const C: [f64; 9] = [
+        0.999_999_999_999_809_3,
+        676.520_368_121_885_1,
+        -1_259.139_216_722_403_0,
+        771.323_428_777_653_1,
+        -176.615_029_162_140_6,
+        12.507_343_278_686_904_8,
+        -0.138_571_095_265_720_12,
+        9.984_369_578_019_571_6e-6,
+        1.505_632_735_149_311_6e-7,
+    ];
+    // Shift x up until xr ≥ 1, accumulating ln(x), ln(x+1), ...
+    let mut shift = 0.0;
+    let mut xr = x;
+    while xr < 1.0 {
+        shift += xr.ln();
+        xr += 1.0;
+    }
+    let z = xr - 1.0;
+    let mut ser = C[0];
+    for (k, &ck) in C[1..].iter().enumerate() {
+        ser += ck / (z + (k + 1) as f64);
+    }
+    let t = z + G + 0.5;
+    let lanczos = (2.0 * std::f64::consts::PI).sqrt().ln() + (z + 0.5) * t.ln() - t + ser.ln();
+    lanczos - shift
+}
+
+// ============================================================
+// Cholesky helpers for OLS estimation
+// ============================================================
+
+/// Cholesky-Banachiewicz decomposition (lower triangular, row-major).
+/// Returns `None` if the matrix is not positive-definite.
+fn var_cholesky_lower(a: &[f64], n: usize) -> Option<Vec<f64>> {
+    let mut l = vec![0.0f64; n * n];
+    for i in 0..n {
+        for j in 0..=i {
+            let mut sum = a[i * n + j];
+            for k in 0..j {
+                sum -= l[i * n + k] * l[j * n + k];
+            }
+            if i == j {
+                if sum <= 0.0 {
+                    return None;
+                }
+                l[i * n + j] = sum.sqrt();
+            } else {
+                let diag = l[j * n + j];
+                if diag.abs() < 1e-15 {
+                    return None;
+                }
+                l[i * n + j] = sum / diag;
+            }
+        }
+    }
+    Some(l)
+}
+
+/// Solve the symmetric PD system A x = b using the precomputed Cholesky lower L.
+fn var_cholesky_solve_with_l(l: &[f64], b: &[f64], n: usize) -> Vec<f64> {
+    // Forward substitution L y = b
+    let mut y = vec![0.0f64; n];
+    for i in 0..n {
+        let mut s = b[i];
+        for j in 0..i {
+            s -= l[i * n + j] * y[j];
+        }
+        y[i] = s / l[i * n + i];
+    }
+    // Back substitution L^T x = y
+    let mut x = vec![0.0f64; n];
+    for i in (0..n).rev() {
+        let mut s = y[i];
+        for j in (i + 1)..n {
+            s -= l[j * n + i] * x[j];
+        }
+        x[i] = s / l[i * n + i];
+    }
+    x
+}
+
+/// Solve A x = b for symmetric PD A.
+/// Falls back to ridge-regularised diagonal solve if A is not PD.
+fn var_cholesky_solve(a: &[f64], b: &[f64], n: usize) -> Vec<f64> {
+    // Try exact Cholesky first
+    if let Some(l) = var_cholesky_lower(a, n) {
+        return var_cholesky_solve_with_l(&l, b, n);
+    }
+    // Ridge fallback: use diagonal of A + λI
+    let lambda = 1e-6;
+    (0..n)
+        .map(|i| b[i] / (a[i * n + i] + lambda).max(1e-15))
+        .collect()
+}
+
 /// Vector Autoregression (VAR) model
 ///
 /// A VAR(p) model expresses each variable as a linear combination of:
@@ -128,28 +295,22 @@ impl VAR {
         }
 
         // Solve OLS for each variable: β = (X'X)^(-1) X'y
+        // Using proper Cholesky decomposition of the (n_features × n_features)
+        // Gram matrix X'X, which is symmetric positive-semi-definite.
         let xt_x = x_design.t().dot(&x_design);
         let xt_y = x_design.t().dot(&y_response);
 
-        // TODO: Use scirs2-core linalg when available
-        // For now, use simplified pseudo-inverse approach
+        // Flatten X'X into a row-major Vec<f64> for the Cholesky solver
+        let xtx_flat: Vec<f64> = xt_x.iter().copied().collect();
+
         let mut all_coefficients = Array2::<f64>::zeros((n_vars, n_features));
-
-        // Simplified OLS solution using regularization
-        // β = (X'X + λI)^(-1) X'y (ridge regression with small λ)
-        let lambda = 1e-6;
-        let mut xt_x_reg = xt_x.clone();
-        for i in 0..n_features {
-            xt_x_reg[[i, i]] += lambda;
-        }
-
-        // Use simple Gaussian elimination or set to identity for now
-        // In practice, would use proper linear algebra solver
         for var in 0..n_vars {
-            // Simplified coefficient estimation (placeholder)
-            // In production, would use proper linear system solver
+            // Extract the right-hand side column X'y[:,var]
+            let rhs: Vec<f64> = (0..n_features).map(|i| xt_y[[i, var]]).collect();
+            // Solve (X'X) β = X'y[:,var]  via Cholesky (with ridge fallback)
+            let beta = var_cholesky_solve(&xtx_flat, &rhs, n_features);
             for i in 0..n_features {
-                all_coefficients[[var, i]] = xt_y[[i, var]] / (xt_x_reg[[i, i]] + 1e-10);
+                all_coefficients[[var, i]] = beta[i];
             }
         }
 
@@ -477,25 +638,64 @@ impl GrangerCausality {
             let mut unrestricted_model = VAR::new(lag);
             unrestricted_model.fit(&unrestricted_series)?;
 
-            // Calculate F-statistic
-            let rss_restricted = self.residual_sum_of_squares(&restricted_model)?;
-            let rss_unrestricted = self.residual_sum_of_squares(&unrestricted_model)?;
+            // Granger causality F-test on the y-equation only.
+            //
+            // Restricted model:   y_t = c + Σ a_i y_{t-i} + e_t                  (own lags only)
+            // Unrestricted model: y_t = c + Σ a_i y_{t-i} + Σ b_i x_{t-i} + u_t  (+ lags of x)
+            //
+            //     F = ((RSS_r - RSS_u) / q) / (RSS_u / (n - k))
+            //
+            // The unrestricted VAR is fitted on the bivariate series [y, x]; only the
+            // y-equation residuals (column 0) enter the test — the x-equation is irrelevant
+            // to the hypothesis "x Granger-causes y". The restricted model is univariate,
+            // so column 0 is again the y-equation. Because the unrestricted model nests the
+            // restricted one (same response, same own lags, plus the lagged-x regressors),
+            // RSS_u <= RSS_r holds in exact arithmetic.
+            let rss_restricted = self.equation_rss(&restricted_model, 0)?;
+            let rss_unrestricted = self.equation_rss(&unrestricted_model, 0)?;
 
-            let n_obs = y.len() - lag;
-            let n_params_diff = lag; // Number of additional parameters
+            // q = number of restrictions = lagged-x coefficients zeroed under the null.
+            let q = lag;
+            // k = parameters in the unrestricted y-equation: own lags + x lags + intercept.
+            let k = 2 * lag + 1;
+            // n = effective sample size after lagging.
+            let n_effective = y.len() - lag;
 
-            // TODO: Proper F-statistic calculation when VAR implementation is complete
-            // For now, use placeholder to avoid numerical issues with zero residuals
-            let f_stat = if rss_unrestricted > 1e-10 && rss_restricted >= rss_unrestricted {
-                ((rss_restricted - rss_unrestricted) / n_params_diff as f64)
-                    / (rss_unrestricted / (n_obs - 2 * lag - 1) as f64)
+            // The denominator degrees of freedom must be positive for the test to exist.
+            if n_effective <= k {
+                return Err(TorshError::InvalidArgument(format!(
+                    "Granger causality F-test at lag {lag} requires n > k: effective sample \
+                     n = {n_effective} but the unrestricted model has k = {k} parameters; \
+                     supply more observations or reduce max_lags"
+                )));
+            }
+            let df_denominator = n_effective - k;
+
+            // Data-relative tolerance for detecting a (numerically) perfect fit, so that
+            // deterministic inputs stay well-defined instead of yielding a 0/0 statistic.
+            let rss_floor = self.effective_response_tss(y, lag)?.max(1.0) * 1e-12;
+
+            let f_stat = if rss_unrestricted <= rss_floor {
+                // The unrestricted model already explains y to machine precision.
+                let improvement = (rss_restricted - rss_unrestricted).max(0.0);
+                if improvement <= rss_floor {
+                    // Restricted model is also (numerically) perfect: the lagged-x terms add
+                    // no detectable forecasting power, so there is no evidence of causality.
+                    0.0
+                } else {
+                    // Lagged x removes essentially all remaining error from a non-trivial
+                    // restricted RSS: the statistic diverges, collapsing the p-value to 0.
+                    f64::INFINITY
+                }
             } else {
-                // Placeholder F-statistic for incomplete VAR implementation
-                1.0
+                // Clamp away floating-point noise that could make the numerator negative.
+                let numerator = (rss_restricted - rss_unrestricted).max(0.0) / q as f64;
+                let denominator = rss_unrestricted / df_denominator as f64;
+                numerator / denominator
             };
 
-            // Approximate p-value using F-distribution (simplified)
-            let p_value = self.f_distribution_pvalue(f_stat, n_params_diff, n_obs - 2 * lag - 1);
+            // Upper-tail p-value of the F(q, n-k) distribution.
+            let p_value = self.f_distribution_pvalue(f_stat, q, df_denominator);
 
             results.push((lag, f_stat.max(0.0), p_value));
         }
@@ -503,27 +703,74 @@ impl GrangerCausality {
         Ok(results)
     }
 
-    /// Calculate residual sum of squares
-    fn residual_sum_of_squares(&self, model: &VAR) -> Result<f64> {
+    /// Residual sum of squares of a single fitted equation (target variable column).
+    ///
+    /// Granger causality compares the forecasting error of one equation (the y-equation),
+    /// so the residuals of every other equation in a multivariate VAR must be excluded —
+    /// summing over all columns (as a naive RSS would) corrupts the F-statistic.
+    fn equation_rss(&self, model: &VAR, target_col: usize) -> Result<f64> {
         let residuals = model
             .residuals()
             .ok_or_else(|| TorshError::InvalidArgument("No residuals available".to_string()))?;
 
+        if target_col >= residuals.ncols() {
+            return Err(TorshError::InvalidArgument(format!(
+                "target equation column {} out of range for a {}-equation model",
+                target_col,
+                residuals.ncols()
+            )));
+        }
+
         let mut rss = 0.0;
         for i in 0..residuals.nrows() {
-            for j in 0..residuals.ncols() {
-                rss += residuals[[i, j]] * residuals[[i, j]];
-            }
+            let r = residuals[[i, target_col]];
+            rss += r * r;
         }
 
         Ok(rss)
     }
 
-    /// Approximate F-distribution p-value (simplified)
-    fn f_distribution_pvalue(&self, _f_stat: f64, _df1: usize, _df2: usize) -> f64 {
-        // TODO: Use scirs2-stats for proper F-distribution calculation when available
-        // For now, return placeholder p-value
-        0.05
+    /// Total (centred) sum of squares of the response actually modelled at the given lag.
+    ///
+    /// Both the restricted and unrestricted models predict `y_t` for `t = lag..n`, so the
+    /// variation in that sub-series sets the natural scale of the residual sums of squares.
+    /// It is used purely to derive a data-relative perfect-fit tolerance — never as a
+    /// substitute for the real residuals.
+    fn effective_response_tss(&self, y: &TimeSeries, lag: usize) -> Result<f64> {
+        let n = y.len();
+        if n <= lag {
+            return Err(TorshError::InvalidArgument(format!(
+                "series of length {n} is too short for lag {lag}"
+            )));
+        }
+
+        let mut sum = 0.0;
+        for i in lag..n {
+            sum += y.values.get_item_flat(i)? as f64;
+        }
+        let count = (n - lag) as f64;
+        let mean = sum / count;
+
+        let mut tss = 0.0;
+        for i in lag..n {
+            let centred = y.values.get_item_flat(i)? as f64 - mean;
+            tss += centred * centred;
+        }
+
+        Ok(tss)
+    }
+
+    /// Approximate F-distribution p-value using regularised incomplete beta function.
+    fn f_distribution_pvalue(&self, f_stat: f64, df1: usize, df2: usize) -> f64 {
+        if f_stat <= 0.0 || df1 == 0 || df2 == 0 {
+            return 1.0;
+        }
+        // P(F_{df1,df2} > f_stat) = I_{z}(df2/2, df1/2)
+        // where z = df2 / (df2 + df1 * f_stat)
+        let d1 = df1 as f64;
+        let d2 = df2 as f64;
+        let z = d2 / (d2 + d1 * f_stat);
+        regularised_incomplete_beta(z, d2 / 2.0, d1 / 2.0).clamp(0.0, 1.0)
     }
 }
 
@@ -612,5 +859,94 @@ mod tests {
             assert!(f_stat >= 0.0);
             assert!(p_value >= 0.0 && p_value <= 1.0);
         }
+    }
+
+    /// Build a synthetic `(x, y)` pair and return the lag-1 Granger F-statistic and
+    /// p-value for the hypothesis "x Granger-causes y".
+    ///
+    /// `x` is always an independent AR(1) driver. `y` always has its own AR(1) dynamics;
+    /// only when `caused` is true does `y_t` additionally depend on `x_{t-1}`. The random
+    /// draws are identical for both settings (the causal term consumes no RNG), so the two
+    /// scenarios share the exact same noise — a clean controlled comparison.
+    fn granger_lag1(seed: u64, caused: bool) -> (f64, f64) {
+        use scirs2_core::random::{Normal, Random};
+
+        let n = 400usize;
+        let mut rng = Random::seed(seed);
+        let noise = Normal::new(0.0, 1.0).expect("normal distribution should construct");
+
+        let mut x = vec![0.0f64; n];
+        let mut y = vec![0.0f64; n];
+
+        // Independent AR(1) driver for x.
+        for t in 1..n {
+            x[t] = 0.3 * x[t - 1] + rng.sample(noise);
+        }
+        // y has AR(1) dynamics; the causal case feeds in the previous value of x.
+        for t in 1..n {
+            let x_term = if caused { 0.8 * x[t - 1] } else { 0.0 };
+            y[t] = 0.5 * y[t - 1] + x_term + rng.sample(noise);
+        }
+
+        let x_series = TimeSeries::new(
+            Tensor::from_vec(x.iter().map(|&v| v as f32).collect::<Vec<f32>>(), &[n])
+                .expect("x tensor should construct"),
+        );
+        let y_series = TimeSeries::new(
+            Tensor::from_vec(y.iter().map(|&v| v as f32).collect::<Vec<f32>>(), &[n])
+                .expect("y tensor should construct"),
+        );
+
+        let gc = GrangerCausality::new(2);
+        let results = gc
+            .test(&x_series, &y_series)
+            .expect("granger causality test should succeed");
+
+        let (lag, f_stat, p_value) = results[0];
+        assert_eq!(lag, 1);
+        (f_stat, p_value)
+    }
+
+    #[test]
+    fn test_granger_causality_strong_when_x_causes_y() {
+        // Y_t genuinely depends on X_{t-1}: X must show strong Granger causality on Y.
+        let (f_caused, p_caused) = granger_lag1(20240617, true);
+
+        assert!(
+            f_caused.is_finite(),
+            "F-statistic must be finite, got {f_caused}"
+        );
+        assert!(
+            f_caused > 20.0,
+            "genuine causation should yield a large F-statistic, got {f_caused}"
+        );
+        assert!(
+            p_caused < 0.01,
+            "genuine causation should yield a tiny p-value, got {p_caused}"
+        );
+    }
+
+    #[test]
+    fn test_granger_causality_weak_when_x_independent_of_y() {
+        // Identical noise; the only difference is whether Y actually depends on X's lag.
+        let (f_caused, _) = granger_lag1(20240617, true);
+        let (f_independent, p_independent) = granger_lag1(20240617, false);
+
+        // An independent X carries no forecasting power for Y -> small, non-significant F.
+        assert!(
+            f_independent < 10.0,
+            "independent series should yield a small F-statistic, got {f_independent}"
+        );
+        assert!(
+            p_independent > 0.05,
+            "independent series should not be significant, got p = {p_independent}"
+        );
+
+        // Robust directional inequality: genuine causation dominates the independent case
+        // by a wide margin (no exact value hard-coded).
+        assert!(
+            f_caused > 5.0 * f_independent,
+            "causal F ({f_caused}) should greatly exceed independent F ({f_independent})"
+        );
     }
 }

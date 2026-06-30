@@ -16,6 +16,14 @@ categories = ["development-tools::testing"]
 [lints]
 workspace = true
 
+[lib]
+# test/doctest disabled: `--all-features` enables the pyo3-backed comparison
+# features (pytorch/tensorflow/jax/numpy_baseline); the resulting lib-test
+# executable has Python symbol-resolution issues under the workspace build.
+# Benchmarks still run via `cargo bench`. Mirrors torsh-python's [lib] test=false.
+test = false
+doctest = false
+
 [[bench]]
 name = "tensor_operations"
 harness = false
@@ -72,7 +80,7 @@ criterion = { workspace = true }
 # Utilities - SciRS2 POLICY COMPLIANT
 # rand = "0.9.2"      # REMOVED: Use scirs2_core::random instead (SciRS2 POLICY)
 # rand_distr = "0.5"  # REMOVED: Use scirs2_core::random instead (SciRS2 POLICY)
-itertools = "0.14"
+itertools = "0.15"
 
 # Async and concurrency
 tokio = { workspace = true, features = ["full"] }

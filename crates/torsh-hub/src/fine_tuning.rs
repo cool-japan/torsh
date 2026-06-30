@@ -547,57 +547,37 @@ impl FineTuner {
     }
 
     /// Train for one epoch
+    ///
+    /// Real training requires iterating over batches, computing a forward pass,
+    /// a loss, and running backpropagation. The ToRSh training loop integration
+    /// is not yet complete (no optimizer / gradient engine wired here), so we
+    /// return an honest error rather than fabricated decreasing-loss numbers that
+    /// would make callers believe training succeeded.
     fn train_epoch<D>(&mut self, _dataloader: &D) -> Result<TrainingStepResult>
     where
         D: Iterator,
     {
-        self.model.train();
-
-        let metrics = HashMap::new();
-
-        // This is a placeholder - in reality would iterate over batches
-        // For now, simulate training
-        let total_loss = 0.5 - (self.current_epoch as f64 * 0.01); // Simulated decreasing loss
-        let total_samples = self.config.batch_size * 100; // Simulated batch count
-
-        // Simulate gradient norm computation
-        // In real implementation, this would be: sqrt(sum(grad^2 for all parameters))
-        // Gradient norms typically start high and decrease during training
-        let gradient_norm = if self.current_epoch == 0 {
-            10.0 // Initial gradients tend to be large
-        } else {
-            // Simulate decreasing gradient norm with some noise
-            let base_norm = 10.0 * (-(self.current_epoch as f64) * 0.15).exp();
-            let noise = (self.current_epoch as f64 * 0.5).sin() * 0.5;
-            (base_norm + noise).max(0.1) // Keep it positive
-        };
-
-        Ok(TrainingStepResult {
-            loss: total_loss,
-            metrics,
-            num_samples: total_samples,
-            gradient_norm,
-        })
+        Err(TorshError::NotImplemented(
+            "train_epoch: training loop not yet implemented — \
+             requires optimizer wiring, forward pass, loss computation, and backprop"
+                .to_string(),
+        ))
     }
 
     /// Validate for one epoch
+    ///
+    /// Real validation requires iterating over batches and computing forward-pass
+    /// loss without gradient updates. Returns an honest error until the training
+    /// loop integration is complete.
     fn validate_epoch<V>(&mut self, _dataloader: &V) -> Result<ValidationResult>
     where
         V: Iterator,
     {
-        self.model.eval();
-
-        let metrics = HashMap::new();
-
-        // Placeholder validation - simulated decreasing validation loss
-        let total_loss = 0.6 - (self.current_epoch as f64 * 0.008);
-        let total_samples = self.config.batch_size * 20;
-
-        Ok(ValidationResult {
-            loss: total_loss,
-            metrics,
-            num_samples: total_samples,
-        })
+        Err(TorshError::NotImplemented(
+            "validate_epoch: validation loop not yet implemented — \
+             requires forward pass and loss computation"
+                .to_string(),
+        ))
     }
 
     /// Update training history

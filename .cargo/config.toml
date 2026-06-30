@@ -9,6 +9,9 @@ rustflags = ["-C", "link-arg=-Wl,-undefined,dynamic_lookup"]
 CXXFLAGS = "-stdlib=libc++"
 LDFLAGS = "-lc++"
 
+[target.x86_64-apple-darwin]
+rustflags = ["-C", "link-arg=-Wl,-undefined,dynamic_lookup"]
+
 [target.x86_64-apple-darwin.env]
 CXXFLAGS = "-stdlib=libc++"
 LDFLAGS = "-lc++"

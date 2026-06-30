@@ -145,8 +145,10 @@ impl PerformanceRegressionTester {
         let system_info = SystemInfo {
             os: std::env::consts::OS.to_string(),
             arch: std::env::consts::ARCH.to_string(),
-            cpu_count: 1, // Simplified - would use num_cpus crate in real implementation
-            total_memory: None, // TODO: Implement memory detection
+            cpu_count: std::thread::available_parallelism()
+                .map(|n| n.get())
+                .unwrap_or(1),
+            total_memory: detect_total_memory(),
         };
 
         let mean_memory_bandwidth = if !benchmark_results.metrics.is_empty() {
@@ -368,6 +370,34 @@ impl PerformanceRegressionTester {
     }
 }
 
+/// Detect total system memory in bytes using pure-Rust platform-specific methods.
+///
+/// Returns `Some(bytes)` on Linux (via `/proc/meminfo`). Returns `None` on
+/// macOS, Windows, and other platforms where a pure-Rust probe is not yet wired up.
+fn detect_total_memory() -> Option<usize> {
+    #[cfg(target_os = "linux")]
+    {
+        use std::io::Read;
+        let mut file = std::fs::File::open("/proc/meminfo").ok()?;
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).ok()?;
+        for line in contents.lines() {
+            if line.starts_with("MemTotal:") {
+                if let Some(value) = line.split_whitespace().nth(1) {
+                    let kb: usize = value.parse().ok()?;
+                    return Some(kb * 1024); // convert KB → bytes
+                }
+            }
+        }
+        None
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        // pure-Rust total-memory probe not yet available for this platform
+        None
+    }
+}
+
 /// Convenience function to create and run a regression test
 pub fn run_performance_regression_test<F>(
     operation_name: &str,
@@ -443,5 +473,79 @@ mod tests {
 
         assert!(tester.get_baseline("test_baseline_op").is_some());
         Ok(())
+    }
+
+    #[test]
+    fn test_cpu_count_is_at_least_one() {
+        let cpu_count = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(1);
+        assert!(cpu_count >= 1, "cpu_count must be >= 1, got {cpu_count}");
+    }
+
+    #[test]
+    fn test_system_info_cpu_count() {
+        let config = RegressionTestConfig {
+            baseline_path: std::env::temp_dir()
+                .join("test_system_info_baselines.json")
+                .display()
+                .to_string(),
+            ..Default::default()
+        };
+        let mut tester = PerformanceRegressionTester::new(config);
+        tester
+            .load_baselines()
+            .expect("load baselines should succeed");
+
+        // Create a minimal baseline to exercise the SystemInfo path
+        let input = torsh_tensor::creation::randn(&[4, 4]).expect("randn should succeed");
+        let inputs = vec![&input];
+        let bench_config = BenchmarkConfig {
+            warmup_iters: 1,
+            bench_iters: 2,
+            min_duration: 0.05,
+            max_duration: 0.5,
+            detailed_metrics: false,
+        };
+        let results = benchmark(
+            "test_system_info_op",
+            |inputs| -> TorshResult<Vec<Tensor>> { Ok(vec![inputs[0].clone()]) },
+            &inputs,
+            bench_config,
+        )
+        .expect("benchmark should succeed");
+
+        tester
+            .create_baseline("test_system_info_op", &results, None, None)
+            .expect("create baseline should succeed");
+
+        let baseline = tester
+            .get_baseline("test_system_info_op")
+            .expect("baseline should exist");
+
+        assert!(
+            baseline.system_info.cpu_count >= 1,
+            "SystemInfo.cpu_count must be >= 1, got {}",
+            baseline.system_info.cpu_count
+        );
+
+        // total_memory: on Linux it should be Some(n > 0); on other platforms None is valid
+        if let Some(mem) = baseline.system_info.total_memory {
+            assert!(mem > 0, "total_memory must be > 0 when Some, got {mem}");
+        }
+    }
+
+    #[test]
+    fn test_detect_total_memory() {
+        let mem = detect_total_memory();
+        // On Linux this must be Some; on other platforms None is acceptable
+        #[cfg(target_os = "linux")]
+        assert!(
+            mem.is_some(),
+            "detect_total_memory should return Some on Linux"
+        );
+        if let Some(bytes) = mem {
+            assert!(bytes > 0, "total memory in bytes must be > 0, got {bytes}");
+        }
     }
 }

@@ -153,11 +153,14 @@ impl GraphModule {
         }
     }
 
-    /// Clone the graph structure
+    /// Clone the graph structure.
+    ///
+    /// Performs a full deep clone of the underlying `FxGraph`, preserving every
+    /// node, edge, and the input/output index lists. `FxGraph` (and its `Node`
+    /// and `Edge` weights) derive `Clone`, and `petgraph::Graph` clones its node
+    /// and edge storage element-by-element, so no graph structure is lost.
     pub fn clone_graph(&self) -> FxGraph {
-        // Note: This is a simplified clone - in a full implementation,
-        // we would need to properly deep clone the petgraph structure
-        FxGraph::new()
+        self.graph.clone()
     }
 
     /// Export the graph to a serializable format

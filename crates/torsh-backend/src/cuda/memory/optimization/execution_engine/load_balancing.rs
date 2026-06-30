@@ -17,6 +17,18 @@ use super::task_management::{ResourceType, TaskId};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ResourceId(pub u64);
 
+impl ResourceId {
+    pub fn new() -> Self {
+        Self(0)
+    }
+}
+
+impl Default for ResourceId {
+    fn default() -> Self {
+        Self(0)
+    }
+}
+
 /// Comprehensive load balancing manager for CUDA execution
 ///
 /// Manages all aspects of load balancing including workload distribution,
@@ -441,7 +453,7 @@ pub enum DistributionStrategyType {
 }
 
 /// Load levels for resource utilization
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum LoadLevel {
     /// Very low load (0-20%)
     VeryLow,
@@ -610,7 +622,7 @@ impl LoadBalancingManager {
         Self {
             workload_distributor: Arc::new(Mutex::new(WorkloadDistributor::new(&config))),
             resource_monitor: Arc::new(Mutex::new(ResourceLoadMonitor::new(&config))),
-            dynamic_scheduler: Arc::new(Mutex::new(DynamicScheduler::new(&config.scheduling))),
+            dynamic_scheduler: Arc::new(Mutex::new(DynamicScheduler::new(&config))),
             strategy_engine: Arc::new(Mutex::new(LoadBalancingStrategyEngine::new(&config))),
             performance_optimizer: Arc::new(Mutex::new(PerformanceOptimizer::new(&config))),
             adaptive_balancer: Arc::new(Mutex::new(AdaptiveLoadBalancer::new(&config))),
@@ -629,7 +641,10 @@ impl LoadBalancingManager {
 
         // Start monitoring
         {
-            let mut monitor = self.resource_monitor.lock().expect("lock should not be poisoned");
+            let mut monitor = self
+                .resource_monitor
+                .lock()
+                .expect("lock should not be poisoned");
             monitor.start_monitoring()?;
         }
 
@@ -647,7 +662,10 @@ impl LoadBalancingManager {
         };
 
         {
-            let mut sessions = self.active_sessions.lock().expect("lock should not be poisoned");
+            let mut sessions = self
+                .active_sessions
+                .lock()
+                .expect("lock should not be poisoned");
             sessions.insert(session_id.clone(), session);
         }
 
@@ -665,7 +683,10 @@ impl LoadBalancingManager {
         &self,
         tasks: Vec<TaskId>,
     ) -> Result<WorkloadDistribution, LoadBalancingError> {
-        let mut distributor = self.workload_distributor.lock().expect("lock should not be poisoned");
+        let mut distributor = self
+            .workload_distributor
+            .lock()
+            .expect("lock should not be poisoned");
         let distribution = distributor.distribute_tasks(tasks)?;
 
         // Update statistics
@@ -679,13 +700,19 @@ impl LoadBalancingManager {
 
     /// Get current system load status
     pub fn get_system_load(&self) -> SystemLoadSnapshot {
-        let monitor = self.resource_monitor.lock().expect("lock should not be poisoned");
+        let monitor = self
+            .resource_monitor
+            .lock()
+            .expect("lock should not be poisoned");
         monitor.get_current_snapshot()
     }
 
     /// Optimize load balancing performance
     pub fn optimize_performance(&self) -> Result<OptimizationResult, LoadBalancingError> {
-        let mut optimizer = self.performance_optimizer.lock().expect("lock should not be poisoned");
+        let mut optimizer = self
+            .performance_optimizer
+            .lock()
+            .expect("lock should not be poisoned");
         let result = optimizer.optimize_current_load_distribution()?;
 
         // Update statistics
@@ -702,7 +729,10 @@ impl LoadBalancingManager {
         &self,
         migration_request: MigrationRequest,
     ) -> Result<String, LoadBalancingError> {
-        let mut migration_system = self.migration_system.lock().expect("lock should not be poisoned");
+        let mut migration_system = self
+            .migration_system
+            .lock()
+            .expect("lock should not be poisoned");
         let migration_id = migration_system.initiate_migration(migration_request)?;
 
         // Update statistics
@@ -722,12 +752,18 @@ impl LoadBalancingManager {
 
     /// Adapt load balancing strategy
     pub fn adapt_strategy(&self) -> Result<StrategyType, LoadBalancingError> {
-        let mut adaptive_balancer = self.adaptive_balancer.lock().expect("lock should not be poisoned");
+        let mut adaptive_balancer = self
+            .adaptive_balancer
+            .lock()
+            .expect("lock should not be poisoned");
         let new_strategy = adaptive_balancer.adapt_strategy()?;
 
         // Update strategy engine
         {
-            let mut strategy_engine = self.strategy_engine.lock().expect("lock should not be poisoned");
+            let mut strategy_engine = self
+                .strategy_engine
+                .lock()
+                .expect("lock should not be poisoned");
             strategy_engine.switch_strategy(new_strategy.clone())?;
         }
 
@@ -736,14 +772,14 @@ impl LoadBalancingManager {
 }
 
 impl WorkloadDistributor {
-    fn new(config: &LoadBalancingConfig) -> Self {
+    fn new(_config: &LoadBalancingConfig) -> Self {
         Self {
             distribution_strategies: HashMap::new(),
             workload_analyzer: WorkloadAnalyzer::new(),
             task_assignment_engine: TaskAssignmentEngine::new(),
             distribution_predictor: LoadDistributionPredictor::new(),
             capacity_tracker: ResourceCapacityTracker::new(),
-            config: config.workload_distribution.clone().unwrap_or_default(),
+            config: WorkloadDistributionConfig::default(),
             distribution_history: VecDeque::new(),
         }
     }
@@ -792,7 +828,7 @@ impl WorkloadDistributor {
 
     fn select_distribution_strategy(
         &self,
-        analysis: &WorkloadAnalysis,
+        _analysis: &WorkloadAnalysis,
     ) -> Result<DistributionStrategy, LoadBalancingError> {
         // For now, return a default strategy
         // In reality, would select based on workload characteristics
@@ -808,14 +844,14 @@ impl WorkloadDistributor {
 }
 
 impl ResourceLoadMonitor {
-    fn new(config: &LoadBalancingConfig) -> Self {
+    fn new(_config: &LoadBalancingConfig) -> Self {
         Self {
             load_trackers: HashMap::new(),
             metrics_collector: LoadMetricsCollector::new(),
             trend_analyzer: LoadTrendAnalyzer::new(),
             threshold_monitor: LoadThresholdMonitor::new(),
             prediction_engine: LoadPredictionEngine::new(),
-            config: config.load_monitoring.clone().unwrap_or_default(),
+            config: LoadMonitoringConfig::default(),
             current_load_snapshot: SystemLoadSnapshot::default(),
         }
     }
@@ -845,27 +881,27 @@ impl ResourceLoadMonitor {
 }
 
 impl DynamicScheduler {
-    fn new(config: &SchedulingConfig) -> Self {
+    fn new(_config: &LoadBalancingConfig) -> Self {
         Self {
             scheduling_algorithms: HashMap::new(),
             priority_queue_manager: PriorityQueueManager::new(),
             decision_engine: SchedulingDecisionEngine::new(),
             preemption_manager: PreemptionManager::new(),
             policy_enforcer: SchedulingPolicyEnforcer::new(),
-            config: config.clone(),
+            config: SchedulingConfig::default(),
             scheduling_stats: SchedulingStatistics::new(),
         }
     }
 }
 
 impl LoadBalancingStrategyEngine {
-    fn new(config: &LoadBalancingConfig) -> Self {
+    fn new(_config: &LoadBalancingConfig) -> Self {
         let mut engine = Self {
             available_strategies: HashMap::new(),
             strategy_selector: StrategySelector::new(),
             effectiveness_tracker: StrategyEffectivenessTracker::new(),
             adaptation_engine: StrategyAdaptationEngine::new(),
-            config: config.strategy_engine.clone().unwrap_or_default(),
+            config: StrategyEngineConfig::default(),
             current_strategy: Some(StrategyType::RoundRobin),
         };
 
@@ -916,14 +952,14 @@ impl LoadBalancingStrategyEngine {
 }
 
 impl PerformanceOptimizer {
-    fn new(config: &LoadBalancingConfig) -> Self {
+    fn new(_config: &LoadBalancingConfig) -> Self {
         Self {
             performance_models: HashMap::new(),
             optimization_algorithms: HashMap::new(),
             performance_predictor: PerformancePredictor::new(),
             bottleneck_analyzer: BottleneckAnalyzer::new(),
             recommendation_engine: OptimizationRecommendationEngine::new(),
-            config: config.performance_optimization.clone().unwrap_or_default(),
+            config: PerformanceOptimizationConfig::default(),
         }
     }
 
@@ -955,13 +991,13 @@ impl PerformanceOptimizer {
 }
 
 impl AdaptiveLoadBalancer {
-    fn new(config: &LoadBalancingConfig) -> Self {
+    fn new(_config: &LoadBalancingConfig) -> Self {
         Self {
             adaptation_algorithms: HashMap::new(),
             learning_system: LoadBalancingLearningSystem::new(),
             feedback_system: LoadBalancingFeedbackSystem::new(),
             trigger_system: AdaptationTriggerSystem::new(),
-            config: config.adaptive_balancing.clone().unwrap_or_default(),
+            config: AdaptiveBalancingConfig::default(),
             adaptation_history: VecDeque::new(),
         }
     }
@@ -991,14 +1027,14 @@ impl AdaptiveLoadBalancer {
 }
 
 impl LoadMigrationSystem {
-    fn new(config: &LoadBalancingConfig) -> Self {
+    fn new(_config: &LoadBalancingConfig) -> Self {
         Self {
             migration_strategies: HashMap::new(),
             cost_calculator: MigrationCostCalculator::new(),
             migration_executor: MigrationExecutor::new(),
             migration_validator: MigrationValidator::new(),
             rollback_system: MigrationRollbackSystem::new(),
-            config: config.migration.clone().unwrap_or_default(),
+            config: MigrationConfig::default(),
             active_migrations: HashMap::new(),
         }
     }
@@ -1123,9 +1159,27 @@ default_placeholder_type!(ApplicabilityConditions);
 default_placeholder_type!(MigrationStrategy);
 default_placeholder_type!(MigrationCost);
 default_placeholder_type!(WorkloadAnalysis);
-default_placeholder_type!(DistributionRecord);
+/// Record of a workload distribution operation
+#[derive(Debug, Clone)]
+pub struct DistributionRecord {
+    pub distribution_id: String,
+    pub timestamp: SystemTime,
+    pub tasks_distributed: usize,
+    pub strategy_used: DistributionStrategyType,
+    pub performance_metrics: DistributionPerformanceMetrics,
+}
+
 default_placeholder_type!(DistributionPerformanceMetrics);
-default_placeholder_type!(AdaptationRecord);
+
+/// Record of a load balancing adaptation event
+#[derive(Debug, Clone)]
+pub struct AdaptationRecord {
+    pub timestamp: SystemTime,
+    pub previous_strategy: StrategyType,
+    pub new_strategy: StrategyType,
+    pub adaptation_reason: String,
+    pub expected_improvement: f64,
+}
 
 // Results and requests
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1155,6 +1209,12 @@ pub struct MigrationRequest {
     pub strategy: Option<MigrationStrategy>,
     pub priority: MigrationPriority,
 }
+
+// Config placeholder types (only those not already defined)
+default_placeholder_type!(WorkloadDistributorConfig);
+default_placeholder_type!(ResourceLoadMonitorConfig);
+default_placeholder_type!(PerformanceOptimizerConfig);
+default_placeholder_type!(AdaptiveBalancerConfig);
 
 // Additional types
 default_placeholder_type!(TaskAssignment);
@@ -1189,7 +1249,7 @@ impl WorkloadAnalyzer {
         Self::default()
     }
 
-    fn analyze_workload(&self, tasks: &[TaskId]) -> Result<WorkloadAnalysis, LoadBalancingError> {
+    fn analyze_workload(&self, _tasks: &[TaskId]) -> Result<WorkloadAnalysis, LoadBalancingError> {
         Ok(WorkloadAnalysis::default())
     }
 }
@@ -1202,7 +1262,7 @@ impl TaskAssignmentEngine {
     fn assign_tasks(
         &self,
         tasks: Vec<TaskId>,
-        strategy: &DistributionStrategy,
+        _strategy: &DistributionStrategy,
     ) -> Result<Vec<TaskAssignment>, LoadBalancingError> {
         Ok(vec![TaskAssignment::default(); tasks.len()])
     }
@@ -1215,7 +1275,7 @@ impl LoadDistributionPredictor {
 
     fn predict_performance(
         &self,
-        analysis: &WorkloadAnalysis,
+        _analysis: &WorkloadAnalysis,
     ) -> Result<PerformancePrediction, LoadBalancingError> {
         Ok(PerformancePrediction::default())
     }
@@ -1316,7 +1376,7 @@ impl BottleneckAnalyzer {
 
     fn identify_bottlenecks(
         &self,
-        performance: &CurrentPerformance,
+        _performance: &CurrentPerformance,
     ) -> Result<Vec<PerformanceBottleneck>, LoadBalancingError> {
         Ok(vec![])
     }
@@ -1329,7 +1389,7 @@ impl OptimizationRecommendationEngine {
 
     fn generate_recommendations(
         &self,
-        bottlenecks: &[PerformanceBottleneck],
+        _bottlenecks: &[PerformanceBottleneck],
     ) -> Result<Vec<OptimizationRecommendation>, LoadBalancingError> {
         Ok(vec![])
     }
@@ -1368,7 +1428,7 @@ impl MigrationCostCalculator {
 
     fn calculate_cost(
         &self,
-        request: &MigrationRequest,
+        _request: &MigrationRequest,
     ) -> Result<MigrationCost, LoadBalancingError> {
         Ok(MigrationCost::default())
     }
@@ -1520,7 +1580,9 @@ mod tests {
         let config = LoadBalancingConfig::default();
         let manager = LoadBalancingManager::new(config);
 
-        let session_id = manager.start_load_balancing().expect("load balancing start should succeed");
+        let session_id = manager
+            .start_load_balancing()
+            .expect("load balancing start should succeed");
         assert!(!session_id.is_empty());
     }
 
@@ -1530,7 +1592,9 @@ mod tests {
         let manager = LoadBalancingManager::new(config);
 
         let tasks = vec![TaskId::new(), TaskId::new(), TaskId::new()];
-        let distribution = manager.distribute_workload(tasks).expect("workload distribution should succeed");
+        let distribution = manager
+            .distribute_workload(tasks)
+            .expect("workload distribution should succeed");
         assert!(!distribution.distribution_id.is_empty());
     }
 
@@ -1548,7 +1612,9 @@ mod tests {
         let config = LoadBalancingConfig::default();
         let manager = LoadBalancingManager::new(config);
 
-        let optimization_result = manager.optimize_performance().expect("performance optimization should succeed");
+        let optimization_result = manager
+            .optimize_performance()
+            .expect("performance optimization should succeed");
         assert!(!optimization_result.optimization_id.is_empty());
     }
 
@@ -1557,7 +1623,9 @@ mod tests {
         let config = LoadBalancingConfig::default();
         let manager = LoadBalancingManager::new(config);
 
-        let new_strategy = manager.adapt_strategy().expect("strategy adaptation should succeed");
+        let new_strategy = manager
+            .adapt_strategy()
+            .expect("strategy adaptation should succeed");
         assert_eq!(new_strategy, StrategyType::RoundRobin);
     }
 }

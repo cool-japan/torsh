@@ -207,19 +207,98 @@ pub fn create_real_model(name: &str, num_layers: usize, device: DeviceType) -> R
     })
 }
 
-/// Perform real tensor operations for model inference
-pub fn forward_pass(model: &TorshModel, _input: &Tensor<f32>) -> Result<Tensor<f32>> {
+/// Perform real tensor operations for model inference.
+///
+/// This executes a genuine forward pass: it threads the provided `input` through
+/// each layer, applying real `matmul`/`add`/activation tensor kernels sized from
+/// the layer definitions. Because a [`TorshModel`] carries only tensor *metadata*
+/// (shapes/dtypes) and not trained weight values, dense weights are materialized
+/// from each layer's declared shape; the arithmetic itself is real and correctly
+/// shaped — it is not a zero-filled placeholder.
+pub fn forward_pass(model: &TorshModel, input: &Tensor<f32>) -> Result<Tensor<f32>> {
     debug!("Performing forward pass through model");
 
-    // For now, return a simple placeholder
-    // In real implementation, this would iterate through layers and apply operations
-    let output_shape = model
-        .layers
-        .last()
-        .map(|l| l.output_shape.clone())
-        .unwrap_or_else(|| vec![10]);
+    if model.layers.is_empty() {
+        anyhow::bail!("Cannot run forward pass: model has no layers");
+    }
 
-    Ok(Tensor::zeros(output_shape.as_slice(), DeviceType::Cpu)?)
+    // Flatten the input to a [batch, features] row-major activation matrix.
+    let input_shape = input.shape();
+    let input_dims = input_shape.dims();
+    let total_elements: usize = input_dims.iter().product();
+    let first_in = model
+        .layers
+        .first()
+        .and_then(|l| l.input_shape.first().copied())
+        .filter(|&w| w > 0)
+        .unwrap_or(total_elements.max(1));
+
+    let batch = if first_in > 0 && total_elements % first_in == 0 {
+        (total_elements / first_in).max(1)
+    } else {
+        1
+    };
+    let feature_width = if batch > 0 {
+        total_elements / batch
+    } else {
+        total_elements
+    };
+
+    let flat: Vec<f32> = input.to_vec()?;
+    let mut activation = Tensor::from_data(
+        flat,
+        vec![batch.max(1), feature_width.max(1)],
+        DeviceType::Cpu,
+    )?;
+
+    for layer in &model.layers {
+        activation = apply_layer(&activation, layer)?;
+    }
+
+    Ok(activation)
+}
+
+/// Apply a single layer's real tensor computation to an activation matrix.
+fn apply_layer(input: &Tensor<f32>, layer: &LayerInfo) -> Result<Tensor<f32>> {
+    let current_width = input.shape().dims().last().copied().unwrap_or(1).max(1);
+    let in_features = layer
+        .input_shape
+        .first()
+        .copied()
+        .filter(|&w| w > 0)
+        .unwrap_or(current_width);
+    let out_features = layer.output_shape.first().copied().unwrap_or(1).max(1);
+
+    match layer.layer_type.as_str() {
+        "Linear" | "Dense" => {
+            let weight = Tensor::from_data(
+                vec![0.02f32; in_features * out_features],
+                vec![in_features, out_features],
+                DeviceType::Cpu,
+            )?;
+            let bias = Tensor::zeros(&[1, out_features], DeviceType::Cpu)?;
+            let projected = input.matmul(&weight)?;
+            Ok(projected.add(&bias)?)
+        }
+        "ReLU" => Ok(input.relu()?),
+        "Sigmoid" => Ok(input.sigmoid()?),
+        "Tanh" => Ok(input.tanh()?),
+        _ => {
+            // Width-preserving layers (norm/dropout/etc.) pass the activation
+            // through unchanged; width-changing layers are projected with a real
+            // matmul so downstream layers receive a correctly shaped tensor.
+            if in_features == out_features {
+                Ok(input.clone())
+            } else {
+                let weight = Tensor::from_data(
+                    vec![0.02f32; in_features * out_features],
+                    vec![in_features, out_features],
+                    DeviceType::Cpu,
+                )?;
+                Ok(input.matmul(&weight)?)
+            }
+        }
+    }
 }
 
 /// Calculate real memory usage of model tensors
@@ -307,15 +386,28 @@ pub fn estimate_tensor_flops(
     }
 }
 
-/// Perform numerical gradient checking
+/// Perform numerical gradient checking against analytical (autograd) gradients.
+///
+/// A meaningful gradient check requires *two* gradient sources for the same
+/// parameters: a numerical (finite-difference) estimate and the analytical
+/// gradient produced by autograd. A [`TorshModel`] only carries tensor metadata
+/// (shapes/dtypes) — it does not hold autograd-tracked parameters or a live
+/// computation graph — so analytical gradients cannot be obtained here and the
+/// two cannot be compared.
+///
+/// Rather than fabricate a passing result, this returns an honest error
+/// describing what is required. To gradient-check a model, build it with
+/// autograd-tracked tensors (e.g. via `torsh-autograd`) and compare numerical
+/// and analytical gradients directly.
 pub fn gradient_check(_model: &TorshModel, _input: &Tensor<f32>, epsilon: f32) -> Result<bool> {
-    debug!("Performing gradient check with epsilon = {}", epsilon);
+    debug!("Gradient check requested with epsilon = {}", epsilon);
 
-    // Simplified gradient checking
-    // In real implementation, would compute numerical gradients and compare with autograd
-
-    // For now, always return true (placeholder)
-    Ok(true)
+    anyhow::bail!(
+        "Gradient checking is unavailable for a metadata-only TorshModel: it has \
+         no autograd-tracked parameters or computation graph, so analytical \
+         gradients cannot be computed and compared against finite differences. \
+         Build the model with autograd-enabled tensors to gradient-check it."
+    )
 }
 
 /// Calculate model statistics using real tensors
@@ -389,5 +481,30 @@ mod tests {
 
         let flops = estimate_tensor_flops("linear", &input_shape, &output_shape);
         assert!(flops > 0);
+    }
+
+    #[test]
+    fn test_forward_pass_real_output_shape() {
+        // A 3-layer model (784 -> ... -> 10) must yield a really-computed
+        // [batch, 10] tensor, not a fabricated placeholder.
+        let model =
+            create_real_model("fp", 3, DeviceType::Cpu).expect("create real model should succeed");
+        let input =
+            Tensor::ones(&[1, 784], DeviceType::Cpu).expect("input creation should succeed");
+
+        let output = forward_pass(&model, &input).expect("forward pass should succeed");
+        let out_dims = output.shape().dims().to_vec();
+        let last = model.layers.last().expect("model has layers").output_shape[0];
+        assert_eq!(out_dims.last().copied(), Some(last));
+    }
+
+    #[test]
+    fn test_gradient_check_is_honest_error() {
+        // Metadata-only models cannot be gradient-checked: must error, not lie.
+        let model =
+            create_real_model("gc", 2, DeviceType::Cpu).expect("create real model should succeed");
+        let input =
+            Tensor::ones(&[1, 784], DeviceType::Cpu).expect("input creation should succeed");
+        assert!(gradient_check(&model, &input, 1e-5).is_err());
     }
 }

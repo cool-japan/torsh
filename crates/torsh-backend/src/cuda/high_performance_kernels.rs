@@ -421,7 +421,8 @@ impl HighPerformanceKernelManager {
         let start_time = Instant::now();
 
         // Select optimal activation implementation
-        let implementation = self.select_activation_implementation(input.len(), activation_type)?;
+        let _implementation =
+            self.select_activation_implementation(input.len(), activation_type)?;
 
         // Execute the activation
         let result = match activation_type {
@@ -456,7 +457,10 @@ impl HighPerformanceKernelManager {
         operation_spec: KernelOperationSpec,
         optimization_hints: OptimizationHints,
     ) -> CudaResult<GeneratedKernel> {
-        let mut code_generator = self.code_generator.lock().expect("lock should not be poisoned");
+        let mut code_generator = self
+            .code_generator
+            .lock()
+            .expect("lock should not be poisoned");
         code_generator.generate_kernel(operation_spec, optimization_hints)
     }
 
@@ -533,7 +537,10 @@ impl HighPerformanceKernelManager {
     where
         T: TensorElement + Send + Sync,
     {
-        let tensor_core_engine = self.tensor_core_engine.lock().expect("lock should not be poisoned");
+        let tensor_core_engine = self
+            .tensor_core_engine
+            .lock()
+            .expect("lock should not be poisoned");
         tensor_core_engine.execute_wmma_matmul(a, b, c, stream)
     }
 
@@ -563,7 +570,10 @@ impl HighPerformanceKernelManager {
         T: TensorElement + Send + Sync,
     {
         // Convert to half precision, compute, then convert back
-        let tensor_core_engine = self.tensor_core_engine.lock().expect("lock should not be poisoned");
+        let tensor_core_engine = self
+            .tensor_core_engine
+            .lock()
+            .expect("lock should not be poisoned");
         tensor_core_engine.execute_mixed_precision_matmul(a, b, c, stream)
     }
 
@@ -583,10 +593,10 @@ impl HighPerformanceKernelManager {
 
     fn launch_tiled_matmul_kernel<T>(
         &self,
-        a: &ArrayView2<T>,
-        b: &ArrayView2<T>,
-        c: &mut Array2<T>,
-        stream: &CudaStream,
+        _a: &ArrayView2<T>,
+        _b: &ArrayView2<T>,
+        _c: &mut Array2<T>,
+        _stream: &CudaStream,
     ) -> CudaResult<()>
     where
         T: TensorElement + Send + Sync,
@@ -598,10 +608,10 @@ impl HighPerformanceKernelManager {
 
     fn launch_large_tiled_matmul_kernel<T>(
         &self,
-        a: &ArrayView2<T>,
-        b: &ArrayView2<T>,
-        c: &mut Array2<T>,
-        stream: &CudaStream,
+        _a: &ArrayView2<T>,
+        _b: &ArrayView2<T>,
+        _c: &mut Array2<T>,
+        _stream: &CudaStream,
     ) -> CudaResult<()>
     where
         T: TensorElement + Send + Sync,
@@ -615,7 +625,10 @@ impl HighPerformanceKernelManager {
         &self,
         signature: &MatMulOperationSignature,
     ) -> CudaResult<Option<CachedImplementation>> {
-        let cache = self.kernel_cache.read().expect("lock should not be poisoned");
+        let cache = self
+            .kernel_cache
+            .read()
+            .expect("lock should not be poisoned");
         Ok(cache.get_implementation(signature))
     }
 
@@ -639,7 +652,10 @@ impl HighPerformanceKernelManager {
         signature: MatMulOperationSignature,
         implementation: MatMulImplementation,
     ) -> CudaResult<()> {
-        let mut cache = self.kernel_cache.write().expect("lock should not be poisoned");
+        let mut cache = self
+            .kernel_cache
+            .write()
+            .expect("lock should not be poisoned");
         cache.store_implementation(signature, implementation);
         Ok(())
     }
@@ -657,9 +673,9 @@ impl HighPerformanceKernelManager {
 
     fn analyze_memory_access_pattern<T>(
         &self,
-        a: &ArrayView2<T>,
-        b: &ArrayView2<T>,
-        c: &Array2<T>,
+        _a: &ArrayView2<T>,
+        _b: &ArrayView2<T>,
+        _c: &Array2<T>,
     ) -> CudaResult<MemoryAccessPattern>
     where
         T: TensorElement,
@@ -684,10 +700,10 @@ impl HighPerformanceKernelManager {
     // Placeholder implementations for other methods
     fn analyze_convolution_characteristics<T>(
         &self,
-        input: &ArrayView2<T>,
-        weight: &ArrayView2<T>,
-        output: &Array2<T>,
-        config: &ConvolutionConfig,
+        _input: &ArrayView2<T>,
+        _weight: &ArrayView2<T>,
+        _output: &Array2<T>,
+        _config: &ConvolutionConfig,
     ) -> CudaResult<ConvolutionOperationSignature>
     where
         T: TensorElement,
@@ -697,18 +713,18 @@ impl HighPerformanceKernelManager {
 
     fn select_convolution_implementation(
         &self,
-        signature: &ConvolutionOperationSignature,
+        _signature: &ConvolutionOperationSignature,
     ) -> CudaResult<ConvolutionImplementation> {
         Ok(ConvolutionImplementation::Direct)
     }
 
     fn execute_direct_convolution<T>(
         &self,
-        input: &ArrayView2<T>,
-        weight: &ArrayView2<T>,
-        output: &mut Array2<T>,
-        config: &ConvolutionConfig,
-        stream: &CudaStream,
+        _input: &ArrayView2<T>,
+        _weight: &ArrayView2<T>,
+        _output: &mut Array2<T>,
+        _config: &ConvolutionConfig,
+        _stream: &CudaStream,
     ) -> CudaResult<()>
     where
         T: TensorElement + Send + Sync,
@@ -718,11 +734,11 @@ impl HighPerformanceKernelManager {
 
     fn execute_winograd_convolution<T>(
         &self,
-        input: &ArrayView2<T>,
-        weight: &ArrayView2<T>,
-        output: &mut Array2<T>,
-        config: &ConvolutionConfig,
-        stream: &CudaStream,
+        _input: &ArrayView2<T>,
+        _weight: &ArrayView2<T>,
+        _output: &mut Array2<T>,
+        _config: &ConvolutionConfig,
+        _stream: &CudaStream,
     ) -> CudaResult<()>
     where
         T: TensorElement + Send + Sync,
@@ -732,11 +748,11 @@ impl HighPerformanceKernelManager {
 
     fn execute_fft_convolution<T>(
         &self,
-        input: &ArrayView2<T>,
-        weight: &ArrayView2<T>,
-        output: &mut Array2<T>,
-        config: &ConvolutionConfig,
-        stream: &CudaStream,
+        _input: &ArrayView2<T>,
+        _weight: &ArrayView2<T>,
+        _output: &mut Array2<T>,
+        _config: &ConvolutionConfig,
+        _stream: &CudaStream,
     ) -> CudaResult<()>
     where
         T: TensorElement + Send + Sync,
@@ -746,11 +762,11 @@ impl HighPerformanceKernelManager {
 
     fn execute_depthwise_convolution<T>(
         &self,
-        input: &ArrayView2<T>,
-        weight: &ArrayView2<T>,
-        output: &mut Array2<T>,
-        config: &ConvolutionConfig,
-        stream: &CudaStream,
+        _input: &ArrayView2<T>,
+        _weight: &ArrayView2<T>,
+        _output: &mut Array2<T>,
+        _config: &ConvolutionConfig,
+        _stream: &CudaStream,
     ) -> CudaResult<()>
     where
         T: TensorElement + Send + Sync,
@@ -760,26 +776,26 @@ impl HighPerformanceKernelManager {
 
     fn record_convolution_performance(
         &self,
-        signature: &ConvolutionOperationSignature,
-        execution_time: Duration,
-        result: &CudaResult<()>,
+        _signature: &ConvolutionOperationSignature,
+        _execution_time: Duration,
+        _result: &CudaResult<()>,
     ) -> CudaResult<()> {
         Ok(())
     }
 
     fn select_activation_implementation(
         &self,
-        size: usize,
-        activation_type: ActivationType,
+        _size: usize,
+        _activation_type: ActivationType,
     ) -> CudaResult<ActivationImplementation> {
         Ok(ActivationImplementation::Vectorized)
     }
 
     fn execute_optimized_relu<T>(
         &self,
-        input: &ArrayView1<T>,
-        output: &mut Array1<T>,
-        stream: &CudaStream,
+        _input: &ArrayView1<T>,
+        _output: &mut Array1<T>,
+        _stream: &CudaStream,
     ) -> CudaResult<()>
     where
         T: TensorElement + Send + Sync,
@@ -789,9 +805,9 @@ impl HighPerformanceKernelManager {
 
     fn execute_optimized_sigmoid<T>(
         &self,
-        input: &ArrayView1<T>,
-        output: &mut Array1<T>,
-        stream: &CudaStream,
+        _input: &ArrayView1<T>,
+        _output: &mut Array1<T>,
+        _stream: &CudaStream,
     ) -> CudaResult<()>
     where
         T: TensorElement + Send + Sync,
@@ -801,9 +817,9 @@ impl HighPerformanceKernelManager {
 
     fn execute_optimized_tanh<T>(
         &self,
-        input: &ArrayView1<T>,
-        output: &mut Array1<T>,
-        stream: &CudaStream,
+        _input: &ArrayView1<T>,
+        _output: &mut Array1<T>,
+        _stream: &CudaStream,
     ) -> CudaResult<()>
     where
         T: TensorElement + Send + Sync,
@@ -813,9 +829,9 @@ impl HighPerformanceKernelManager {
 
     fn execute_optimized_gelu<T>(
         &self,
-        input: &ArrayView1<T>,
-        output: &mut Array1<T>,
-        stream: &CudaStream,
+        _input: &ArrayView1<T>,
+        _output: &mut Array1<T>,
+        _stream: &CudaStream,
     ) -> CudaResult<()>
     where
         T: TensorElement + Send + Sync,
@@ -825,9 +841,9 @@ impl HighPerformanceKernelManager {
 
     fn execute_optimized_swish<T>(
         &self,
-        input: &ArrayView1<T>,
-        output: &mut Array1<T>,
-        stream: &CudaStream,
+        _input: &ArrayView1<T>,
+        _output: &mut Array1<T>,
+        _stream: &CudaStream,
     ) -> CudaResult<()>
     where
         T: TensorElement + Send + Sync,
@@ -837,10 +853,10 @@ impl HighPerformanceKernelManager {
 
     fn record_activation_performance(
         &self,
-        activation_type: ActivationType,
-        size: usize,
-        execution_time: Duration,
-        result: &CudaResult<()>,
+        _activation_type: ActivationType,
+        _size: usize,
+        _execution_time: Duration,
+        _result: &CudaResult<()>,
     ) -> CudaResult<()> {
         Ok(())
     }
@@ -976,7 +992,7 @@ pub struct CodeGenerationConfig {
 // Placeholder implementations for supporting structures
 
 impl TensorCoreOptimizationEngine {
-    pub fn new(config: &TensorCoreOptimizationConfig) -> CudaResult<Self> {
+    pub fn new(_config: &TensorCoreOptimizationConfig) -> CudaResult<Self> {
         Ok(Self {
             available_configs: Vec::new(),
             precision_selector: PrecisionSelector::new(),
@@ -989,10 +1005,10 @@ impl TensorCoreOptimizationEngine {
 
     pub fn execute_wmma_matmul<T>(
         &self,
-        a: &ArrayView2<T>,
-        b: &ArrayView2<T>,
-        c: &mut Array2<T>,
-        stream: &CudaStream,
+        _a: &ArrayView2<T>,
+        _b: &ArrayView2<T>,
+        _c: &mut Array2<T>,
+        _stream: &CudaStream,
     ) -> CudaResult<()>
     where
         T: TensorElement + Send + Sync,
@@ -1002,10 +1018,10 @@ impl TensorCoreOptimizationEngine {
 
     pub fn execute_mixed_precision_matmul<T>(
         &self,
-        a: &ArrayView2<T>,
-        b: &ArrayView2<T>,
-        c: &mut Array2<T>,
-        stream: &CudaStream,
+        _a: &ArrayView2<T>,
+        _b: &ArrayView2<T>,
+        _c: &mut Array2<T>,
+        _stream: &CudaStream,
     ) -> CudaResult<()>
     where
         T: TensorElement + Send + Sync,
@@ -1015,7 +1031,7 @@ impl TensorCoreOptimizationEngine {
 }
 
 impl KernelMemoryOptimizer {
-    pub fn new(config: &MemoryOptimizationConfig) -> CudaResult<Self> {
+    pub fn new(_config: &MemoryOptimizationConfig) -> CudaResult<Self> {
         Ok(Self {
             coalescing_analyzer: CoalescingPatternAnalyzer::new(),
             tiling_optimizer: SharedMemoryTilingOptimizer::new(),
@@ -1028,7 +1044,7 @@ impl KernelMemoryOptimizer {
 }
 
 impl KernelAutoTuner {
-    pub fn new(config: &AutoTuningConfig) -> CudaResult<Self> {
+    pub fn new(_config: &AutoTuningConfig) -> CudaResult<Self> {
         Ok(Self {
             block_size_optimizer: BlockSizeOptimizer::new(),
             grid_size_calculator: GridSizeCalculator::new(),
@@ -1043,9 +1059,9 @@ impl KernelAutoTuner {
 
     pub fn tune_kernel(
         &mut self,
-        operation_type: KernelOperationType,
-        problem_size: ProblemSize,
-        target_device: u32,
+        _operation_type: KernelOperationType,
+        _problem_size: ProblemSize,
+        _target_device: u32,
     ) -> CudaResult<OptimalConfiguration> {
         Ok(OptimalConfiguration::default())
     }
@@ -1102,34 +1118,34 @@ impl OptimizedKernelCache {
 
     pub fn get_implementation(
         &self,
-        signature: &MatMulOperationSignature,
+        _signature: &MatMulOperationSignature,
     ) -> Option<CachedImplementation> {
         None
     }
 
     pub fn store_implementation(
         &mut self,
-        signature: MatMulOperationSignature,
-        implementation: MatMulImplementation,
+        _signature: MatMulOperationSignature,
+        _implementation: MatMulImplementation,
     ) {
     }
 }
 
 impl KernelPerformanceMonitor {
-    pub fn new(config: &MonitoringConfig) -> CudaResult<Self> {
+    pub fn new(_config: &MonitoringConfig) -> CudaResult<Self> {
         Ok(Self)
     }
 }
 
 impl DynamicKernelCodeGenerator {
-    pub fn new(config: &CodeGenerationConfig) -> CudaResult<Self> {
+    pub fn new(_config: &CodeGenerationConfig) -> CudaResult<Self> {
         Ok(Self)
     }
 
     pub fn generate_kernel(
         &mut self,
-        operation_spec: KernelOperationSpec,
-        optimization_hints: OptimizationHints,
+        _operation_spec: KernelOperationSpec,
+        _optimization_hints: OptimizationHints,
     ) -> CudaResult<GeneratedKernel> {
         Ok(GeneratedKernel::default())
     }
@@ -1142,9 +1158,9 @@ impl KernelPerformanceStatistics {
 
     pub fn record_matmul_performance(
         &mut self,
-        signature: &MatMulOperationSignature,
-        execution_time: Duration,
-        success: bool,
+        _signature: &MatMulOperationSignature,
+        _execution_time: Duration,
+        _success: bool,
     ) {
     }
 
@@ -1160,10 +1176,10 @@ pub struct CachedImplementation;
 impl CachedImplementation {
     pub fn execute<T>(
         &self,
-        a: &ArrayView2<T>,
-        b: &ArrayView2<T>,
-        c: &mut Array2<T>,
-        stream: &CudaStream,
+        _a: &ArrayView2<T>,
+        _b: &ArrayView2<T>,
+        _c: &mut Array2<T>,
+        _stream: &CudaStream,
     ) -> CudaResult<()>
     where
         T: TensorElement + Send + Sync,
@@ -1236,6 +1252,7 @@ pub struct KernelPerformanceReport {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[allow(unused_imports)]
     use scirs2_core::ndarray::{Array1, Array2};
 
     #[test]

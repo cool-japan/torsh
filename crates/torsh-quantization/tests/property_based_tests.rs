@@ -84,57 +84,67 @@ proptest! {
         }
     }
 
-    /// Property: Dequantize(Quantize(x)) should approximately equal x
+    /// Property: Dequantize(Quantize(x)) must match the reference affine
+    /// quantizer for EVERY input, saturation included.
+    ///
+    /// Affine INT8 quantization is `q = clamp(round(x / scale) + zero_point, QMIN, QMAX)`
+    /// and dequantization is `recovered = (q - zero_point) * scale`. When `x` falls
+    /// outside the representable band `[(QMIN - zp) * scale, (QMAX - zp) * scale]`
+    /// the quantized code SATURATES, so `|recovered - x|` is unbounded — a naive
+    /// `|recovered - x| <= scale * k` assertion is only valid for in-range inputs
+    /// and wrongly flags correct saturation as a failure (e.g. `orig = 16071798`,
+    /// `scale = 386.4065` saturates to code 127 -> `recovered = 49073.625`, which
+    /// is exactly right). Rather than guess which inputs are in range, we recompute
+    /// the value the quantizer is *supposed* to emit directly from the original
+    /// input (clamp included) and check the implementation against that reference.
+    /// This validates the quantizer exactly across the whole input domain.
     #[test]
     fn prop_quantize_dequantize_roundtrip(
         data in valid_tensor_data(4, 256),
         scale in valid_scale(),
         zero_point in valid_zero_point_i8(),
     ) {
-        let original_data = &data;
+        // INT8 quantization grid (matches the implementation's hard-coded clamp).
+        const QMIN: f32 = -128.0;
+        const QMAX: f32 = 127.0;
 
-        // Calculate data range to check if quantization is feasible
-        let min_val = original_data.iter().copied().fold(f32::INFINITY, f32::min);
-        let max_val = original_data.iter().copied().fold(f32::NEG_INFINITY, f32::max);
-        let data_range = (max_val - min_val).abs();
-
-        // Skip cases where the data range is too large for the scale
-        // This would require more than 256 distinct values to represent accurately
-        let required_range = data_range / scale;
-        if !required_range.is_finite() || required_range > 256.0 * 1000.0 {
-            // Skip extreme cases that can't be accurately quantized to INT8
-            return Ok(());
-        }
-
-        // Also skip cases with extreme dynamic range
-        // Check all pairwise ratios in the data
-        let abs_values: Vec<f32> = original_data.iter().map(|&x| x.abs()).filter(|&x| x > 1e-20).collect();
-        if abs_values.len() >= 2 {
-            let min_abs = abs_values.iter().copied().fold(f32::INFINITY, f32::min);
-            let max_abs = abs_values.iter().copied().fold(f32::NEG_INFINITY, f32::max);
-            let ratio = max_abs / min_abs;
-            if !ratio.is_finite() || ratio > 1e4 {
-                // Skip cases with extreme ratios between values
-                return Ok(());
-            }
-        }
-
-        let tensor = tensor_1d(original_data).unwrap();
-        let (quantized, final_scale, final_zp) = quantize_per_tensor_affine(&tensor, scale, zero_point).unwrap();
-        let dequantized = dequantize_per_tensor_affine(&quantized, final_scale, final_zp).unwrap();
+        let tensor = tensor_1d(&data).unwrap();
+        let (quantized, final_scale, final_zp) =
+            quantize_per_tensor_affine(&tensor, scale, zero_point).unwrap();
+        let dequantized =
+            dequantize_per_tensor_affine(&quantized, final_scale, final_zp).unwrap();
 
         let original_tensor_data = tensor.data().unwrap();
         let recovered_data = dequantized.data().unwrap();
 
-        // Calculate maximum expected quantization error based on the quantization step size
-        let max_error = final_scale * 1.5; // Allow for rounding + tolerance
+        let zp = final_zp as f32;
 
-        for (i, (&orig, &recovered)) in original_tensor_data.iter().zip(recovered_data.iter()).enumerate() {
-            let error = (orig - recovered).abs();
+        // Tolerance between the implementation and the reference recovered value.
+        // It must absorb at most a SINGLE quantization level: the scalar path
+        // rounds `x / scale` while the SIMD path rounds `x * (1.0 / scale)`, and
+        // for an in-range value those can land on opposite sides of a rounding
+        // boundary (a one-level, i.e. one-`scale`, disagreement); saturated values
+        // agree exactly. `scale * 1.5` covers that one level plus the f32 rounding
+        // of the final multiply, while still rejecting any genuine multi-level
+        // quantizer error.
+        let max_error = final_scale * 1.5;
+
+        for (i, (&orig, &recovered)) in original_tensor_data
+            .iter()
+            .zip(recovered_data.iter())
+            .enumerate()
+        {
+            // Reference affine quantizer applied to the original value, INCLUDING
+            // saturation to the INT8 grid — this is what `recovered` must reproduce.
+            let expected_q = ((orig / final_scale).round() + zp).clamp(QMIN, QMAX);
+            let expected_recovered = (expected_q - zp) * final_scale;
+
+            let error = (recovered - expected_recovered).abs();
 
             prop_assert!(error <= max_error,
-                "Roundtrip error {} at index {} exceeds threshold {} (scale={}, orig={}, recovered={})",
-                error, i, max_error, final_scale, orig, recovered);
+                "Roundtrip error {} at index {} exceeds threshold {} \
+                 (scale={}, zero_point={}, orig={}, recovered={}, expected_recovered={})",
+                error, i, max_error, final_scale, final_zp, orig, recovered, expected_recovered);
         }
     }
 

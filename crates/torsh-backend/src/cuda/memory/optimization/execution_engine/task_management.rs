@@ -6,10 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
-use std::sync::{
-    atomic::AtomicU64,
-    Arc, Mutex, RwLock,
-};
+use std::sync::{atomic::AtomicU64, Arc, Mutex, RwLock};
 use std::time::{Duration, Instant, SystemTime};
 use uuid::Uuid;
 
@@ -86,7 +83,7 @@ pub struct OptimizationTask {
 pub struct TaskId(pub Uuid);
 
 /// Types of optimization tasks
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum OptimizationTaskType {
     /// Memory allocation optimization
     MemoryAllocation {
@@ -828,13 +825,19 @@ impl TaskManager {
 
         // Add to scheduling queue
         {
-            let mut queue = self.scheduling_queue.lock().expect("lock should not be poisoned");
+            let mut queue = self
+                .scheduling_queue
+                .lock()
+                .expect("lock should not be poisoned");
             queue.enqueue_task(task.id, task.priority);
         }
 
         // Update dependencies
         {
-            let mut dep_manager = self.dependency_manager.lock().expect("lock should not be poisoned");
+            let mut dep_manager = self
+                .dependency_manager
+                .lock()
+                .expect("lock should not be poisoned");
             dep_manager.register_dependencies(&task)?;
         }
 
@@ -849,7 +852,10 @@ impl TaskManager {
 
     /// Get the next task to execute
     pub fn get_next_task(&self) -> Option<OptimizationTask> {
-        let mut queue = self.scheduling_queue.lock().expect("lock should not be poisoned");
+        let mut queue = self
+            .scheduling_queue
+            .lock()
+            .expect("lock should not be poisoned");
         let task_id = queue.dequeue_next_task()?;
 
         let tasks = self.tasks.read().expect("lock should not be poisoned");
@@ -876,7 +882,10 @@ impl TaskManager {
         };
 
         {
-            let mut active_tasks = self.active_tasks.write().expect("lock should not be poisoned");
+            let mut active_tasks = self
+                .active_tasks
+                .write()
+                .expect("lock should not be poisoned");
             active_tasks.insert(task_id, active_info);
         }
 
@@ -891,7 +900,10 @@ impl TaskManager {
     /// Mark task as completed
     pub fn complete_task(&self, task_id: TaskId, results: TaskResults) -> Result<(), TaskError> {
         let active_info = {
-            let mut active_tasks = self.active_tasks.write().expect("lock should not be poisoned");
+            let mut active_tasks = self
+                .active_tasks
+                .write()
+                .expect("lock should not be poisoned");
             active_tasks
                 .remove(&task_id)
                 .ok_or(TaskError::TaskNotActive(task_id))?
@@ -911,7 +923,10 @@ impl TaskManager {
         };
 
         {
-            let mut completed_tasks = self.completed_tasks.write().expect("lock should not be poisoned");
+            let mut completed_tasks = self
+                .completed_tasks
+                .write()
+                .expect("lock should not be poisoned");
             completed_tasks.insert(task_id, completion_info);
         }
 
@@ -922,7 +937,10 @@ impl TaskManager {
 
         // Update dependency resolution
         {
-            let mut dep_manager = self.dependency_manager.lock().expect("lock should not be poisoned");
+            let mut dep_manager = self
+                .dependency_manager
+                .lock()
+                .expect("lock should not be poisoned");
             dep_manager.mark_task_completed(task_id);
         }
 
@@ -936,7 +954,10 @@ impl TaskManager {
         failure_info: TaskFailureInfo,
     ) -> Result<(), TaskError> {
         let active_info = {
-            let mut active_tasks = self.active_tasks.write().expect("lock should not be poisoned");
+            let mut active_tasks = self
+                .active_tasks
+                .write()
+                .expect("lock should not be poisoned");
             active_tasks
                 .remove(&task_id)
                 .ok_or(TaskError::TaskNotActive(task_id))?
@@ -951,7 +972,10 @@ impl TaskManager {
         };
 
         {
-            let mut failed_tasks = self.failed_tasks.write().expect("lock should not be poisoned");
+            let mut failed_tasks = self
+                .failed_tasks
+                .write()
+                .expect("lock should not be poisoned");
             failed_tasks.insert(task_id, failed_info);
         }
 
@@ -971,7 +995,10 @@ impl TaskManager {
 
     /// Get active tasks
     pub fn get_active_tasks(&self) -> Vec<ActiveTaskInfo> {
-        let active_tasks = self.active_tasks.read().expect("lock should not be poisoned");
+        let active_tasks = self
+            .active_tasks
+            .read()
+            .expect("lock should not be poisoned");
         active_tasks.values().cloned().collect()
     }
 
@@ -983,7 +1010,10 @@ impl TaskManager {
 
     /// Generate a new task ID
     fn generate_task_id(&self) -> Result<TaskId, TaskError> {
-        let mut generator = self.id_generator.lock().expect("lock should not be poisoned");
+        let generator = self
+            .id_generator
+            .lock()
+            .expect("lock should not be poisoned");
         Ok(generator.generate())
     }
 
@@ -1043,7 +1073,7 @@ impl TaskSchedulingQueue {
             TaskPriority::Idle => self.idle_queue.push_back(task_id),
         }
 
-        self.scheduling_stats.tasks_enqueued += 1;
+        self.scheduling_stats.total_scheduled += 1;
     }
 
     fn dequeue_next_task(&mut self) -> Option<TaskId> {
@@ -1055,7 +1085,7 @@ impl TaskSchedulingQueue {
 
         // Check deadline queue for urgent tasks
         if let Some(deadline_entry) = self.deadline_queue.iter().next() {
-            let now = SystemTime::now();
+            let now = Instant::now();
             if deadline_entry.deadline <= now {
                 let task_id = deadline_entry.task_id;
                 self.deadline_queue.remove(&deadline_entry.clone());
@@ -1119,10 +1149,14 @@ impl TaskDependencyManager {
         self.resolved_dependencies.insert(task_id, true);
 
         // Check if any dependent tasks can now be resolved
-        if let Some(dependents) = self.reverse_dependency_graph.get(&task_id) {
-            for &dependent_id in dependents {
-                self.check_dependencies_resolved(dependent_id);
-            }
+        // Collect dependents first to avoid borrow conflict
+        let dependents: Vec<TaskId> = self
+            .reverse_dependency_graph
+            .get(&task_id)
+            .map(|deps| deps.iter().copied().collect())
+            .unwrap_or_default();
+        for dependent_id in dependents {
+            self.check_dependencies_resolved(dependent_id);
         }
     }
 
@@ -1182,7 +1216,7 @@ pub enum TaskError {
 
 macro_rules! default_placeholder_struct {
     ($name:ident) => {
-        #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+        #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
         pub struct $name {
             pub placeholder: bool,
         }
@@ -1255,10 +1289,53 @@ default_placeholder_struct!(RollbackConfig);
 default_placeholder_struct!(FailureAnalysisConfig);
 default_placeholder_struct!(TimeoutHandlingStrategy);
 default_placeholder_struct!(TimeoutEscalationConfig);
-default_placeholder_struct!(TaskMetricsCollector);
-default_placeholder_struct!(TaskPriorityManager);
-default_placeholder_struct!(TaskResourceManager);
-default_placeholder_struct!(TaskManagerStatistics);
+/// Task metrics collector placeholder
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct TaskMetricsCollector {
+    pub placeholder: bool,
+}
+impl TaskMetricsCollector {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+/// Task priority manager placeholder
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct TaskPriorityManager {
+    pub placeholder: bool,
+}
+impl TaskPriorityManager {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+/// Task resource manager placeholder
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct TaskResourceManager {
+    pub placeholder: bool,
+}
+impl TaskResourceManager {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+/// Task manager statistics
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct TaskManagerStatistics {
+    pub tasks_submitted: u64,
+    pub tasks_started: u64,
+    pub tasks_completed: u64,
+    pub tasks_failed: u64,
+    pub tasks_cancelled: u64,
+}
+impl TaskManagerStatistics {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
 /// Entry for deadline-based task tracking
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeadlineTaskEntry {
@@ -1282,11 +1359,44 @@ pub struct SchedulingStatistics {
     /// Failed executions
     pub failed: u64,
 }
-default_placeholder_struct!(ExecutionPhase);
-default_placeholder_struct!(AllocatedResources);
-default_placeholder_struct!(TaskProgress);
-default_placeholder_struct!(RealtimeTaskMetrics);
-default_placeholder_struct!(ExecutionSummary);
+/// Execution phases for task tracking
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum ExecutionPhase {
+    #[default]
+    Initializing,
+    Preparing,
+    Running,
+    Finalizing,
+    Completed,
+    Failed,
+}
+
+/// Allocated resources for task execution
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct AllocatedResources {
+    pub placeholder: bool,
+}
+
+/// Task progress tracking
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct TaskProgress {
+    pub placeholder: bool,
+}
+
+/// Realtime task metrics
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct RealtimeTaskMetrics {
+    pub placeholder: bool,
+}
+
+/// Execution summary for completed tasks
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ExecutionSummary {
+    #[serde(skip, default)]
+    pub execution_duration: Duration,
+    pub phases_completed: Vec<ExecutionPhase>,
+    pub resource_utilization: ResourceUtilization,
+}
 default_placeholder_struct!(TaskResults);
 default_placeholder_struct!(FinalPerformanceMetrics);
 default_placeholder_struct!(TaskFailureInfo);
@@ -1319,7 +1429,7 @@ pub enum TimeConstraintType {
     EndTime,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ResourceType {
     CPU,
     Memory,
@@ -1528,11 +1638,15 @@ mod tests {
             estimated_duration: Some(Duration::from_secs(60)),
         };
 
-        let task_id = task_manager.submit_task(task).expect("task submission should succeed");
+        let task_id = task_manager
+            .submit_task(task)
+            .expect("task submission should succeed");
         let stats = task_manager.get_statistics();
         assert_eq!(stats.tasks_submitted, 1);
 
-        let retrieved_task = task_manager.get_task(task_id).expect("task retrieval should succeed");
+        let retrieved_task = task_manager
+            .get_task(task_id)
+            .expect("task retrieval should succeed");
         assert_eq!(retrieved_task.name, "Test Task");
     }
 

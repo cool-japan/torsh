@@ -333,12 +333,13 @@ impl SpeculativeOptimizer {
             }
         }
 
-        // Record assumptions
+        // Record assumptions — pair each AssumptionId with the optimization that produced
+        // it.  The two vecs are grown in lock-step (one optimization per assumption), so
+        // zip gives correct context for every entry.
         if let Ok(mut assumption_map) = self.assumptions.write() {
-            for assumption_id in &assumptions_made {
-                if let Some(assumption) = self.create_assumption(*assumption_id) {
-                    assumption_map.insert(*assumption_id, assumption);
-                }
+            for (assumption_id, optimization) in assumptions_made.iter().zip(optimizations.iter()) {
+                let assumption = self.build_assumption(*assumption_id, optimization);
+                assumption_map.insert(*assumption_id, assumption);
             }
         }
 
@@ -813,19 +814,95 @@ impl SpeculativeOptimizer {
         AssumptionId(COUNTER.fetch_add(1, Ordering::Relaxed))
     }
 
-    fn create_assumption(&self, id: AssumptionId) -> Option<Assumption> {
-        // This would create an assumption based on the analysis
-        // For now, return a placeholder
-        Some(Assumption {
+    /// Build an `Assumption` from a known `(id, optimization)` pair so that
+    /// every field reflects the actual speculation context rather than a
+    /// hardcoded placeholder.
+    fn build_assumption(
+        &self,
+        id: AssumptionId,
+        optimization: &SpeculativeOptimization,
+    ) -> Assumption {
+        let assumption_type = match &optimization.optimization_type {
+            SpeculativeOptimizationType::TypeCheckElimination => {
+                // Extract the expected type from the optimization description.
+                // Description format: "Assume type is always <type_name>"
+                let expected_type = optimization
+                    .description
+                    .strip_prefix("Assume type is always ")
+                    .unwrap_or("unknown")
+                    .to_string();
+                AssumptionType::TypeSpeculation { expected_type }
+            }
+            SpeculativeOptimizationType::ShapeSpecialization => {
+                // Description format: "Specialize for shape [d0, d1, ...]"
+                // Parse the shape from the description; fall back to empty on parse error.
+                let expected_shape = optimization
+                    .description
+                    .strip_prefix("Specialize for shape ")
+                    .and_then(|s| {
+                        // Remove brackets and split on ", "
+                        let inner = s.trim_start_matches('[').trim_end_matches(']');
+                        if inner.is_empty() {
+                            Some(Vec::new())
+                        } else {
+                            inner
+                                .split(", ")
+                                .map(|tok| tok.trim().parse::<usize>().ok())
+                                .collect::<Option<Vec<usize>>>()
+                        }
+                    })
+                    .unwrap_or_default();
+                AssumptionType::ShapeSpeculation { expected_shape }
+            }
+            SpeculativeOptimizationType::ConstantPropagation => {
+                // Description format: "Assume constant value <f64>"
+                let (expected_value, tolerance) = optimization
+                    .description
+                    .strip_prefix("Assume constant value ")
+                    .and_then(|s| s.split_whitespace().next())
+                    .and_then(|tok| tok.parse::<f64>().ok())
+                    .map(|v| (v, 1e-10))
+                    .unwrap_or((0.0, 1e-10));
+                AssumptionType::ValueSpeculation {
+                    expected_value,
+                    tolerance,
+                }
+            }
+            SpeculativeOptimizationType::BranchElimination => {
+                let usually_taken = optimization.description.contains("usually taken");
+                // Use the optimization's estimated benefit as a proxy for confidence.
+                let probability = (optimization.estimated_benefit * 10.0).clamp(0.5, 0.99);
+                AssumptionType::BranchSpeculation {
+                    usually_taken,
+                    probability,
+                }
+            }
+            // For other optimization types the most conservative assumption is
+            // NullabilitySpeculation (guards against NaN/null inputs).
+            _ => AssumptionType::NullabilitySpeculation,
+        };
+
+        let initial_confidence = self.config.confidence_threshold;
+        let mut metadata = HashMap::new();
+        metadata.insert(
+            "optimization_type".to_string(),
+            format!("{:?}", optimization.optimization_type),
+        );
+        metadata.insert(
+            "estimated_benefit".to_string(),
+            optimization.estimated_benefit.to_string(),
+        );
+
+        Assumption {
             id,
-            assumption_type: AssumptionType::NullabilitySpeculation,
-            node_id: NodeIndex::new(0),
-            confidence: 0.8,
+            assumption_type,
+            node_id: optimization.node_id,
+            confidence: initial_confidence,
             success_count: 0,
             failure_count: 0,
             created_at: std::time::SystemTime::now(),
-            metadata: HashMap::new(),
-        })
+            metadata,
+        }
     }
 
     fn calculate_confidence(&self, assumption: &Assumption) -> f64 {

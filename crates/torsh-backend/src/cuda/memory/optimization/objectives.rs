@@ -247,7 +247,7 @@ pub enum ObjectiveCategory {
 }
 
 /// Optimization direction specification
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum OptimizationDirection {
     /// Minimize the objective value
     Minimize,
@@ -363,7 +363,7 @@ pub enum ConstraintPriority {
 }
 
 /// Multi-objective optimization engine
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct MultiObjectiveEngine {
     /// Available optimization algorithms
     algorithms: HashMap<String, Box<dyn MultiObjectiveAlgorithm>>,
@@ -453,7 +453,7 @@ pub struct ParetoSolution {
 }
 
 /// Constraint management system
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ConstraintManager {
     /// Active constraints registry
     constraints: HashMap<String, ObjectiveConstraint>,
@@ -645,13 +645,15 @@ impl OptimizationObjectiveManager {
         self.metrics_tracker
             .record_evaluation(&evaluation_results, &constraint_results)?;
 
+        let quality_assessment =
+            self.assess_evaluation_quality(&evaluation_results, &constraint_results)?;
+        let evaluation_metadata = self.create_evaluation_metadata(context)?;
         Ok(ObjectiveEvaluationResult {
             objective_values: evaluation_results,
             constraint_results,
             aggregate_metrics,
-            evaluation_metadata: self.create_evaluation_metadata(context)?,
-            quality_assessment: self
-                .assess_evaluation_quality(&evaluation_results, &constraint_results)?,
+            evaluation_metadata,
+            quality_assessment,
             timestamp: Instant::now(),
         })
     }
@@ -804,10 +806,9 @@ impl OptimizationObjectiveManager {
         Ok(ObjectiveConfigurationExport {
             objectives,
             constraints,
-            pareto_archive,
+            pareto_archive: Some(pareto_archive),
             metadata: self.create_export_metadata(),
             version: "1.0".to_string(),
-            timestamp: Instant::now(),
         })
     }
 
@@ -1050,13 +1051,15 @@ impl OptimizationObjectiveManager {
         if !result.pareto_front.solutions.is_empty() {
             let knee_solutions = analysis.find_knee_solutions(&result.pareto_front)?;
             for solution in knee_solutions {
+                let solution_id = solution.id.clone();
+                let expected_benefits = self.calculate_expected_benefits(&solution)?;
                 recommendations.push(MultiObjectiveRecommendation {
                     recommendation_type: RecommendationType::KneeSolution,
-                    solution_id: solution.id,
+                    solution_id,
                     rationale: "This solution represents a good compromise between all objectives"
                         .to_string(),
                     confidence: 0.8,
-                    expected_benefits: self.calculate_expected_benefits(&solution)?,
+                    expected_benefits,
                 });
             }
         }
@@ -1177,7 +1180,7 @@ impl OptimizationObjectiveManager {
         obj2: &OptimizationObjective,
     ) -> Result<bool, ObjectiveError> {
         // Simplified conflict detection - in practice this would be more sophisticated
-        match (obj1.objective_type, obj2.objective_type) {
+        match (&obj1.objective_type, &obj2.objective_type) {
             (ObjectiveType::Performance, ObjectiveType::MemoryUsage) => Ok(true),
             (ObjectiveType::Throughput, ObjectiveType::Latency) => Ok(true),
             (ObjectiveType::Performance, ObjectiveType::Energy) => Ok(true),
@@ -1203,8 +1206,8 @@ impl OptimizationObjectiveManager {
 
     fn generate_conflict_resolution_suggestions(
         &self,
-        obj1: &OptimizationObjective,
-        obj2: &OptimizationObjective,
+        _obj1: &OptimizationObjective,
+        _obj2: &OptimizationObjective,
     ) -> Result<Vec<ResolutionSuggestion>, ObjectiveError> {
         let mut suggestions = Vec::new();
 
@@ -1247,8 +1250,8 @@ impl OptimizationObjectiveManager {
 
     fn check_objective_constraint_compatibility(
         &self,
-        objective: &OptimizationObjective,
-        constraint: &ObjectiveConstraint,
+        _objective: &OptimizationObjective,
+        _constraint: &ObjectiveConstraint,
     ) -> Result<Option<CompatibilityIssue>, ObjectiveError> {
         // Check if objective and constraint are compatible
         // This is a simplified implementation
@@ -1285,7 +1288,7 @@ impl OptimizationObjectiveManager {
 // Implementation for ObjectiveRegistry
 impl ObjectiveRegistry {
     /// Create a new objective registry
-    pub fn new(config: ObjectiveRegistryConfig) -> Self {
+    pub fn new(_config: ObjectiveRegistryConfig) -> Self {
         Self {
             objectives: Arc::new(RwLock::new(HashMap::new())),
             categories: HashMap::new(),
@@ -1311,7 +1314,7 @@ impl ObjectiveRegistry {
 
         // Update categories
         self.categories
-            .entry(objective.category)
+            .entry(objective.category.clone())
             .or_insert_with(Vec::new)
             .push(objective.id.clone());
 
@@ -1398,8 +1401,8 @@ impl ObjectiveRegistry {
 
     fn evaluate_context_dependency(
         &self,
-        dependency: &ContextDependency,
-        context: &EvaluationContext,
+        _dependency: &ContextDependency,
+        _context: &EvaluationContext,
     ) -> bool {
         // Evaluate context dependency - simplified implementation
         true
@@ -1454,511 +1457,13 @@ impl std::fmt::Display for ObjectiveError {
 
 impl std::error::Error for ObjectiveError {}
 
-// Placeholder implementations for supporting structures
-// (Due to space constraints, providing abbreviated versions)
-
-#[derive(Debug, Default)]
-pub struct ObjectiveManagerConfig;
-#[derive(Debug, Default)]
-pub struct ObjectiveRegistryConfig;
-#[derive(Debug, Default)]
-pub struct ParetoFrontAnalyzer;
-#[derive(Debug, Default)]
-pub struct ObjectiveFunctionEvaluator;
-#[derive(Debug, Default)]
-pub struct ConstraintSatisfactionChecker;
-#[derive(Debug, Default)]
-pub struct TradeoffAnalyzer;
-#[derive(Debug, Default)]
-pub struct ObjectiveDecompositionSystem;
-#[derive(Debug, Default)]
-pub struct DynamicObjectiveAdjustment;
-#[derive(Debug, Default)]
-pub struct SolutionArchiveManager;
-#[derive(Debug, Default)]
-pub struct ObjectiveMetricsTracker;
-#[derive(Debug, Default)]
-pub struct ObjectiveVisualizationSystem;
-
-// Additional supporting structures (abbreviated for space)
-#[derive(Debug, Default, Clone)]
-pub struct ObjectiveHierarchy;
-#[derive(Debug, Default)]
-pub struct DependencyGraph;
-#[derive(Debug, Default, Clone)]
-pub struct ObjectiveTemplate;
-#[derive(Debug, Default)]
-pub struct ObjectiveFactory;
-#[derive(Debug, Default)]
-pub struct ObjectiveValidationFramework;
-#[derive(Debug, Default)]
-pub struct ObjectiveVersioningSystem;
-#[derive(Debug, Default, Clone)]
-pub struct MeasurementConfiguration;
-#[derive(Debug, Default, Clone)]
-pub struct ObjectiveBounds;
-#[derive(Debug, Default, Clone)]
-pub struct SensitivityAnalysis;
-#[derive(Debug, Default, Clone)]
-pub struct ObjectiveHistoryEntry;
-#[derive(Debug, Default, Clone, Copy)]
-pub struct ObjectivePriority;
-#[derive(Debug, Default, Clone)]
-pub struct ContextDependency;
-#[derive(Debug, Default, Clone)]
-pub struct ObjectiveQualityAssessment;
-#[derive(Debug, Default, Clone)]
-pub struct ObjectiveMetadata;
-#[derive(Debug, Default, Clone)]
-pub struct ObjectiveValidationRule;
-#[derive(Debug, Default, Clone)]
-pub struct SuccessCriterion;
-#[derive(Debug, Default, Clone)]
-pub struct FailureCondition;
-#[derive(Debug, Default, Clone, Copy)]
-pub struct TrajectoryPath;
-#[derive(Debug, Default, Clone)]
-pub struct OptimizationCondition;
-#[derive(Debug, Default, Clone)]
-pub struct ConstraintValue;
-#[derive(Debug, Default, Clone, Copy)]
-pub struct ConstraintStrictness;
-#[derive(Debug, Default, Clone)]
-pub struct PenaltyFunction;
-#[derive(Debug, Default, Clone)]
-pub struct ActivationCondition;
-#[derive(Debug, Default, Clone)]
-pub struct ConstraintDependency;
-#[derive(Debug, Default, Clone)]
-pub struct TemporalConstraintProperties;
-#[derive(Debug, Default, Clone)]
-pub struct ConstraintValidationConfig;
-#[derive(Debug, Default, Clone)]
-pub struct ConstraintViolation;
-#[derive(Debug, Default, Clone)]
-pub struct ConstraintAdaptationRule;
-
-// Additional trait and implementation stubs
-pub trait MultiObjectiveAlgorithm: std::fmt::Debug + Send + Sync {
-    fn optimize(
-        &mut self,
-        session: &mut OptimizationSession,
-    ) -> Result<OptimizationResult, ObjectiveError>;
-    fn get_name(&self) -> &str;
-    fn get_parameters(&self) -> HashMap<String, f64>;
-}
-
-// Many more supporting structures would be implemented here for a complete system
-// This shows the core architecture and main functionality
-
-impl ConstraintValue {
-    pub const Single: fn(f64) -> Self = |_| Self;
-    pub const Range: fn(f64, f64) -> Self = |_, _| Self;
-}
-
-impl DependencyGraph {
-    fn new() -> Self {
-        Self
-    }
-    fn add_dependency(&mut self, from: &str, to: &str) -> Result<(), ObjectiveError> {
-        Ok(())
-    }
-}
-
-impl ConstraintManager {
-    fn new(config: ConstraintManagerConfig) -> Self {
-        Self
-    }
-    fn register_constraint(
-        &mut self,
-        constraint: ObjectiveConstraint,
-    ) -> Result<(), ObjectiveError> {
-        Ok(())
-    }
-    fn check_constraints(
-        &self,
-        params: &HashMap<String, f64>,
-        context: &EvaluationContext,
-    ) -> Result<ConstraintSatisfactionResult, ObjectiveError> {
-        Ok(ConstraintSatisfactionResult::default())
-    }
-    fn get_all_constraints(&self) -> Vec<ObjectiveConstraint> {
-        Vec::new()
-    }
-    fn detect_infeasible_constraints(
-        &self,
-        constraints: &[ObjectiveConstraint],
-    ) -> Result<Vec<String>, ObjectiveError> {
-        Ok(Vec::new())
-    }
-    fn detect_redundant_constraints(
-        &self,
-        constraints: &[ObjectiveConstraint],
-    ) -> Result<Vec<String>, ObjectiveError> {
-        Ok(Vec::new())
-    }
-    fn export_constraints(&self) -> Result<Vec<ObjectiveConstraint>, ObjectiveError> {
-        Ok(Vec::new())
-    }
-    fn count_constraints(&self) -> usize {
-        0
-    }
-    fn get_satisfaction_metrics(&self) -> ConstraintMetrics {
-        ConstraintMetrics::default()
-    }
-}
-
-impl ObjectiveFunctionEvaluator {
-    fn new(config: ObjectiveEvaluatorConfig) -> Self {
-        Self
-    }
-    fn evaluate_objective(
-        &self,
-        objective: &OptimizationObjective,
-        params: &HashMap<String, f64>,
-        context: &EvaluationContext,
-    ) -> Result<f64, ObjectiveError> {
-        Ok(0.0)
-    }
-    fn validate_function(&self, function: &ObjectiveFunction) -> Result<(), ObjectiveError> {
-        Ok(())
-    }
-}
-
-impl ObjectiveMetricsTracker {
-    fn new(config: ObjectiveMetricsConfig) -> Self {
-        Self
-    }
-    fn initialize_objective_tracking(&mut self, objective_id: &str) -> Result<(), ObjectiveError> {
-        Ok(())
-    }
-    fn record_evaluation(
-        &mut self,
-        objective_results: &HashMap<String, f64>,
-        constraint_results: &ConstraintSatisfactionResult,
-    ) -> Result<(), ObjectiveError> {
-        Ok(())
-    }
-    fn get_comprehensive_metrics(&self) -> ObjectiveMetrics {
-        ObjectiveMetrics::default()
-    }
-    fn get_performance_trends(&self) -> PerformanceTrends {
-        PerformanceTrends::default()
-    }
-}
-
-impl MultiObjectiveEngine {
-    fn new(config: MultiObjectiveEngineConfig) -> Self {
-        Self
-    }
-    fn create_session(
-        &self,
-        config: MultiObjectiveConfig,
-    ) -> Result<OptimizationSession, ObjectiveError> {
-        Ok(OptimizationSession::default())
-    }
-    fn optimize(
-        &self,
-        session: &mut OptimizationSession,
-    ) -> Result<MultiObjectiveOptimizationResult, ObjectiveError> {
-        Ok(MultiObjectiveOptimizationResult::default())
-    }
-    fn get_current_pareto_front(&self) -> Result<ParetoFront, ObjectiveError> {
-        Ok(ParetoFront::default())
-    }
-    fn update_weights(&mut self, weights: &HashMap<String, f32>) -> Result<(), ObjectiveError> {
-        Ok(())
-    }
-    fn start_interactive_session(
-        &mut self,
-        config: InteractiveOptimizationConfig,
-    ) -> Result<InteractiveSession, ObjectiveError> {
-        Ok(InteractiveSession::default())
-    }
-}
-
-impl ParetoFrontAnalyzer {
-    fn new(config: ParetoAnalyzerConfig) -> Self {
-        Self
-    }
-    fn analyze_front(&self, front: &ParetoFront) -> Result<ParetoAnalysis, ObjectiveError> {
-        Ok(ParetoAnalysis::default())
-    }
-    fn find_compromise_solutions(
-        &self,
-        front: &ParetoFront,
-        preferences: &UserPreferences,
-    ) -> Result<Vec<ParetoSolution>, ObjectiveError> {
-        Ok(Vec::new())
-    }
-    fn get_front_metrics(&self) -> ParetoMetrics {
-        ParetoMetrics::default()
-    }
-}
-
-impl SolutionArchiveManager {
-    fn new(config: SolutionArchiveConfig) -> Self {
-        Self
-    }
-    fn add_solutions(&mut self, solutions: &[ParetoSolution]) -> Result<(), ObjectiveError> {
-        Ok(())
-    }
-    fn export_solutions(&self) -> Result<SolutionArchive, ObjectiveError> {
-        Ok(SolutionArchive::default())
-    }
-    fn import_solutions(&mut self, archive: SolutionArchive) -> Result<(), ObjectiveError> {
-        Ok(())
-    }
-    fn count_solutions(&self) -> usize {
-        0
-    }
-    fn get_statistics(&self) -> SolutionStatistics {
-        SolutionStatistics::default()
-    }
-}
-
-// Additional default implementations for placeholder structures
-#[derive(Debug, Default)]
-pub struct ConstraintManagerConfig;
-#[derive(Debug, Default)]
-pub struct ObjectiveEvaluatorConfig;
-#[derive(Debug, Default)]
-pub struct ObjectiveMetricsConfig;
-#[derive(Debug, Default)]
-pub struct MultiObjectiveEngineConfig;
-#[derive(Debug, Default)]
-pub struct ParetoAnalyzerConfig;
-#[derive(Debug, Default)]
-pub struct SolutionArchiveConfig;
-#[derive(Debug, Default)]
-pub struct EvaluationContext;
-#[derive(Debug, Default)]
-pub struct ObjectiveEvaluationResult;
-#[derive(Debug)]
-pub struct ConstraintSatisfactionResult {
-    pub total_penalty: f64,
-    pub satisfaction_rate: f32,
-}
-#[derive(Debug, Default)]
-pub struct AggregateMetrics {
-    pub weighted_objective_score: f64,
-    pub constraint_violation_penalty: f64,
-    pub overall_fitness: f64,
-}
-#[derive(Debug, Default)]
-pub struct EvaluationMetadata;
-#[derive(Debug, Default)]
-pub struct EvaluationQualityAssessment {
-    pub objective_quality: f32,
-    pub assessment_confidence: f32,
-    pub assessment_reliability: f32,
-}
-#[derive(Debug, Default)]
-pub struct MultiObjectiveConfig;
-#[derive(Debug, Default)]
-pub struct MultiObjectiveResult;
-#[derive(Debug, Default)]
-pub struct TradeoffContext;
-#[derive(Debug, Default)]
-pub struct TradeoffAnalysis;
-#[derive(Debug, Default)]
-pub struct DecompositionConfig;
-#[derive(Debug, Default)]
-pub struct AdjustmentContext;
-#[derive(Debug, Default)]
-pub struct UserPreferences;
-#[derive(Debug, Default)]
-pub struct InteractiveOptimizationConfig;
-#[derive(Debug, Default)]
-pub struct InteractiveSession;
-#[derive(Debug, Default)]
-pub struct ConsistencyReport {
-    pub objective_conflicts: Vec<ObjectiveConflict>,
-    pub consistency_score: f32,
-    pub conflict_resolution_suggestions: Vec<String>,
-}
-#[derive(Debug, Default)]
-pub struct ObjectiveConfigurationExport;
-#[derive(Debug, Default)]
-pub struct ObjectiveConfigurationImport;
-#[derive(Debug, Default)]
-pub struct ImportReport {
-    pub successful_objectives: Vec<String>,
-    pub failed_objectives: Vec<String>,
-    pub warnings: Vec<String>,
-    pub import_summary: String,
-}
-#[derive(Debug, Default)]
-pub struct ObjectiveAnalyticsDashboard;
-#[derive(Debug, Default)]
-pub struct OptimizationSession;
-#[derive(Debug, Default)]
-pub struct MultiObjectiveOptimizationResult;
-#[derive(Debug, Default)]
-pub struct ParetoAnalysis;
-#[derive(Debug, Default)]
-pub struct MultiObjectiveRecommendation;
-#[derive(Debug, Default)]
-pub struct ComputationalResources;
-#[derive(Debug, Default)]
-pub struct ObjectiveConflict;
-#[derive(Debug, Default)]
-pub struct CompatibilityIssue;
-#[derive(Debug, Default)]
-pub struct ExportMetadata;
-#[derive(Debug, Default)]
-pub struct DashboardRecommendation;
-#[derive(Debug, Default)]
-pub struct ConstraintMetrics;
-#[derive(Debug, Default)]
-pub struct ObjectiveMetrics;
-#[derive(Debug, Default)]
-pub struct PerformanceTrends;
-#[derive(Debug, Default)]
-pub struct ParetoMetrics;
-#[derive(Debug, Default)]
-pub struct SolutionArchive;
-#[derive(Debug, Default)]
-pub struct SolutionStatistics;
-#[derive(Debug, Default, Copy, Clone)]
-pub struct RecommendationType;
-#[derive(Debug, Default, Copy, Clone)]
-pub struct ConflictType;
-#[derive(Debug, Default, Copy, Clone)]
-pub struct ConflictSeverity;
-#[derive(Debug, Default)]
-pub struct ResolutionSuggestion;
-#[derive(Debug, Default, Copy, Clone)]
-pub struct SuggestionType;
-#[derive(Debug, Default, Copy, Clone)]
-pub struct ImplementationEffort;
-
-// Enum implementations
-impl RecommendationType {
-    pub const KneeSolution: Self = Self;
-    pub const FocusObjective: Self = Self;
-}
-
-impl ConflictSeverity {
-    pub const High: Self = Self;
-    pub const Medium: Self = Self;
-    pub const Low: Self = Self;
-}
-
-impl SuggestionType {
-    pub const WeightAdjustment: Self = Self;
-    pub const ObjectiveReformulation: Self = Self;
-}
-
-impl ImplementationEffort {
-    pub const Low: Self = Self;
-    pub const Medium: Self = Self;
-    pub const High: Self = Self;
-}
-
-impl AggregateMetrics {
-    fn new() -> Self {
-        Self {
-            weighted_objective_score: 0.0,
-            constraint_violation_penalty: 0.0,
-            overall_fitness: 0.0,
-        }
-    }
-}
-
-impl EvaluationQualityAssessment {
-    fn new() -> Self {
-        Self {
-            objective_quality: 0.0,
-            assessment_confidence: 0.0,
-            assessment_reliability: 0.0,
-        }
-    }
-}
-
-impl ConsistencyReport {
-    fn new() -> Self {
-        Self {
-            objective_conflicts: Vec::new(),
-            consistency_score: 0.0,
-            conflict_resolution_suggestions: Vec::new(),
-        }
-    }
-}
-
-impl ImportReport {
-    fn new() -> Self {
-        Self {
-            successful_objectives: Vec::new(),
-            failed_objectives: Vec::new(),
-            warnings: Vec::new(),
-            import_summary: String::new(),
-        }
-    }
-}
-
-impl ConstraintSatisfactionResult {
-    fn new() -> Self {
-        Self {
-            total_penalty: 0.0,
-            satisfaction_rate: 0.0,
-        }
-    }
-}
-
-impl Default for ConstraintSatisfactionResult {
-    fn default() -> Self {
-        Self {
-            total_penalty: 0.0,
-            satisfaction_rate: 1.0,
-        }
-    }
-}
-
-impl Default for ParetoFront {
-    fn default() -> Self {
-        Self {
-            solutions: Vec::new(),
-            generation: 0,
-            quality_metrics: ParetoQualityMetrics::default(),
-            dominance_matrix: DominanceMatrix::default(),
-            reference_points: Vec::new(),
-            ideal_point: Vec::new(),
-            nadir_point: Vec::new(),
-            approximation_quality: ApproximationQuality::default(),
-            stability_measures: FrontStabilityMeasures::default(),
-            visualization_data: FrontVisualizationData::default(),
-            statistical_analysis: FrontStatisticalAnalysis::default(),
-        }
-    }
-}
-
-// Additional placeholder structures for complete compilation
-#[derive(Debug, Default)]
-pub struct ParetoQualityMetrics;
-#[derive(Debug, Default)]
-pub struct DominanceMatrix;
-#[derive(Debug, Default)]
-pub struct ReferencePoint;
-#[derive(Debug, Default)]
-pub struct ApproximationQuality;
-#[derive(Debug, Default)]
-pub struct FrontStabilityMeasures;
-#[derive(Debug, Default)]
-pub struct FrontVisualizationData;
-#[derive(Debug, Default)]
-pub struct FrontStatisticalAnalysis;
-#[derive(Debug, Default)]
-pub struct ConstraintSatisfactionStatus;
-#[derive(Debug, Default)]
-pub struct ResourceRequirements;
-#[derive(Debug, Default)]
-pub struct SolutionRiskAssessment;
-#[derive(Debug, Default)]
-pub struct SolutionMetadata;
-#[derive(Debug, Default)]
-pub struct SolutionValidationResults;
-#[derive(Debug, Default)]
-pub struct UserFeedback;
-
-// This represents the comprehensive objectives and constraints module architecture
+// ============================================================================
+// Supporting structures and placeholder implementations
+// ============================================================================
+//
+// The trailing block of supporting types, configs, and placeholder impls is
+// kept in a sibling file to comply with the 2000-line-per-file policy.
+// Re-exported here so the public API surface of this module is unchanged.
+#[path = "objectives_support.rs"]
+mod objectives_support;
+pub use objectives_support::*;

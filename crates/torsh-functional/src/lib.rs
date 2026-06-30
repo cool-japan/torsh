@@ -163,8 +163,9 @@ pub use advanced_nn::{
 // Tensor operations
 pub use broadcast::{broadcast_shapes, broadcast_tensors};
 pub use linalg::{
-    baddbmm, bmm, chain_matmul, cholesky, cond, det, eig, inv, lstsq, lu, matrix_rank, norm,
-    pca_lowrank, pinv, qr, solve, svd, svd_lowrank, triangular_solve, NormOrd,
+    baddbmm, bmm, chain_matmul, cholesky, cond, det, eig, inv, lstsq, lu,
+    matrix_chain_optimal_cost, matrix_rank, norm, pca_lowrank, pinv, qr, solve, svd, svd_lowrank,
+    triangular_solve, NormOrd,
 };
 pub use manipulation::{
     atleast_1d, atleast_2d, atleast_3d, block_diag, cartesian_prod, chunk, dsplit, hsplit,

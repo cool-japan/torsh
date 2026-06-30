@@ -213,7 +213,10 @@ impl MinimalExecutionEngine {
 
         // Cancel all active tasks
         {
-            let mut tasks = self.active_tasks.lock().expect("lock should not be poisoned");
+            let mut tasks = self
+                .active_tasks
+                .lock()
+                .expect("lock should not be poisoned");
             for task in tasks.values_mut() {
                 if task.status == TaskStatus::Running || task.status == TaskStatus::Pending {
                     task.status = TaskStatus::Cancelled;
@@ -237,7 +240,10 @@ impl MinimalExecutionEngine {
 
         // Check capacity
         {
-            let tasks = self.active_tasks.lock().expect("lock should not be poisoned");
+            let tasks = self
+                .active_tasks
+                .lock()
+                .expect("lock should not be poisoned");
             if tasks.len() >= self.config.max_concurrent_tasks {
                 return Err(MinimalEngineError::SystemError(
                     "Maximum concurrent tasks reached".to_string(),
@@ -253,7 +259,10 @@ impl MinimalExecutionEngine {
 
         // Add to active tasks
         {
-            let mut tasks = self.active_tasks.lock().expect("lock should not be poisoned");
+            let mut tasks = self
+                .active_tasks
+                .lock()
+                .expect("lock should not be poisoned");
             tasks.insert(task_id.clone(), task);
         }
 
@@ -264,7 +273,10 @@ impl MinimalExecutionEngine {
     pub fn execute_task(&self, task_id: &str) -> Result<TaskResult, MinimalEngineError> {
         // Get and update task
         let task = {
-            let mut tasks = self.active_tasks.lock().expect("lock should not be poisoned");
+            let mut tasks = self
+                .active_tasks
+                .lock()
+                .expect("lock should not be poisoned");
             match tasks.get_mut(task_id) {
                 Some(task) => {
                     if task.status != TaskStatus::Pending {
@@ -289,7 +301,10 @@ impl MinimalExecutionEngine {
 
         // Update task status
         {
-            let mut tasks = self.active_tasks.lock().expect("lock should not be poisoned");
+            let mut tasks = self
+                .active_tasks
+                .lock()
+                .expect("lock should not be poisoned");
             if let Some(active_task) = tasks.get_mut(task_id) {
                 active_task.status = if result.success {
                     TaskStatus::Completed
@@ -338,7 +353,11 @@ impl MinimalExecutionEngine {
     /// Get current statistics
     pub fn get_statistics(&self) -> MinimalStatistics {
         let mut stats = self.stats.lock().expect("lock should not be poisoned");
-        stats.active_task_count = self.active_tasks.lock().expect("lock should not be poisoned").len();
+        stats.active_task_count = self
+            .active_tasks
+            .lock()
+            .expect("lock should not be poisoned")
+            .len();
         stats.clone()
     }
 
@@ -354,12 +373,19 @@ impl MinimalExecutionEngine {
 
     /// Get task by ID
     pub fn get_task(&self, task_id: &str) -> Option<MinimalTask> {
-        self.active_tasks.lock().expect("lock should not be poisoned").get(task_id).cloned()
+        self.active_tasks
+            .lock()
+            .expect("lock should not be poisoned")
+            .get(task_id)
+            .cloned()
     }
 
     /// Cancel a task
     pub fn cancel_task(&self, task_id: &str) -> Result<(), MinimalEngineError> {
-        let mut tasks = self.active_tasks.lock().expect("lock should not be poisoned");
+        let mut tasks = self
+            .active_tasks
+            .lock()
+            .expect("lock should not be poisoned");
         match tasks.get_mut(task_id) {
             Some(task) => {
                 if task.status == TaskStatus::Pending || task.status == TaskStatus::Running {
@@ -558,10 +584,14 @@ mod tests {
             .with_parameter("learning_rate".to_string(), "0.01".to_string())
             .with_priority(1);
 
-        let task_id = engine.submit_task(task).expect("task submission should succeed");
+        let task_id = engine
+            .submit_task(task)
+            .expect("task submission should succeed");
         assert_eq!(task_id, "test_task_001");
 
-        let retrieved_task = engine.get_task(&task_id).expect("task retrieval should succeed");
+        let retrieved_task = engine
+            .get_task(&task_id)
+            .expect("task retrieval should succeed");
         assert_eq!(retrieved_task.task_type, "optimization");
         assert_eq!(retrieved_task.status, TaskStatus::Pending);
     }
@@ -574,9 +604,13 @@ mod tests {
         engine.start().expect("start operation should succeed");
 
         let task = MinimalTask::optimization("test_execution_001".to_string());
-        let task_id = engine.submit_task(task).expect("task submission should succeed");
+        let task_id = engine
+            .submit_task(task)
+            .expect("task submission should succeed");
 
-        let result = engine.execute_task(&task_id).expect("task execution should succeed");
+        let result = engine
+            .execute_task(&task_id)
+            .expect("task execution should succeed");
         assert!(result.success);
         assert_eq!(result.task_id, "test_execution_001");
         assert!(result.data.contains_key("loss"));
@@ -591,11 +625,15 @@ mod tests {
         engine.start().expect("start operation should succeed");
 
         let task = MinimalTask::training("test_cancel_001".to_string());
-        let task_id = engine.submit_task(task).expect("task submission should succeed");
+        let task_id = engine
+            .submit_task(task)
+            .expect("task submission should succeed");
 
         assert!(engine.cancel_task(&task_id).is_ok());
 
-        let cancelled_task = engine.get_task(&task_id).expect("task retrieval should succeed");
+        let cancelled_task = engine
+            .get_task(&task_id)
+            .expect("task retrieval should succeed");
         assert_eq!(cancelled_task.status, TaskStatus::Cancelled);
     }
 
@@ -610,8 +648,12 @@ mod tests {
         assert_eq!(initial_stats.tasks_processed, 0);
 
         let task = MinimalTask::inference("test_stats_001".to_string());
-        let task_id = engine.submit_task(task).expect("task submission should succeed");
-        engine.execute_task(&task_id).expect("task execution should succeed");
+        let task_id = engine
+            .submit_task(task)
+            .expect("task submission should succeed");
+        engine
+            .execute_task(&task_id)
+            .expect("task execution should succeed");
 
         let updated_stats = engine.get_statistics();
         assert_eq!(updated_stats.tasks_processed, 1);
@@ -650,20 +692,32 @@ mod tests {
 
         // Test optimization task
         let opt_task = MinimalTask::optimization("opt_001".to_string());
-        let opt_id = engine.submit_task(opt_task).expect("task submission should succeed");
-        let opt_result = engine.execute_task(&opt_id).expect("task execution should succeed");
+        let opt_id = engine
+            .submit_task(opt_task)
+            .expect("task submission should succeed");
+        let opt_result = engine
+            .execute_task(&opt_id)
+            .expect("task execution should succeed");
         assert!(opt_result.data.contains_key("loss"));
 
         // Test training task
         let train_task = MinimalTask::training("train_001".to_string());
-        let train_id = engine.submit_task(train_task).expect("task submission should succeed");
-        let train_result = engine.execute_task(&train_id).expect("task execution should succeed");
+        let train_id = engine
+            .submit_task(train_task)
+            .expect("task submission should succeed");
+        let train_result = engine
+            .execute_task(&train_id)
+            .expect("task execution should succeed");
         assert!(train_result.data.contains_key("epochs"));
 
         // Test inference task
         let infer_task = MinimalTask::inference("infer_001".to_string());
-        let infer_id = engine.submit_task(infer_task).expect("task submission should succeed");
-        let infer_result = engine.execute_task(&infer_id).expect("task execution should succeed");
+        let infer_id = engine
+            .submit_task(infer_task)
+            .expect("task submission should succeed");
+        let infer_result = engine
+            .execute_task(&infer_id)
+            .expect("task execution should succeed");
         assert!(infer_result.data.contains_key("predictions"));
     }
 }

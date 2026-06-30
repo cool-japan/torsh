@@ -259,31 +259,29 @@ impl CloudWatchPublisher {
         Ok(())
     }
 
-    /// Flush buffered metrics (simulated - would actually call AWS API)
+    /// Flush buffered metrics to AWS CloudWatch.
+    ///
+    /// This method requires the `aws-sdk-cloudwatch` crate (or equivalent) to be
+    /// wired in. Without an actual AWS client the buffered metrics cannot be
+    /// transmitted, so this function returns `TorshError::NotImplemented` rather
+    /// than silently discarding them while pretending a successful upload occurred.
+    ///
+    /// The accumulated buffer remains intact on error so that callers can inspect
+    /// it via [`CloudWatchPublisher::get_buffered_metrics`] or serialize it via
+    /// [`CloudWatchPublisher::export_json`] as a fallback.
     pub fn flush(&mut self) -> TorshResult<()> {
         if self.metric_buffer.is_empty() {
             return Ok(());
         }
 
-        // In a real implementation, this would call:
-        // cloudwatch_client.put_metric_data()
-        //   .namespace(&self.namespace)
-        //   .metric_data(self.metric_buffer.clone())
-        //   .send()
-        //   .await?;
-
-        // For now, we'll just clear the buffer and log
-        let count = self.metric_buffer.len();
-        self.metric_buffer.clear();
-
-        // Log the flush (in production, this would be actual AWS API call)
-        #[cfg(debug_assertions)]
-        println!(
-            "[CloudWatch] Flushed {} metrics to namespace: {}",
-            count, self.namespace
-        );
-
-        Ok(())
+        Err(TorshError::NotImplemented(
+            "CloudWatch flush requires the `aws-sdk-cloudwatch` crate. \
+             Buffered metrics are available via `get_buffered_metrics()` or \
+             `export_json()` for offline inspection. To enable real AWS publishing, \
+             add `aws-sdk-cloudwatch` as a workspace dependency and implement \
+             `PutMetricDataFluentBuilder` calls inside this method."
+                .to_string(),
+        ))
     }
 
     /// Get the current buffer size
@@ -452,20 +450,32 @@ mod tests {
     }
 
     #[test]
-    fn test_auto_flush() {
+    fn test_auto_flush_requires_sdk() {
+        // Now that flush() honestly returns NotImplemented (no AWS SDK available),
+        // the auto-flush triggered when the buffer fills must propagate that error
+        // instead of silently pretending metrics were sent.
         let mut publisher = CloudWatchPublisherBuilder::new("Test")
             .buffer_size(3)
             .build();
 
-        // Add 3 metrics - should auto-flush
-        for i in 0..3 {
-            publisher
-                .put_metric(&format!("Metric{}", i), i as f64, Unit::Count, vec![])
-                .unwrap();
-        }
+        // First two metrics fit in the buffer — no flush triggered yet.
+        publisher
+            .put_metric("Metric0", 0.0, Unit::Count, vec![])
+            .unwrap();
+        publisher
+            .put_metric("Metric1", 1.0, Unit::Count, vec![])
+            .unwrap();
 
-        // Buffer should be empty after auto-flush
-        assert_eq!(publisher.buffer_size(), 0);
+        // The third metric fills the buffer and triggers flush(), which returns Err.
+        let result = publisher.put_metric("Metric2", 2.0, Unit::Count, vec![]);
+        assert!(
+            result.is_err(),
+            "expected NotImplemented error when auto-flush fires without AWS SDK"
+        );
+
+        // The buffer still holds the metrics that could not be flushed, allowing
+        // the caller to inspect them via get_buffered_metrics() or export_json().
+        assert!(publisher.buffer_size() > 0);
     }
 
     #[test]

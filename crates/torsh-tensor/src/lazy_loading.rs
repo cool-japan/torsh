@@ -414,6 +414,7 @@ pub mod utils {
     use super::*;
     use std::fs::File;
     use std::io::{BufReader, Read};
+    use torsh_core::dtype::DType;
 
     /// Create a lazy tensor metadata from a binary file header
     ///
@@ -437,23 +438,105 @@ pub mod utils {
             .read_exact(&mut header_data)
             .map_err(|e| TorshError::IoError(format!("Failed to read header: {}", e)))?;
 
-        // Parse header (placeholder implementation)
-        // In practice, you'd deserialize JSON, protobuf, or other format
-        let _header_str = String::from_utf8(header_data)
+        // Deserialize the JSON header object into concrete tensor metadata.
+        //
+        // The header is a compact JSON object describing the on-disk tensor, e.g.
+        // `{"shape":[10,10],"dtype":"f32","total_elements":100}`. The element size is
+        // derived from the dtype, and the data offset is the size prefix (4 bytes)
+        // plus the header length, i.e. the first byte position of the payload.
+        let header_str = String::from_utf8(header_data)
             .map_err(|e| TorshError::SerializationError(format!("Invalid header: {}", e)))?;
 
-        // For this example, assume a simple JSON-like format
-        // Real implementation would parse _header_str to extract metadata
-        // TODO: Deserialize _header_str into actual metadata
-        let metadata = LazyTensorMetadata {
-            shape: Shape::new(vec![100, 100]), // Placeholder - should parse from header_str
-            dtype: "f32".to_string(),
-            total_elements: 10000,
-            element_size: 4,
-            data_offset: 4 + header_size as u64,
+        let dims = parse_json_usize_array(&header_str, "shape").ok_or_else(|| {
+            TorshError::SerializationError(format!(
+                "Header is missing a valid 'shape' field: {}",
+                header_str
+            ))
+        })?;
+
+        let dtype = parse_json_string(&header_str, "dtype").ok_or_else(|| {
+            TorshError::SerializationError(format!(
+                "Header is missing a valid 'dtype' field: {}",
+                header_str
+            ))
+        })?;
+
+        // Derive the element size from the canonical dtype definition so it always
+        // matches the dtype that was recorded in the header.
+        let element_size = dtype
+            .parse::<DType>()
+            .map_err(|e| {
+                TorshError::SerializationError(format!("Unsupported dtype '{}': {}", dtype, e))
+            })?
+            .size();
+
+        // `total_elements` is optional: when present it must agree with the product
+        // of the shape dimensions, otherwise the header is internally inconsistent.
+        let shape_elements: usize = dims.iter().product();
+        let total_elements = match parse_json_usize(&header_str, "total_elements") {
+            Some(declared) if declared != shape_elements => {
+                return Err(TorshError::SerializationError(format!(
+                    "Header total_elements ({}) does not match shape product ({})",
+                    declared, shape_elements
+                )));
+            }
+            Some(declared) => declared,
+            None => shape_elements,
         };
 
-        Ok(metadata)
+        Ok(LazyTensorMetadata {
+            shape: Shape::new(dims),
+            dtype,
+            total_elements,
+            element_size,
+            data_offset: 4 + header_size as u64,
+        })
+    }
+
+    /// Locate the value substring immediately following a `"key":` token.
+    ///
+    /// Returns the slice after the colon (with leading whitespace trimmed), or
+    /// `None` when the key is not present in the JSON object string.
+    fn json_value_after_key<'a>(header: &'a str, key: &str) -> Option<&'a str> {
+        let quoted_key = format!("\"{}\"", key);
+        let key_pos = header.find(&quoted_key)?;
+        let after_key = &header[key_pos + quoted_key.len()..];
+        let colon_pos = after_key.find(':')?;
+        Some(after_key[colon_pos + 1..].trim_start())
+    }
+
+    /// Parse a quoted JSON string value for `key` (e.g. `"dtype":"f32"`).
+    fn parse_json_string(header: &str, key: &str) -> Option<String> {
+        let value = json_value_after_key(header, key)?;
+        let inner = value.strip_prefix('"')?;
+        let end = inner.find('"')?;
+        Some(inner[..end].to_string())
+    }
+
+    /// Parse an unsigned integer JSON value for `key` (e.g. `"total_elements":100`).
+    fn parse_json_usize(header: &str, key: &str) -> Option<usize> {
+        let value = json_value_after_key(header, key)?;
+        let digits: String = value.chars().take_while(|c| c.is_ascii_digit()).collect();
+        if digits.is_empty() {
+            return None;
+        }
+        digits.parse::<usize>().ok()
+    }
+
+    /// Parse a JSON array of unsigned integers for `key` (e.g. `"shape":[10,10]`).
+    fn parse_json_usize_array(header: &str, key: &str) -> Option<Vec<usize>> {
+        let value = json_value_after_key(header, key)?;
+        let inner = value.strip_prefix('[')?;
+        let end = inner.find(']')?;
+        let mut dims = Vec::new();
+        for part in inner[..end].split(',') {
+            let trimmed = part.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            dims.push(trimmed.parse::<usize>().ok()?);
+        }
+        Some(dims)
     }
 
     /// Create a lazy tensor from a file path with automatic metadata detection
@@ -634,5 +717,128 @@ mod tests {
 
         let result = lazy_tensor.get_range(90, 110);
         assert!(result.is_err());
+    }
+
+    /// Build a unique path inside the system temp directory for header tests.
+    fn unique_temp_path(tag: &str) -> std::path::PathBuf {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let n = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let pid = std::process::id();
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        std::env::temp_dir().join(format!("torsh_{}_{}_{}_{}.bin", tag, pid, n, nanos))
+    }
+
+    /// Write a `[u32 header_size][header bytes][f32 payload]` file used by the
+    /// lazy-loading header parser.
+    fn write_header_file(path: &std::path::Path, header: &str, data: &[f32]) {
+        let mut file = std::fs::File::create(path).expect("temp file creation should succeed");
+        let header_size = header.len() as u32;
+        file.write_all(&header_size.to_le_bytes())
+            .expect("write should succeed");
+        file.write_all(header.as_bytes())
+            .expect("write should succeed");
+        for &value in data {
+            file.write_all(&value.to_le_bytes())
+                .expect("write should succeed");
+        }
+        file.flush().expect("flush should succeed");
+    }
+
+    #[test]
+    fn test_create_metadata_from_header_populates_all_fields() {
+        let header = r#"{"shape":[3,4,5],"dtype":"f32","total_elements":60}"#;
+        let path = unique_temp_path("lazy_header_f32");
+        write_header_file(&path, header, &[]);
+
+        let metadata =
+            utils::create_metadata_from_header(&path).expect("metadata parsing should succeed");
+
+        // Every field must be populated from the header, not from placeholders.
+        assert_eq!(metadata.shape.dims(), &[3, 4, 5]);
+        assert_eq!(metadata.dtype, "f32");
+        assert_eq!(metadata.total_elements, 60);
+        assert_eq!(metadata.element_size, 4);
+        assert_eq!(metadata.data_offset, 4 + header.len() as u64);
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn test_create_metadata_from_header_derives_element_size_and_total() {
+        // No `total_elements` field: it must be derived from the shape product,
+        // and the element size must follow the f64 dtype (8 bytes).
+        let header = r#"{"shape":[2,8],"dtype":"f64"}"#;
+        let path = unique_temp_path("lazy_header_f64");
+        write_header_file(&path, header, &[]);
+
+        let metadata =
+            utils::create_metadata_from_header(&path).expect("metadata parsing should succeed");
+
+        assert_eq!(metadata.shape.dims(), &[2, 8]);
+        assert_eq!(metadata.dtype, "f64");
+        assert_eq!(metadata.total_elements, 16);
+        assert_eq!(metadata.element_size, 8);
+        assert_eq!(metadata.data_offset, 4 + header.len() as u64);
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn test_create_metadata_from_header_roundtrip_load() {
+        // End-to-end: parse the header, then load the payload through a LazyTensor.
+        // This only yields the correct values if `data_offset` is computed correctly.
+        let header = r#"{"shape":[2,3],"dtype":"f32","total_elements":6}"#;
+        let path = unique_temp_path("lazy_header_roundtrip");
+        let data: Vec<f32> = vec![10.0, 11.0, 12.0, 13.0, 14.0, 15.0];
+        write_header_file(&path, header, &data);
+
+        let metadata =
+            utils::create_metadata_from_header(&path).expect("metadata parsing should succeed");
+        assert_eq!(metadata.total_elements, 6);
+        assert_eq!(metadata.data_offset, 4 + header.len() as u64);
+
+        let lazy: LazyTensor<f32> = LazyTensor::new(
+            &path,
+            metadata,
+            LazyLoadConfig {
+                chunk_size: 4,
+                ..LazyLoadConfig::default()
+            },
+        )
+        .expect("lazy tensor creation should succeed");
+
+        let loaded = lazy.load_all().expect("load_all should succeed");
+        assert_eq!(loaded, data);
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn test_create_metadata_from_header_rejects_missing_shape() {
+        let header = r#"{"dtype":"f32","total_elements":6}"#;
+        let path = unique_temp_path("lazy_header_missing_shape");
+        write_header_file(&path, header, &[]);
+
+        let result = utils::create_metadata_from_header(&path);
+        assert!(result.is_err());
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn test_create_metadata_from_header_rejects_inconsistent_total() {
+        // total_elements (99) contradicts the shape product (2 * 3 = 6).
+        let header = r#"{"shape":[2,3],"dtype":"f32","total_elements":99}"#;
+        let path = unique_temp_path("lazy_header_inconsistent");
+        write_header_file(&path, header, &[]);
+
+        let result = utils::create_metadata_from_header(&path);
+        assert!(result.is_err());
+
+        let _ = std::fs::remove_file(&path);
     }
 }

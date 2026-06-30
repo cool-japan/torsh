@@ -7,9 +7,12 @@
 //!
 //! The upsampler consists of:
 //! - Timestep embedding: Sinusoidal encoding + 2-layer MLP
-//! - Encoder: 2 Conv2d blocks with downsampling
-//! - Bottleneck: ResNet block
-//! - Decoder: 2 ConvTranspose2d blocks with upsampling + skip connections
+//! - Encoder: 2 Conv2d blocks (first downsamples 32×32 → 16×16, second expands channels)
+//! - Bottleneck: ResNet block at 16×16
+//! - Decoder: 2 ConvTranspose2d blocks (upsample 16×16 → 32×32 → 64×64) with skip connections
+//!
+//! The single encoder downsample combined with two decoder upsamples yields a net
+//! 2× spatial upsampling while keeping every skip connection at a matching resolution.
 //!
 //! # Parameters
 //!
@@ -137,12 +140,13 @@ impl LatentUpsampler {
         // Initial convolution: channels → base_dim (keep 32×32)
         let input_conv = Conv2d::new(channels, base_dim, (3, 3), (1, 1), (1, 1), (1, 1), true, 1);
 
-        // Encoder block 1: base_dim → base_dim * 2 (keep 32×32, no downsampling)
+        // Encoder block 1: base_dim → base_dim * 2 (downsample 32×32 → 16×16)
+        // Conv2d output: (32 + 2*1 - 1*(3-1) - 1) / 2 + 1 = 31 / 2 + 1 = 16
         let enc_conv1 = Conv2d::new(
             base_dim,
             base_dim * 2,
             (3, 3),
-            (1, 1), // No downsample
+            (2, 2), // Downsample 2x
             (1, 1),
             (1, 1),
             true,
@@ -154,7 +158,7 @@ impl LatentUpsampler {
             None
         };
 
-        // Encoder block 2: base_dim * 2 → base_dim * 4 (keep 32×32, no downsampling)
+        // Encoder block 2: base_dim * 2 → base_dim * 4 (keep 16×16, channel expansion only)
         let enc_conv2 = Conv2d::new(
             base_dim * 2,
             base_dim * 4,
@@ -171,7 +175,7 @@ impl LatentUpsampler {
             None
         };
 
-        // Bottleneck ResNet block: base_dim * 4 → base_dim * 4 (keep 32×32)
+        // Bottleneck ResNet block: base_dim * 4 → base_dim * 4 (keep 16×16)
         let bottleneck_conv1 = Conv2d::new(
             base_dim * 4,
             base_dim * 4,
@@ -203,8 +207,8 @@ impl LatentUpsampler {
             None
         };
 
-        // Decoder block 1: base_dim * 4 + base_dim * 2 (skip) → base_dim * 2 (32×32 → 64×64)
-        // Use output_padding=0 for 2x upsampling: (32-1)*2 - 2*1 + 1*(4-1) + 0 + 1 = 62 - 2 + 3 + 1 = 64
+        // Decoder block 1: base_dim * 4 + base_dim * 2 (skip2) → base_dim * 2 (upsample 16×16 → 32×32)
+        // ConvTranspose2d output: (16-1)*2 - 2*1 + 1*(4-1) + 0 + 1 = 30 - 2 + 3 + 1 = 32
         let dec_conv1 = ConvTranspose2d::new(
             base_dim * 4 + base_dim * 2,
             base_dim * 2,
@@ -222,13 +226,13 @@ impl LatentUpsampler {
             None
         };
 
-        // Decoder block 2: base_dim * 2 + base_dim (skip) → base_dim (keep 64×64)
-        // (64-1)*1 - 2*1 + 1*(3-1) + 0 + 1 = 63 - 2 + 2 + 1 = 64
+        // Decoder block 2: base_dim * 2 + base_dim (skip1) → base_dim (upsample 32×32 → 64×64)
+        // ConvTranspose2d output: (32-1)*2 - 2*1 + 1*(4-1) + 0 + 1 = 62 - 2 + 3 + 1 = 64
         let dec_conv2 = ConvTranspose2d::new(
             base_dim * 2 + base_dim,
             base_dim,
-            (3, 3),
-            (1, 1), // No upsampling
+            (4, 4),
+            (2, 2), // Upsample 2x
             (1, 1),
             (0, 0),
             (1, 1),
@@ -417,18 +421,18 @@ impl LatentUpsampler {
         // providing implicit conditioning through the learned MLP transformations.
         let _time_conditioning = time_emb; // Available for future conditioning mechanisms
 
-        // Initial convolution
+        // Initial convolution (keeps 32×32)
         let mut x = self.input_conv.forward(latents)?;
         x = self.activation.forward(&x)?;
-        let skip1 = x.clone();
+        let skip1 = x.clone(); // [B, base_dim, 32, 32] — fed to decoder block 2
 
-        // Encoder block 1
+        // Encoder block 1 (downsamples 32×32 → 16×16)
         x = self.enc_conv1.forward(&x)?;
         if let Some(ref bn) = self.enc_bn1 {
             x = bn.forward(&x)?;
         }
         x = self.activation.forward(&x)?;
-        let skip2 = x.clone();
+        let skip2 = x.clone(); // [B, base_dim*2, 16, 16] — fed to decoder block 1
 
         // Encoder block 2
         x = self.enc_conv2.forward(&x)?;
@@ -451,7 +455,7 @@ impl LatentUpsampler {
         x = x.add(&residual)?; // Residual connection
         x = self.activation.forward(&x)?;
 
-        // Decoder block 1 with skip connection
+        // Decoder block 1 with skip connection (skip2 and x are both 16×16; upsample to 32×32)
         x = concatenate_tensors(&[&x, &skip2], 1)?; // Channel dimension
         x = self.dec_conv1.forward(&x)?;
         if let Some(ref bn) = self.dec_bn1 {
@@ -459,7 +463,7 @@ impl LatentUpsampler {
         }
         x = self.activation.forward(&x)?;
 
-        // Decoder block 2 with skip connection
+        // Decoder block 2 with skip connection (skip1 and x are both 32×32; upsample to 64×64)
         x = concatenate_tensors(&[&x, &skip1], 1)?; // Channel dimension
         x = self.dec_conv2.forward(&x)?;
         if let Some(ref bn) = self.dec_bn2 {

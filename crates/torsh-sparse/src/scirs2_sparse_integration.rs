@@ -221,8 +221,18 @@ impl SciRS2SparseProcessor {
         })
     }
 
-    /// Convert tensor to optimal sparse format
-    pub fn to_sparse(
+    /// Analyze a dense tensor and report the sparse layout it would map to.
+    ///
+    /// This returns a [`SparseTensor`] *descriptor* (format + dimensions +
+    /// genuine non-zero count) computed from a real analysis of `matrix`; it
+    /// does **not** carry the converted sparse storage. The descriptor is
+    /// useful for format-selection and capacity planning.
+    ///
+    /// To obtain an actual sparse representation backed by data, convert the
+    /// tensor with [`crate::sparse_from_dense`] and, if needed, re-target the
+    /// format with [`crate::convert_sparse_format`], both of which operate over
+    /// the concrete [`crate::CooTensor`] / [`crate::CsrTensor`] types.
+    pub fn describe_sparse(
         &mut self,
         matrix: &Tensor,
         target_format: Option<SparseFormat>,
@@ -230,9 +240,7 @@ impl SciRS2SparseProcessor {
         let info = self.analyze_matrix(matrix)?;
         let format = target_format.unwrap_or(info.optimal_format);
 
-        // For now, create a placeholder sparse tensor
-        // In a real implementation, this would convert using scirs2-sparse
-        let sparse_tensor = SparseTensor::new(
+        let descriptor = SparseTensor::new(
             format,
             info.rows,
             info.cols,
@@ -242,72 +250,87 @@ impl SciRS2SparseProcessor {
         )?;
 
         self.optimization_stats.format_conversions += 1;
-        Ok(sparse_tensor)
+        Ok(descriptor)
     }
 
-    /// Perform sparse matrix-vector multiplication
+    /// Convert tensor to optimal sparse format.
+    ///
+    /// # Errors
+    /// Always returns [`TorshError::NotImplemented`]: the lightweight
+    /// [`SparseTensor`] descriptor produced by this processor does not store
+    /// the converted non-zero data, so a value returned here could not be used
+    /// for real computation. Use [`crate::sparse_from_dense`] (optionally
+    /// followed by [`crate::convert_sparse_format`]) for a data-backed
+    /// conversion, or [`Self::describe_sparse`] for a metadata-only analysis.
+    pub fn to_sparse(
+        &mut self,
+        _matrix: &Tensor,
+        _target_format: Option<SparseFormat>,
+    ) -> TorshResult<SparseTensor> {
+        Err(TorshError::NotImplemented(
+            "SciRS2SparseProcessor::to_sparse does not produce data-backed sparse tensors; \
+             use torsh_sparse::sparse_from_dense (+ convert_sparse_format) for a real conversion, \
+             or describe_sparse for metadata-only analysis"
+                .to_string(),
+        ))
+    }
+
+    /// Perform sparse matrix-vector multiplication.
+    ///
+    /// # Errors
+    /// Returns [`TorshError::NotImplemented`]. The [`SparseTensor`] descriptor
+    /// used by this processor carries no non-zero data, so a numerical result
+    /// cannot be produced. Dimension compatibility is still validated first, so
+    /// shape errors surface eagerly.
     pub fn spmv(&mut self, matrix: &SparseTensor, vector: &Tensor) -> TorshResult<Tensor> {
         self.validate_spmv_dimensions(matrix, vector)?;
-
-        // Optimize format for SpMV if needed
-        let optimized_matrix = self.optimize_for_operation(matrix, SparseOperation::SpMV)?;
-
-        // Perform operation (placeholder implementation)
-        let result = self.perform_spmv_operation(&optimized_matrix, vector)?;
-
-        self.optimization_stats.operations_performed += 1;
-        if self.config.use_gpu {
-            self.optimization_stats.gpu_accelerated_ops += 1;
-        }
-        if matches!(
-            self.config.simd_level,
-            SIMDLevel::Advanced | SIMDLevel::Maximum
-        ) {
-            self.optimization_stats.simd_accelerated_ops += 1;
-        }
-
-        Ok(result)
+        Err(TorshError::NotImplemented(
+            "SciRS2SparseProcessor::spmv operates on a data-less descriptor; \
+             use a data-backed sparse type (e.g. torsh_sparse::CsrTensor) for SpMV"
+                .to_string(),
+        ))
     }
 
-    /// Perform sparse matrix-matrix multiplication
+    /// Perform sparse matrix-matrix multiplication.
+    ///
+    /// # Errors
+    /// Returns [`TorshError::NotImplemented`] for the same reason as
+    /// [`Self::spmv`]: the descriptor holds no data. Shape compatibility is
+    /// validated before erroring.
     pub fn spmm(&mut self, a: &SparseTensor, b: &SparseTensor) -> TorshResult<SparseTensor> {
         self.validate_spmm_dimensions(a, b)?;
-
-        // Optimize formats for SpMM
-        let optimized_a = self.optimize_for_operation(a, SparseOperation::SpMM)?;
-        let optimized_b = self.optimize_for_operation(b, SparseOperation::SpMM)?;
-
-        // Perform operation (placeholder implementation)
-        let result = self.perform_spmm_operation(&optimized_a, &optimized_b)?;
-
-        self.optimization_stats.operations_performed += 1;
-        Ok(result)
+        Err(TorshError::NotImplemented(
+            "SciRS2SparseProcessor::spmm operates on a data-less descriptor; \
+             use data-backed sparse types for SpMM"
+                .to_string(),
+        ))
     }
 
-    /// Sparse LU factorization with fill-in optimization
+    /// Sparse LU factorization with fill-in optimization.
+    ///
+    /// # Errors
+    /// Returns [`TorshError::NotImplemented`]: factorization requires the
+    /// actual matrix entries, which the descriptor does not hold. The square
+    /// shape requirement is validated first.
     pub fn sparse_lu(&mut self, matrix: &SparseTensor) -> TorshResult<SparseFactorization> {
         if matrix.rows != matrix.cols {
             return Err(TorshError::InvalidArgument(
                 "LU factorization requires square matrix".to_string(),
             ));
         }
-
-        // Optimize for factorization
-        let optimized_matrix =
-            self.optimize_for_operation(matrix, SparseOperation::Factorization)?;
-
-        // Perform factorization (placeholder implementation)
-        let factorization = SparseFactorization::new(
-            FactorizationType::Lu,
-            optimized_matrix.rows,
-            optimized_matrix.format,
-        );
-
-        self.optimization_stats.operations_performed += 1;
-        Ok(factorization)
+        Err(TorshError::NotImplemented(
+            "SciRS2SparseProcessor::sparse_lu operates on a data-less descriptor; \
+             factorization needs the actual non-zero values"
+                .to_string(),
+        ))
     }
 
-    /// Solve sparse linear system Ax = b
+    /// Solve sparse linear system Ax = b.
+    ///
+    /// # Errors
+    /// Returns [`TorshError::NotImplemented`] after validating that `rhs` is
+    /// dimensionally compatible with `matrix`; the descriptor stores no data to
+    /// solve against.
     pub fn sparse_solve(
         &mut self,
         matrix: &SparseTensor,
@@ -315,37 +338,27 @@ impl SciRS2SparseProcessor {
         method: SolverMethod,
     ) -> TorshResult<Tensor> {
         self.validate_solve_dimensions(matrix, rhs)?;
-
-        match method {
-            SolverMethod::Direct => self.direct_solve(matrix, rhs),
-            SolverMethod::Iterative => self.iterative_solve(matrix, rhs),
-            SolverMethod::Auto => {
-                // Choose method based on matrix properties
-                if matrix.nnz > 100000 && matrix.sparsity() > 0.95 {
-                    self.iterative_solve(matrix, rhs)
-                } else {
-                    self.direct_solve(matrix, rhs)
-                }
-            }
-        }
+        let _ = method;
+        Err(TorshError::NotImplemented(
+            "SciRS2SparseProcessor::sparse_solve operates on a data-less descriptor; \
+             provide a data-backed sparse system to solve"
+                .to_string(),
+        ))
     }
 
-    /// Compress sparse matrix to reduce memory usage
-    pub fn compress(&mut self, matrix: &SparseTensor) -> TorshResult<SparseTensor> {
-        let compression_ratio = self.estimate_compression_ratio(matrix);
-
-        if compression_ratio < 1.1 {
-            // Not worth compressing
-            return Ok(matrix.clone());
-        }
-
-        // Apply compression techniques (placeholder implementation)
-        let compressed = matrix.clone();
-
-        let memory_saved = (matrix.memory_size() as f64 * (1.0 - 1.0 / compression_ratio)) as u64;
-        self.optimization_stats.memory_saved += memory_saved;
-
-        Ok(compressed)
+    /// Compress sparse matrix to reduce memory usage.
+    ///
+    /// # Errors
+    /// Returns [`TorshError::NotImplemented`]: compression requires the
+    /// descriptor to own its non-zero data, which it does not. Returning the
+    /// input unchanged while reporting "memory saved" would be a fabricated
+    /// result.
+    pub fn compress(&mut self, _matrix: &SparseTensor) -> TorshResult<SparseTensor> {
+        Err(TorshError::NotImplemented(
+            "SciRS2SparseProcessor::compress operates on a data-less descriptor; \
+             compress a data-backed sparse type instead"
+                .to_string(),
+        ))
     }
 
     /// Get optimization statistics
@@ -361,8 +374,9 @@ impl SciRS2SparseProcessor {
     // Helper methods (placeholder implementations)
 
     fn count_nonzeros(&self, matrix: &Tensor) -> TorshResult<usize> {
-        // Placeholder: count non-zero elements
-        Ok(matrix.shape().dims().iter().product::<usize>() / 10) // Assume 10% sparsity
+        // Count the genuinely non-zero entries of the dense matrix.
+        let data = matrix.to_vec()?;
+        Ok(data.iter().filter(|&&v| v != 0.0).count())
     }
 
     fn has_diagonal_pattern(&self, _matrix: &Tensor) -> TorshResult<bool> {
@@ -399,55 +413,6 @@ impl SciRS2SparseProcessor {
         } else {
             SparseFormat::Csr
         }
-    }
-
-    fn optimize_for_operation(
-        &self,
-        matrix: &SparseTensor,
-        _op: SparseOperation,
-    ) -> TorshResult<SparseTensor> {
-        // Placeholder: return copy for now
-        Ok(matrix.clone())
-    }
-
-    fn perform_spmv_operation(
-        &self,
-        matrix: &SparseTensor,
-        _vector: &Tensor,
-    ) -> TorshResult<Tensor> {
-        // Placeholder implementation
-        torsh_tensor::creation::zeros(&[matrix.rows])
-    }
-
-    fn perform_spmm_operation(
-        &self,
-        a: &SparseTensor,
-        b: &SparseTensor,
-    ) -> TorshResult<SparseTensor> {
-        // Placeholder implementation
-        SparseTensor::new(
-            a.format,
-            a.rows,
-            b.cols,
-            (a.nnz + b.nnz) / 2, // Rough estimate
-            self.config.device,
-            self.config.dtype,
-        )
-    }
-
-    fn direct_solve(&mut self, matrix: &SparseTensor, _rhs: &Tensor) -> TorshResult<Tensor> {
-        // Placeholder: direct sparse solver
-        torsh_tensor::creation::zeros(&[matrix.cols])
-    }
-
-    fn iterative_solve(&mut self, matrix: &SparseTensor, _rhs: &Tensor) -> TorshResult<Tensor> {
-        // Placeholder: iterative sparse solver
-        torsh_tensor::creation::zeros(&[matrix.cols])
-    }
-
-    fn estimate_compression_ratio(&self, _matrix: &SparseTensor) -> f64 {
-        // Placeholder: estimate potential compression
-        1.5 // 50% compression potential
     }
 
     fn validate_spmv_dimensions(&self, matrix: &SparseTensor, vector: &Tensor) -> TorshResult<()> {

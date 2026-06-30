@@ -3,6 +3,12 @@
 use super::core::GradientFunction;
 use torsh_core::error::Result;
 
+// NOTE: GPU backward dispatch (formerly via scirs2_core::gpu::GpuContext::relu_backward)
+// was removed in the oxicuda migration. oxicuda's `ComputeBackend` trait has no
+// backward ops yet, so backward passes compute on the CPU. See
+// TODO(oxicuda-backward-ops) in TODO.md for the planned upstream addition that
+// would let `ReLUGradient::backward` (and friends) dispatch to the GPU.
+
 /// Addition gradient function: d/dx(x + y) = 1, d/dy(x + y) = 1
 #[derive(Debug)]
 pub struct AddGradient;
@@ -74,6 +80,9 @@ pub struct ReLUGradient {
 
 impl GradientFunction for ReLUGradient {
     fn backward(&self, grad_output: &[f32]) -> Result<Vec<Vec<f32>>> {
+        // CPU backward: grad_input = grad_output * (input > 0).
+        // (GPU backward dispatch is deferred — see the note above and
+        // TODO(oxicuda-backward-ops).)
         let grad_input: Vec<f32> = grad_output
             .iter()
             .zip(&self.input_values)

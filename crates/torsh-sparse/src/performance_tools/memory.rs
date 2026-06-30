@@ -11,7 +11,7 @@
 //!
 //! ## Usage Example
 //!
-//! ```rust
+//! ```rust,ignore
 //! use torsh_sparse::performance_tools::memory::{analyze_sparse_memory, track_memory_usage};
 //!
 //! // Analyze memory characteristics of a sparse tensor

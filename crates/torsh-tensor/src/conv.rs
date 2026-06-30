@@ -5,6 +5,39 @@ use torsh_core::error::{Result, TorshError};
 use torsh_core::TensorElement;
 
 impl<T: FloatElement> Tensor<T> {
+    /// Broadcast a per-output-channel bias across a contiguous convolution output.
+    ///
+    /// `output_data` is laid out row-major as `[batch, out_channels, spatial...]`,
+    /// so each `(batch, channel)` pair owns a contiguous run of `spatial_size`
+    /// elements. Every element of channel `c`'s run receives `bias_data[c]` added
+    /// to it, identically for every batch element. This is the standard channel-wise
+    /// broadcast of a `[C_out]` bias vector across an `[N, C_out, *spatial]` tensor.
+    ///
+    /// Iterating contiguous channel-sized chunks (instead of recomputing a flat
+    /// index per element) keeps the access pattern cache-friendly and lets the
+    /// compiler auto-vectorize the inner scalar add.
+    fn add_channel_bias(
+        output_data: &mut [T],
+        bias_data: &[T],
+        out_channels: usize,
+        spatial_size: usize,
+    ) {
+        // `chunks_mut(0)` panics, and an empty buffer has nothing to broadcast.
+        if spatial_size == 0 || out_channels == 0 {
+            return;
+        }
+
+        // Each chunk is one (batch, channel) block; chunks advance in row-major
+        // order, so the channel is the chunk index modulo the channel count.
+        for (block_index, block) in output_data.chunks_mut(spatial_size).enumerate() {
+            let channel = block_index % out_channels;
+            let bias = bias_data[channel];
+            for value in block.iter_mut() {
+                *value = *value + bias;
+            }
+        }
+    }
+
     /// 1D convolution operation
     pub fn conv1d(
         &self,
@@ -125,19 +158,11 @@ impl<T: FloatElement> Tensor<T> {
                 )));
             }
 
-            // For now, use element-wise addition - TODO: implement efficient broadcasting
+            // Broadcast the per-output-channel bias across every spatial position
+            // of each channel, for every batch element.
             let bias_data = b.to_vec()?;
             let mut output_data = output.to_vec()?;
-
-            for n in 0..batch_size {
-                #[allow(clippy::needless_range_loop)]
-                for oc in 0..out_channels {
-                    for ol in 0..output_length {
-                        let idx = n * out_channels * output_length + oc * output_length + ol;
-                        output_data[idx] = output_data[idx] + bias_data[oc];
-                    }
-                }
-            }
+            Self::add_channel_bias(&mut output_data, &bias_data, out_channels, output_length);
 
             // Recreate tensor with modified data
             output = Tensor::from_data(
@@ -315,24 +340,16 @@ impl<T: FloatElement> Tensor<T> {
                 )));
             }
 
+            // Broadcast the per-output-channel bias across the (H, W) spatial map
+            // of each channel, for every batch element.
             let bias_data = b.to_vec()?;
-
             let mut output_data = output.to_vec()?;
-
-            for n in 0..batch_size {
-                #[allow(clippy::needless_range_loop)]
-                for oc in 0..out_channels {
-                    for oh in 0..output_height {
-                        for ow in 0..output_width {
-                            let idx = n * out_channels * output_height * output_width
-                                + oc * output_height * output_width
-                                + oh * output_width
-                                + ow;
-                            output_data[idx] = output_data[idx] + bias_data[oc];
-                        }
-                    }
-                }
-            }
+            Self::add_channel_bias(
+                &mut output_data,
+                &bias_data,
+                out_channels,
+                output_height * output_width,
+            );
 
             // Create new output tensor with bias added
             output = Tensor::from_data(
@@ -541,28 +558,16 @@ impl<T: FloatElement> Tensor<T> {
                 )));
             }
 
+            // Broadcast the per-output-channel bias across the (D, H, W) spatial
+            // volume of each channel, for every batch element.
             let bias_data = b.to_vec()?;
-
             let mut output_data = output.to_vec()?;
-
-            for n in 0..batch_size {
-                #[allow(clippy::needless_range_loop)]
-                for oc in 0..out_channels {
-                    for od in 0..output_depth {
-                        for oh in 0..output_height {
-                            for ow in 0..output_width {
-                                let idx =
-                                    n * out_channels * output_depth * output_height * output_width
-                                        + oc * output_depth * output_height * output_width
-                                        + od * output_height * output_width
-                                        + oh * output_width
-                                        + ow;
-                                output_data[idx] = output_data[idx] + bias_data[oc];
-                            }
-                        }
-                    }
-                }
-            }
+            Self::add_channel_bias(
+                &mut output_data,
+                &bias_data,
+                out_channels,
+                output_depth * output_height * output_width,
+            );
 
             // Create new output tensor with bias added
             output = Tensor::from_data(
@@ -723,24 +728,17 @@ impl<T: FloatElement> Tensor<T> {
                 )));
             }
 
+            // Broadcast the per-channel bias across the (H, W) spatial map of each
+            // channel, for every batch element. Depthwise conv keeps one output
+            // channel per input channel, so the channel count is `in_channels`.
             let bias_data = b.to_vec()?;
-
             let mut output_data = output.to_vec()?;
-
-            for n in 0..batch_size {
-                #[allow(clippy::needless_range_loop)]
-                for c in 0..in_channels {
-                    for oh in 0..output_height {
-                        for ow in 0..output_width {
-                            let idx = n * in_channels * output_height * output_width
-                                + c * output_height * output_width
-                                + oh * output_width
-                                + ow;
-                            output_data[idx] = output_data[idx] + bias_data[c];
-                        }
-                    }
-                }
-            }
+            Self::add_channel_bias(
+                &mut output_data,
+                &bias_data,
+                in_channels,
+                output_height * output_width,
+            );
 
             // Create new output tensor with bias added
             output = Tensor::from_data(
@@ -968,24 +966,16 @@ impl<T: FloatElement> Tensor<T> {
                 )));
             }
 
+            // Broadcast the per-output-channel bias across the (H, W) spatial map
+            // of each channel, for every batch element.
             let bias_data = b.to_vec()?;
-
             let mut output_data = output.to_vec()?;
-
-            for n in 0..batch_size {
-                #[allow(clippy::needless_range_loop)]
-                for oc in 0..out_channels {
-                    for oh in 0..output_height {
-                        for ow in 0..output_width {
-                            let idx = n * out_channels * output_height * output_width
-                                + oc * output_height * output_width
-                                + oh * output_width
-                                + ow;
-                            output_data[idx] = output_data[idx] + bias_data[oc];
-                        }
-                    }
-                }
-            }
+            Self::add_channel_bias(
+                &mut output_data,
+                &bias_data,
+                out_channels,
+                output_height * output_width,
+            );
 
             // Create new output tensor with bias added
             output = Tensor::from_data(

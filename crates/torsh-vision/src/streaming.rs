@@ -278,15 +278,15 @@ impl StreamProcessor {
                 // Check if we're falling behind
                 let stats = self.stats();
                 if stats.current_fps < self.config.target_fps * 0.8 {
-                    // Reduce resolution by 25%
-                    let _new_width = (frame.metadata.width as f32 * 0.75) as usize;
-                    let _new_height = (frame.metadata.height as f32 * 0.75) as usize;
+                    // Reduce resolution by 25% and resample with bilinear interpolation.
+                    let new_width = ((frame.metadata.width as f32 * 0.75) as usize).max(1);
+                    let new_height = ((frame.metadata.height as f32 * 0.75) as usize).max(1);
 
-                    // TODO: Implement actual downscaling
-                    // For now, just return original frame
+                    let downscaled = downscale_frame_bilinear(frame, new_width, new_height)?;
                     if let Ok(mut stats) = self.stats.lock() {
                         stats.num_adaptations += 1;
                     }
+                    return Ok(downscaled);
                 }
                 Ok(frame.clone())
             }
@@ -309,11 +309,15 @@ impl StreamProcessor {
                 let performance_ratio = stats.current_fps / self.config.target_fps;
 
                 if performance_ratio < 0.7 {
-                    // Severe degradation: reduce resolution
-                    // TODO: Implement downscaling
+                    // Severe degradation: halve the resolution with bilinear resampling.
+                    let new_width = ((frame.metadata.width as f32 * 0.5) as usize).max(1);
+                    let new_height = ((frame.metadata.height as f32 * 0.5) as usize).max(1);
+
+                    let downscaled = downscale_frame_bilinear(frame, new_width, new_height)?;
                     if let Ok(mut stats_lock) = self.stats.lock() {
                         stats_lock.num_adaptations += 1;
                     }
+                    return Ok(downscaled);
                 } else if performance_ratio < 0.9 && !frame.metadata.is_keyframe {
                     // Moderate degradation: skip non-keyframes
                     if let Ok(mut stats_lock) = self.stats.lock() {
@@ -361,6 +365,105 @@ impl StreamProcessor {
 
         recommendations
     }
+}
+
+/// Downscale a video frame to the requested resolution using bilinear interpolation.
+///
+/// The frame's tensor is interpreted as `CHW` (channels, height, width) when it has
+/// three dimensions and as `HW` (height, width) when it has two; any other rank is
+/// rejected with an honest error rather than silently passing the frame through
+/// unchanged.
+///
+/// Sampling uses the half-pixel-center convention
+/// (`src = (dst + 0.5) * scale - 0.5`, `scale = src_size / dst_size`), which matches the
+/// behaviour of OpenCV's `resize` and PyTorch's
+/// `interpolate(.., mode = "bilinear", align_corners = false)`. Source coordinates that
+/// fall outside the image are clamped to the edge so border pixels are handled correctly.
+fn downscale_frame_bilinear(frame: &Frame, target_w: usize, target_h: usize) -> Result<Frame> {
+    let src_w = frame.metadata.width;
+    let src_h = frame.metadata.height;
+
+    if target_w == 0 || target_h == 0 {
+        return Err(VisionError::InvalidParameter(
+            "downscale target resolution must be non-zero".to_string(),
+        ));
+    }
+
+    // Nothing to resample when the resolution is unchanged.
+    if target_w == src_w && target_h == src_h {
+        return Ok(frame.clone());
+    }
+
+    // `shape()` yields an owned temporary, so copy the dimensions out within the statement.
+    let dims = frame.data.shape().dims().to_vec();
+    let channels = match dims.len() {
+        3 => dims[0],
+        2 => 1,
+        other => {
+            return Err(VisionError::InvalidShape(format!(
+                "bilinear downscale expects a 2D (HW) or 3D (CHW) frame tensor, got rank {other}"
+            )));
+        }
+    };
+
+    let src_data: Vec<f32> = frame.data.to_vec()?;
+    let expected = channels * src_h * src_w;
+    if src_data.len() != expected {
+        return Err(VisionError::InvalidShape(format!(
+            "frame tensor has {} elements but metadata implies {expected} ({channels}x{src_h}x{src_w})",
+            src_data.len()
+        )));
+    }
+
+    let scale_y = src_h as f32 / target_h as f32;
+    let scale_x = src_w as f32 / target_w as f32;
+    let src_h_max = src_h as isize - 1;
+    let src_w_max = src_w as isize - 1;
+
+    let mut out = vec![0.0f32; channels * target_h * target_w];
+
+    for c in 0..channels {
+        let src_plane = c * src_h * src_w;
+        let dst_plane = c * target_h * target_w;
+        for oy in 0..target_h {
+            let fy = (oy as f32 + 0.5) * scale_y - 0.5;
+            let y_floor = fy.floor();
+            let wy = fy - y_floor;
+            let y0 = (y_floor as isize).clamp(0, src_h_max) as usize;
+            let y1 = (y_floor as isize + 1).clamp(0, src_h_max) as usize;
+            let row0 = src_plane + y0 * src_w;
+            let row1 = src_plane + y1 * src_w;
+            for ox in 0..target_w {
+                let fx = (ox as f32 + 0.5) * scale_x - 0.5;
+                let x_floor = fx.floor();
+                let wx = fx - x_floor;
+                let x0 = (x_floor as isize).clamp(0, src_w_max) as usize;
+                let x1 = (x_floor as isize + 1).clamp(0, src_w_max) as usize;
+
+                // Bilinear blend of the four neighbouring source pixels.
+                let v00 = src_data[row0 + x0];
+                let v01 = src_data[row0 + x1];
+                let v10 = src_data[row1 + x0];
+                let v11 = src_data[row1 + x1];
+                let top = v00 + (v01 - v00) * wx;
+                let bot = v10 + (v11 - v10) * wx;
+                out[dst_plane + oy * target_w + ox] = top + (bot - top) * wy;
+            }
+        }
+    }
+
+    let new_shape = if dims.len() == 3 {
+        vec![channels, target_h, target_w]
+    } else {
+        vec![target_h, target_w]
+    };
+    let data = Tensor::from_vec(out, &new_shape)?;
+
+    let mut metadata = frame.metadata.clone();
+    metadata.width = target_w;
+    metadata.height = target_h;
+
+    Ok(Frame { data, metadata })
 }
 
 /// Frame preprocessor for common vision tasks
@@ -412,15 +515,107 @@ impl FramePreprocessor {
     }
 
     /// Preprocess a frame
+    ///
+    /// Applies the configured operations in order:
+    /// 1. Resize (nearest-neighbor) if `target_size` is set
+    /// 2. Per-channel normalization if `normalize_mean`/`normalize_std` are set
+    /// 3. Grayscale conversion (weighted average) if `to_grayscale` is set
     pub fn preprocess(&self, frame: &Frame) -> Result<Frame> {
-        let processed = frame.clone();
+        let mut data = frame.data.clone();
+        let mut width = frame.metadata.width;
+        let mut height = frame.metadata.height;
 
-        // TODO: Implement actual preprocessing operations
-        // - Resize if target_size is set
-        // - Normalize if mean/std are set
-        // - Convert to grayscale if enabled
+        // Step 1: Resize using nearest-neighbor sampling
+        if let Some((target_w, target_h)) = self.target_size {
+            if target_w != width || target_h != height {
+                let orig_data: Vec<f32> = data.to_vec().map_err(|e| VisionError::TensorError(e))?;
+                let shape = data.shape();
+                let dims = shape.dims();
 
-        Ok(processed)
+                // Determine number of channels from the tensor shape
+                let channels = if dims.len() == 3 {
+                    dims[0] // CHW layout
+                } else {
+                    1
+                };
+
+                let mut resized = vec![0.0f32; channels * target_h * target_w];
+                let scale_y = height as f32 / target_h as f32;
+                let scale_x = width as f32 / target_w as f32;
+
+                for c in 0..channels {
+                    for oy in 0..target_h {
+                        for ox in 0..target_w {
+                            let src_y = ((oy as f32 * scale_y) as usize).min(height - 1);
+                            let src_x = ((ox as f32 * scale_x) as usize).min(width - 1);
+                            let src_idx = c * height * width + src_y * width + src_x;
+                            let dst_idx = c * target_h * target_w + oy * target_w + ox;
+                            resized[dst_idx] = orig_data[src_idx];
+                        }
+                    }
+                }
+
+                let new_shape = if dims.len() == 3 {
+                    vec![channels, target_h, target_w]
+                } else {
+                    vec![target_h, target_w]
+                };
+                data = Tensor::from_vec(resized, &new_shape)
+                    .map_err(|e| VisionError::TensorError(e))?;
+                width = target_w;
+                height = target_h;
+            }
+        }
+
+        // Step 2: Per-channel normalization: (pixel - mean) / std
+        if let (Some(means), Some(stds)) = (&self.normalize_mean, &self.normalize_std) {
+            let shape = data.shape();
+            let dims = shape.dims();
+            let channels = if dims.len() == 3 { dims[0] } else { 1 };
+            let mut pixel_data: Vec<f32> =
+                data.to_vec().map_err(|e| VisionError::TensorError(e))?;
+            let pixels_per_channel = height * width;
+
+            for c in 0..channels.min(means.len()).min(stds.len()) {
+                let mean = means[c];
+                let std = stds[c].max(1e-7);
+                let offset = c * pixels_per_channel;
+                for i in 0..pixels_per_channel {
+                    pixel_data[offset + i] = (pixel_data[offset + i] - mean) / std;
+                }
+            }
+
+            let shape_vec = dims.to_vec();
+            data = Tensor::from_vec(pixel_data, &shape_vec)
+                .map_err(|e| VisionError::TensorError(e))?;
+        }
+
+        // Step 3: Grayscale conversion using luminance weights (ITU-R BT.601)
+        if self.to_grayscale {
+            let shape = data.shape();
+            let dims = shape.dims();
+            if dims.len() == 3 && dims[0] >= 3 {
+                let pixel_data: Vec<f32> =
+                    data.to_vec().map_err(|e| VisionError::TensorError(e))?;
+                let pixels = height * width;
+                let mut gray = vec![0.0f32; pixels];
+                // R=dims[0]=0, G=1, B=2
+                for i in 0..pixels {
+                    let r = pixel_data[i];
+                    let g = pixel_data[pixels + i];
+                    let b = pixel_data[2 * pixels + i];
+                    gray[i] = 0.299 * r + 0.587 * g + 0.114 * b;
+                }
+                data = Tensor::from_vec(gray, &[1, height, width])
+                    .map_err(|e| VisionError::TensorError(e))?;
+            }
+        }
+
+        let mut metadata = frame.metadata.clone();
+        metadata.width = width;
+        metadata.height = height;
+
+        Ok(Frame { data, metadata })
     }
 }
 
@@ -612,5 +807,205 @@ mod tests {
         assert_eq!(stats.total_frames, 0);
         assert_eq!(stats.dropped_frames, 0);
         assert_eq!(stats.current_fps, 0.0);
+    }
+
+    #[test]
+    fn test_frame_preprocessor_resize() {
+        // Create a 4×4×3 CHW frame
+        let data: Vec<f32> = (0..48).map(|x| x as f32).collect();
+        let tensor = Tensor::from_vec(data, &[3, 4, 4]).expect("tensor creation should succeed");
+
+        let frame = Frame {
+            data: tensor,
+            metadata: FrameMetadata {
+                frame_number: 0,
+                timestamp: Instant::now(),
+                width: 4,
+                height: 4,
+                is_keyframe: true,
+                priority: 1,
+            },
+        };
+
+        let preprocessor = FramePreprocessor::new().with_resize(2, 2);
+        let result = preprocessor
+            .preprocess(&frame)
+            .expect("resize should succeed");
+        assert_eq!(result.metadata.width, 2);
+        assert_eq!(result.metadata.height, 2);
+        let shape = result.data.shape();
+        let dims = shape.dims();
+        assert_eq!(dims, &[3, 2, 2]);
+    }
+
+    #[test]
+    fn test_frame_preprocessor_normalize() {
+        // CHW frame with all values = 128.0
+        let data = vec![128.0f32; 3 * 4 * 4];
+        let tensor = Tensor::from_vec(data, &[3, 4, 4]).expect("tensor creation should succeed");
+
+        let frame = Frame {
+            data: tensor,
+            metadata: FrameMetadata {
+                frame_number: 0,
+                timestamp: Instant::now(),
+                width: 4,
+                height: 4,
+                is_keyframe: true,
+                priority: 1,
+            },
+        };
+
+        // Normalize with mean=128, std=128 → output should be ~0.0
+        let preprocessor = FramePreprocessor::new()
+            .with_normalize(vec![128.0, 128.0, 128.0], vec![128.0, 128.0, 128.0]);
+        let result = preprocessor
+            .preprocess(&frame)
+            .expect("normalize should succeed");
+        let vals: Vec<f32> = result.data.to_vec().expect("to_vec should succeed");
+        for &v in &vals {
+            assert!(v.abs() < 1e-5, "Expected ~0 after normalization, got {v}");
+        }
+    }
+
+    #[test]
+    fn test_frame_preprocessor_grayscale() {
+        // Pure red image: R=1.0, G=0.0, B=0.0 → luminance = 0.299
+        let mut data = vec![0.0f32; 3 * 4 * 4];
+        // Channel 0 (R) = 1.0
+        for i in 0..(4 * 4) {
+            data[i] = 1.0;
+        }
+        let tensor = Tensor::from_vec(data, &[3, 4, 4]).expect("tensor creation should succeed");
+
+        let frame = Frame {
+            data: tensor,
+            metadata: FrameMetadata {
+                frame_number: 0,
+                timestamp: Instant::now(),
+                width: 4,
+                height: 4,
+                is_keyframe: true,
+                priority: 1,
+            },
+        };
+
+        let preprocessor = FramePreprocessor::new().with_grayscale();
+        let result = preprocessor
+            .preprocess(&frame)
+            .expect("grayscale should succeed");
+
+        let shape = result.data.shape();
+        let dims = shape.dims();
+        assert_eq!(dims, &[1, 4, 4]);
+
+        let vals: Vec<f32> = result.data.to_vec().expect("to_vec should succeed");
+        for &v in &vals {
+            assert!(
+                (v - 0.299).abs() < 1e-5,
+                "Expected 0.299 luminance for pure red, got {v}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_downscale_bilinear_known_values() {
+        // 4x4 single-channel frame where pixel(y, x) = 4*y + x:
+        //   0  1  2  3
+        //   4  5  6  7
+        //   8  9 10 11
+        //  12 13 14 15
+        let data: Vec<f32> = (0..16).map(|x| x as f32).collect();
+        let tensor = Tensor::from_vec(data, &[1, 4, 4]).expect("tensor creation should succeed");
+
+        let frame = Frame {
+            data: tensor,
+            metadata: FrameMetadata {
+                frame_number: 0,
+                timestamp: Instant::now(),
+                width: 4,
+                height: 4,
+                is_keyframe: true,
+                priority: 1,
+            },
+        };
+
+        let result = downscale_frame_bilinear(&frame, 2, 2).expect("downscale should succeed");
+
+        // Dimensions must reflect the new resolution.
+        assert_eq!(result.metadata.width, 2);
+        assert_eq!(result.metadata.height, 2);
+        let shape = result.data.shape();
+        assert_eq!(shape.dims(), &[1, 2, 2]);
+
+        // Hand-computed bilinear values (half-pixel centres, scale = 2):
+        //   out(0,0): fy=fx=0.5 -> blend of {0,1,4,5} = 2.5
+        //   out(0,1): fx=2.5    -> blend of {2,3,6,7} = 4.5
+        //   out(1,0): fy=2.5    -> blend of {8,9,12,13} = 10.5
+        //   out(1,1): fy=fx=2.5 -> blend of {10,11,14,15} = 12.5
+        let expected = [2.5f32, 4.5, 10.5, 12.5];
+        let vals: Vec<f32> = result.data.to_vec().expect("to_vec should succeed");
+        assert_eq!(vals.len(), expected.len());
+        for (got, want) in vals.iter().zip(expected.iter()) {
+            assert!(
+                (got - want).abs() < 1e-6,
+                "bilinear downscale mismatch: got {got}, expected {want}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_downscale_bilinear_rejects_bad_rank() {
+        // A rank-1 tensor cannot be interpreted as HW or CHW: expect an honest error
+        // rather than a silent passthrough.
+        let tensor = Tensor::from_vec(vec![0.0f32; 4], &[4]).expect("tensor creation");
+        let frame = Frame {
+            data: tensor,
+            metadata: FrameMetadata {
+                frame_number: 0,
+                timestamp: Instant::now(),
+                width: 4,
+                height: 1,
+                is_keyframe: true,
+                priority: 1,
+            },
+        };
+        assert!(downscale_frame_bilinear(&frame, 2, 1).is_err());
+    }
+
+    #[test]
+    fn test_resolution_scaling_triggers_real_downscale() {
+        // A fresh processor has current_fps == 0, which is below target * 0.8, so the
+        // ResolutionScaling adaptation must produce a genuinely smaller frame (8 -> 6).
+        let config = StreamConfig {
+            quality_adaptation: QualityAdaptation::ResolutionScaling,
+            ..Default::default()
+        };
+        let processor = StreamProcessor::new(config).expect("processor creation");
+
+        let data: Vec<f32> = (0..64).map(|x| x as f32).collect();
+        let tensor = Tensor::from_vec(data, &[1, 8, 8]).expect("tensor creation");
+        let frame = Frame {
+            data: tensor,
+            metadata: FrameMetadata {
+                frame_number: 0,
+                timestamp: Instant::now(),
+                width: 8,
+                height: 8,
+                is_keyframe: true,
+                priority: 1,
+            },
+        };
+
+        // `process_frame` runs the adaptation then hands the adapted frame to the closure.
+        let adapted = processor
+            .process_frame(frame, |f| Ok(f.clone()))
+            .expect("process_frame should succeed");
+
+        assert_eq!(adapted.metadata.width, 6);
+        assert_eq!(adapted.metadata.height, 6);
+        let shape = adapted.data.shape();
+        assert_eq!(shape.dims(), &[1, 6, 6]);
+        assert_eq!(processor.stats().num_adaptations, 1);
     }
 }

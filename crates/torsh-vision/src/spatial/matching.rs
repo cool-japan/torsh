@@ -337,13 +337,31 @@ impl FeatureMatcher {
     }
 
     fn cross_check_matches(&self, matches: &[Match]) -> Result<Vec<Match>> {
-        // Implement cross-checking to ensure consistency
-        let mut filtered_matches = Vec::new();
+        // Build a reverse index: train_idx -> best query_idx for that train descriptor
+        let mut train_to_best_query: HashMap<usize, (usize, f64)> = HashMap::new();
 
-        // For now, just return all matches (placeholder)
-        filtered_matches.extend_from_slice(matches);
+        for m in matches {
+            let entry = train_to_best_query
+                .entry(m.train_idx)
+                .or_insert((m.query_idx, m.distance));
+            if m.distance < entry.1 {
+                *entry = (m.query_idx, m.distance);
+            }
+        }
 
-        Ok(filtered_matches)
+        // Keep only matches where the train feature also maps back to the same query
+        let filtered: Vec<Match> = matches
+            .iter()
+            .filter(|m| {
+                train_to_best_query
+                    .get(&m.train_idx)
+                    .map(|(best_q, _)| *best_q == m.query_idx)
+                    .unwrap_or(false)
+            })
+            .cloned()
+            .collect();
+
+        Ok(filtered)
     }
 }
 
@@ -411,8 +429,13 @@ impl TemplateMatcher {
         // Sliding window template matching
         for y in 0..=(img_height - tmpl_height) {
             for x in 0..=(img_width - tmpl_width) {
-                // Extract window using simple iteration (placeholder)
-                let window = template.pattern.clone(); // Simplified for compilation
+                // Extract the image window aligned with the template
+                let mut window = Array2::zeros((tmpl_height, tmpl_width));
+                for (ti, wi) in (y..y + tmpl_height).enumerate() {
+                    for (tj, wj) in (x..x + tmpl_width).enumerate() {
+                        window[[ti, tj]] = image[[wi, wj]];
+                    }
+                }
 
                 let confidence = self.compute_template_similarity(&window, &template.pattern)?;
 
@@ -506,5 +529,84 @@ mod tests {
 
         matcher.add_template(template);
         assert_eq!(matcher.templates.len(), 1);
+    }
+
+    #[test]
+    fn test_template_window_extraction() {
+        // 4×4 image with known pattern
+        let image = arr2(&[
+            [0.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0],
+        ]);
+        // Template matching the identity-like 2×2 sub-region at (1,1)
+        let pattern = arr2(&[[1.0, 0.0], [0.0, 1.0]]);
+
+        let config = MatchingConfig {
+            cross_check: false,
+            ..Default::default()
+        };
+        let mut matcher = TemplateMatcher::new(config);
+        matcher.add_template(Template {
+            pattern,
+            id: "identity".to_string(),
+            threshold: 0.5,
+        });
+
+        let matches = matcher
+            .match_templates(&image)
+            .expect("match_templates should succeed");
+        // The identity pattern should match somewhere with high confidence
+        assert!(!matches.is_empty(), "Expected at least one template match");
+        // The best match should be at position (1,1)
+        let best = matches.iter().max_by(|a, b| {
+            a.confidence
+                .partial_cmp(&b.confidence)
+                .expect("cmp should succeed")
+        });
+        assert!(best.is_some());
+        let best = best.expect("best match must exist");
+        assert_eq!(best.position, (1.0, 1.0));
+    }
+
+    #[test]
+    fn test_cross_check_matches_filters_non_mutual() {
+        // Create matches where query 0 -> train 0, query 1 -> train 0 (conflict)
+        let matches = vec![
+            Match::new(0, 0, 0.1),
+            Match::new(1, 0, 0.5), // non-mutual: both q0 and q1 map to train 0
+        ];
+        let config = MatchingConfig {
+            cross_check: true,
+            ..Default::default()
+        };
+        let matcher = FeatureMatcher::new(config);
+        let filtered = matcher
+            .cross_check_matches(&matches)
+            .expect("cross_check_matches should succeed");
+
+        // Only the better (lower distance) match to train 0 should survive
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].query_idx, 0);
+    }
+
+    #[test]
+    fn test_cross_check_mutual_matches_pass() {
+        // Each query uniquely maps to a different train descriptor
+        let matches = vec![
+            Match::new(0, 0, 0.1),
+            Match::new(1, 1, 0.2),
+            Match::new(2, 2, 0.3),
+        ];
+        let config = MatchingConfig {
+            cross_check: true,
+            ..Default::default()
+        };
+        let matcher = FeatureMatcher::new(config);
+        let filtered = matcher
+            .cross_check_matches(&matches)
+            .expect("cross_check_matches should succeed");
+        assert_eq!(filtered.len(), 3);
     }
 }

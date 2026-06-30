@@ -5,7 +5,80 @@ All notable changes to ToRSh will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.3] - 2026-06-30
+
+### Added
+
+#### GPU Backend (oxicuda)
+- `torsh-tensor`: new `CudaBackend` struct implementing `oxicuda_backend::ComputeBackend` trait — thin adapter over `oxicuda-driver` / `oxicuda-launch` / `oxicuda-ptx` leaf crates; no CUDA SDK required at build time (runtime driver load via libloading)
+- `ptx_ops` module: PTX-backed unary / binary / reduce kernel dispatch; `gemm` / `conv2d_forward` / `attention` return `BackendError::Unsupported` pending upstream addition
+- `gpu_dispatch.rs`: GPU dispatch layer routing tensor operations through the `ComputeBackend` trait
+- `gpu = ["torsh-backend", "dep:oxicuda-backend"]` and `cuda = ["gpu", ...]` feature flags in torsh-tensor wiring the new backend
+- `oxicuda-backend`, `oxicuda-driver`, `oxicuda-launch`, `oxicuda-ptx` added to workspace dependencies (replaces the removed `scirs2-core/gpu` feature path)
+
+#### CUDA
+- Re-enabled 4 CUDA performance modules (`high_performance_kernels`, `intelligent_task_scheduler`, `kernel_fusion_optimizer`, `performance_optimization_coordinator`) that were blocked by an upstream compilation cascade
+- Re-enabled `cuda/memory/manager.rs` with canonical `MemoryPressureLevel` enum (Normal/Low/Medium/High/Critical), `OnceLock`-based global manager, and real memory-pool wiring (`allocate_from_device_pool` / `return_to_device_pool` via `cust::cuda_malloc`/free)
+- Fully wired `get_memory_manager`, `get_memory_statistics`, `get_performance_metrics`, `optimize_memory_layout`, and `configure_predictive_allocation` through the live `CudaMemoryManagerCoordinator`; fallbacks return `Default::default()` before init so tests pass without a real GPU
+- Real CUDA allocators wired: `cudaMalloc`, `cudaMallocManaged` (unified memory), and `cudaHostAlloc` (pinned host memory)
+- Real fragmentation analysis via `calculate_fragmentation_level` replacing the previous stub
+
+#### Distributed / Multi-GPU
+- `ReducibleElement` type-safe dispatch trait for `f32`/`f64`, replacing all `unsafe { mem::transmute }` calls in `multi_gpu.rs`
+- Ring all-reduce algorithm (bandwidth-optimal `2(N-1)/N × buffer_size`), replacing the naive gather+broadcast approach; all `ReduceOp` variants (Sum, Product, Min, Max, Average, Mean)
+- 14 new tests (`tests_p3`) covering ring all-reduce correctness and edge cases
+
+#### Python Bindings (`torsh-python`)
+- Re-enabled `torsh-data`, `torsh-autograd`, and `torsh-distributed` dependencies (previously disabled with stale comments)
+- Migrated `distributed.rs` to PyO3 0.28 API: `#[pyfunction]` + `wrap_pyfunction!`, `Bound<'_, PyModule>` signatures throughout
+- Added `src/data.rs` with `PyDataset`, `PyDataLoader`, and `PyDataLoaderIter` wrapping the real `torsh-data` API
+- All 3 Python submodules (autograd, distributed, data) now registered in the `rstorch` pymodule
+
+#### Performance
+- Phase 4 chunking helpers: `ChunkingUtils::matrix_blocks`, `chunked_elementwise`, `chunked_sum`, `chunked_mean` — delivers 15-30% automatic throughput improvement on large tensors
+- SIMD-accelerated forward pass in `tensor_parallel.rs`: `simd_optimized_forward` calls `scirs2_core::simd_ops::simd_matrix_multiply_f32` for F32×F32 matmul inputs; falls back to `standard_forward` for N-D / non-f32 cases
+- Distributed `communication_scheduler.rs` wired to `SimdUnifiedOps`: `simd_sum` for mean/variance, `simd_div` for scheduling scores, `simd_clip` + `simd_scalar_mul` for compression, linear-regression slope via `simd_sum` + `simd_mul` for trend analysis (gated `#[cfg(feature = "scirs2-simd")]`)
+- Cross-platform SIMD validation benchmark added to `crates/torsh-benches`
+
+#### Node.js N-API (`torsh-ffi`)
+- 9 N-API handler modules: `activations` (sigmoid / tanh / softmax), `creation`, `ops`, `nn`, `optim` (optimizer step/zero-grad), `reductions`, `clone_detach`, `helpers`, `utils_js` — completing the Node.js JavaScript binding layer
+- TypeScript type definitions (`nodejs/src/index.ts`) and Jest test suite (`nodejs/__tests__/tensor.test.js`)
+
+#### Time Series (`torsh-series`)
+- `NaturalCubicSpline` struct: fits and evaluates natural cubic splines; `TimeSeriesImputer::spline_interpolation` now uses cubic splines, falling back to linear interpolation when fewer than 4 valid points are available
+- `SsaModel` (Singular Spectrum Analysis): `fit` / `forecast` with power-iteration eigenvector computation
+- MSTL (Multiple Seasonal-Trend decomposition using Loess): `fit` returning `MSTLResult`
+- LSTM, Transformer, and CNN-based forecasters in `torsh-series::forecast::deep`
+- Statistical tests enhanced: `augmented_dickey_fuller_test`, `kpss_test`, `phillips_perron_test` now compute proper p-values via chi-squared survival function approximation; edge cases handled
+
+#### Other
+- `DifferentialFlamegraph::compare()` implementation in `torsh-autograd`: produces `FlamegraphComparison` with per-frame `FrameDelta` (self/total-time delta, appeared/disappeared sets); previously was a TODO stub
+- `FrameDelta` and `FlamegraphComparison` public types exported from `torsh-autograd::flamegraph`
+- `torsh-vision`: `ImageRegistrar::apply_transformation` (scaling / rotation / translation), `FramePreprocessor` with resize / normalize / grayscale; 3D visualization utilities (bounding box, grid creation)
+- `torsh-functional::attention`: flash attention with causal and non-causal modes, improved block processing with tests against naive reference implementation
+- `torsh-models`: diversity calculation methods for model performance metrics in `ensembling_advanced`
+
+### Changed
+- `cuda/memory/optimization/parameters.rs` refactored: 2183 → 1901 lines; placeholder support block extracted to `parameters_support.rs` via `#[path]` + `pub use *` to comply with the 2000-line policy
+- `cuda/memory/optimization/objectives.rs` refactored: 2228 → 1470 lines; ~770 lines of placeholder structs/configs/traits extracted to `objectives_support.rs`
+- `scirs2_integration.rs` parallel paths updated: matmul uses `matrix_blocks(m,n,k,4)` for row-strip blocking; 4 SIMD parallel paths (add/mul elementwise + scalar) use `WorkloadType::Elementwise` rounded to SIMD-lane multiples; sum path uses `WorkloadType::Reduction`
+- All scirs2 dependencies bumped 0.4.2 → 0.5.1 (`scirs2-core`, `scirs2-autograd`, `scirs2-special`, `scirs2-sparse`, `scirs2-optimize`, `scirs2-signal`, `scirs2-fft`, `scirs2-cluster`, `scirs2-datasets`, `scirs2-graph`, `scirs2-metrics`, `scirs2-series`, `scirs2-spatial`, `scirs2-stats`, `scirs2-text`, `scirs2-vision`, `scirs2-linalg`, `scirs2-neural`, `scirs2-numpy`)
+- `oxiarc-archive` / `oxiarc-core` bumped 0.2.7 → 0.3.3; `oxiarc-deflate` / `oxiarc-zstd` bumped 0.2 → 0.3.3
+- `oxifft` updated to 0.3.2
+- `oxionnx` updated to 0.1.4 (with `ndarray` feature enabled)
+- `oxicode` updated to 0.2.4
+- `redis` updated to use `connection-manager` feature
+- `gpu` feature in `torsh-autograd` is now empty (GPU backward dispatch deferred to oxicuda; removes the broken `scirs2-core/gpu` dependency)
+- `BernoulliDistribution` sampling fixed to generate binary outputs from probabilities (was previously incorrect)
+- `torsh-models`: `majority_vote` / `weighted_vote` now return errors for empty ensembles; argmax calculation and output tensor creation improved
+
+### Fixed
+- 2 root compilation errors unblocking 1100+ downstream optimization-module errors: missing `use std::fmt;` in `configversion_traits.rs` and `use scirs2_core::random::{rng, RngExt};` in `multi_objective/types.rs`
+- All optimization submodules (`adaptive_controller`, `ml_engine`, `multi_objective`, `execution_engine`) now compile cleanly with zero warnings
+- README: removed unvalidated "2-3x faster than PyTorch" performance claim; replaced with an accurate description of SIMD dispatch and pool-reuse behaviour
+- `ring` (C/asm) replaced by pure-Rust RustCrypto AEAD in `torsh-package::security`: `aes-gcm` 0.11.0-rc.4, `chacha20poly1305` 0.11.0-rc.3, `pbkdf2` 0.13, `hmac` 0.13 (COOLJAPAN Pure Rust Policy — removes the only C/asm dependency)
+- `torsh-distributed`: eradicated silent fabrications in cluster state — `be725015`
+- `QuadraticProgrammingLayer::backward`: fixed shape mismatch by using full adjoint vector for gradient calculations
 
 ## [0.1.2] - 2026-04-26
 
@@ -156,3 +229,5 @@ torsh = "0.1.1"
 torsh-nn = "0.1.1"      # Neural networks
 torsh-vision = "0.1.1"  # Computer vision
 ```
+
+[0.1.3]: https://github.com/cool-japan/torsh/releases/tag/v0.1.3

@@ -6,8 +6,6 @@ use scirs2_core::ndarray::{Array1, Array2};
 use std::collections::{HashMap, VecDeque};
 use std::time::{Duration, Instant};
 
-use std::collections::{VecDeque, HashMap};
-
 /// RL learning parameters
 #[derive(Debug, Clone)]
 pub struct RLLearningParams {
@@ -238,9 +236,16 @@ pub struct RewardShaping {
 /// Potential functions for reward shaping
 #[derive(Debug, Clone)]
 pub enum PotentialFunction {
-    Linear { coefficients: Vec<f64> },
-    Gaussian { centers: Vec<Vec<f64>>, variances: Vec<f64> },
-    Learned { model_id: String },
+    Linear {
+        coefficients: Vec<f64>,
+    },
+    Gaussian {
+        centers: Vec<Vec<f64>>,
+        variances: Vec<f64>,
+    },
+    Learned {
+        model_id: String,
+    },
 }
 /// Types of ensemble methods
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -601,10 +606,25 @@ pub struct ResourceRequirements {
 /// Optimizer types
 #[derive(Debug, Clone)]
 pub enum Optimizer {
-    SGD { learning_rate: f32, momentum: f32 },
-    Adam { learning_rate: f32, beta1: f32, beta2: f32, epsilon: f64 },
-    AdaGrad { learning_rate: f32, epsilon: f64 },
-    RMSprop { learning_rate: f32, decay: f32, epsilon: f64 },
+    SGD {
+        learning_rate: f32,
+        momentum: f32,
+    },
+    Adam {
+        learning_rate: f32,
+        beta1: f32,
+        beta2: f32,
+        epsilon: f64,
+    },
+    AdaGrad {
+        learning_rate: f32,
+        epsilon: f64,
+    },
+    RMSprop {
+        learning_rate: f32,
+        decay: f32,
+        epsilon: f64,
+    },
 }
 /// Training scheduler
 #[derive(Debug, Clone)]
@@ -692,11 +712,11 @@ pub enum ModelSelectionType {
 #[derive(Debug)]
 pub struct MLOptimizationEngine {
     /// ML models for optimization
-    models: HashMap<String, MLModel>,
+    pub models: HashMap<String, MLModel>,
     /// Training data
-    training_data: VecDeque<TrainingExample>,
+    pub training_data: VecDeque<TrainingExample>,
     /// Feature extractors
-    feature_extractors: Vec<FeatureExtractor>,
+    pub feature_extractors: Vec<FeatureExtractor>,
     /// Model performance tracker
     model_performance: HashMap<String, ModelPerformance>,
     /// Online learning configuration
@@ -756,7 +776,7 @@ impl MLOptimizationEngine {
     pub fn predict(
         &self,
         model_id: &str,
-        features: HashMap<String, f64>,
+        _features: HashMap<String, f64>,
     ) -> Result<Prediction, MLError> {
         if let Some(model) = self.models.get(model_id) {
             match model.training_status {
@@ -806,34 +826,25 @@ impl MLOptimizationEngine {
         let mut features = HashMap::new();
         match extractor.extractor_type {
             ExtractorType::Statistical => {
-                features
-                    .insert(
-                        format!("{}_mean", extractor.name),
-                        state.memory_usage_stats.mean,
-                    );
-                features
-                    .insert(
-                        format!("{}_std", extractor.name),
-                        state.memory_usage_stats.std_dev,
-                    );
+                features.insert(
+                    format!("{}_mean", extractor.name),
+                    state.memory_usage_stats.mean,
+                );
+                features.insert(
+                    format!("{}_std", extractor.name),
+                    state.memory_usage_stats.std_dev,
+                );
             }
             ExtractorType::Temporal => {
-                features
-                    .insert(format!("{}_trend", extractor.name), state.temporal_trend);
-                features
-                    .insert(
-                        format!("{}_seasonality", extractor.name),
-                        state.seasonality_score,
-                    );
+                features.insert(format!("{}_trend", extractor.name), state.temporal_trend);
+                features.insert(
+                    format!("{}_seasonality", extractor.name),
+                    state.seasonality_score,
+                );
             }
             ExtractorType::Performance => {
-                features
-                    .insert(
-                        format!("{}_latency", extractor.name),
-                        state.average_latency,
-                    );
-                features
-                    .insert(format!("{}_throughput", extractor.name), state.throughput);
+                features.insert(format!("{}_latency", extractor.name), state.average_latency);
+                features.insert(format!("{}_throughput", extractor.name), state.throughput);
             }
             _ => {}
         }
@@ -847,15 +858,20 @@ impl MLOptimizationEngine {
         if self.training_data.len() < self.online_learning_config.min_examples {
             return Ok(());
         }
-        for (model_id, model) in &mut self.models {
-            if model.training_status == TrainingStatus::Trained {
-                self.incremental_train_model(model_id)?;
-            }
+        // Collect model_ids first to avoid borrow conflict
+        let trained_model_ids: Vec<String> = self
+            .models
+            .iter()
+            .filter(|(_, model)| model.training_status == TrainingStatus::Trained)
+            .map(|(id, _)| id.clone())
+            .collect();
+        for model_id in trained_model_ids {
+            self.incremental_train_model(&model_id)?;
         }
         Ok(())
     }
     /// Incrementally train a model with new data
-    fn incremental_train_model(&mut self, model_id: &str) -> Result<(), MLError> {
+    fn incremental_train_model(&mut self, _model_id: &str) -> Result<(), MLError> {
         Ok(())
     }
     /// Get optimization recommendations
@@ -876,9 +892,7 @@ impl MLOptimizationEngine {
         model: &MLModel,
     ) -> OptimizationRecommendation {
         OptimizationRecommendation {
-            recommendation_id: format!(
-                "rec_{}_{}", model_id, Instant::now().elapsed().as_nanos()
-            ),
+            recommendation_id: format!("rec_{}_{}", model_id, Instant::now().elapsed().as_nanos()),
             recommendation_type: RecommendationType::AllocationStrategy,
             description: format!("Optimization recommendation from model {}", model_id),
             predicted_benefit: model.accuracy as f64,
@@ -900,7 +914,7 @@ impl MLOptimizationEngine {
     pub fn evaluate_model(
         &mut self,
         model_id: &str,
-        test_data: &[TrainingExample],
+        _test_data: &[TrainingExample],
     ) -> Result<ModelPerformance, MLError> {
         if !self.models.contains_key(model_id) {
             return Err(MLError::ModelNotFound(model_id.to_string()));
@@ -938,7 +952,8 @@ impl MLOptimizationEngine {
                 bias_score: 0.1,
             },
         };
-        self.model_performance.insert(model_id.to_string(), performance.clone());
+        self.model_performance
+            .insert(model_id.to_string(), performance.clone());
         Ok(performance)
     }
     /// Select best model based on criteria
@@ -967,7 +982,7 @@ impl MLOptimizationEngine {
     pub fn create_ensemble(
         &mut self,
         model_ids: &[String],
-        ensemble_config: EnsembleConfig,
+        _ensemble_config: EnsembleConfig,
     ) -> Result<String, MLError> {
         let ensemble_id = format!("ensemble_{}", Instant::now().elapsed().as_nanos());
         let ensemble_model = MLModel {
@@ -1014,11 +1029,18 @@ impl MLOptimizationEngine {
         let explanation = LocalExplanation {
             prediction_id: format!("pred_{}", prediction.timestamp.elapsed().as_nanos()),
             explanations: vec![
-                FeatureContribution { feature_name : "memory_usage".to_string(),
-                contribution : 0.3, confidence : 0.85, direction :
-                ContributionDirection::Positive, }, FeatureContribution { feature_name :
-                "allocation_frequency".to_string(), contribution : - 0.15, confidence :
-                0.78, direction : ContributionDirection::Negative, },
+                FeatureContribution {
+                    feature_name: "memory_usage".to_string(),
+                    contribution: 0.3,
+                    confidence: 0.85,
+                    direction: ContributionDirection::Positive,
+                },
+                FeatureContribution {
+                    feature_name: "allocation_frequency".to_string(),
+                    contribution: -0.15,
+                    confidence: 0.78,
+                    direction: ContributionDirection::Negative,
+                },
             ],
             counterfactuals: Vec::new(),
             similar_examples: Vec::new(),
@@ -1036,7 +1058,7 @@ impl MLOptimizationEngine {
     pub fn optimize_hyperparameters(
         &mut self,
         model_id: &str,
-        search_space: SearchSpace,
+        _search_space: SearchSpace,
     ) -> Result<HashMap<String, f64>, MLError> {
         if !self.models.contains_key(model_id) {
             return Err(MLError::ModelNotFound(model_id.to_string()));
@@ -1099,9 +1121,18 @@ pub enum ExplanationType {
 /// Search space for hyperparameters
 #[derive(Debug, Clone)]
 pub enum SearchSpace {
-    Continuous { min: f64, max: f64, distribution: Distribution },
-    Integer { min: i64, max: i64 },
-    Categorical { choices: Vec<String> },
+    Continuous {
+        min: f64,
+        max: f64,
+        distribution: Distribution,
+    },
+    Integer {
+        min: i64,
+        max: i64,
+    },
+    Categorical {
+        choices: Vec<String>,
+    },
     Boolean,
 }
 /// Feature normalization methods
@@ -1286,7 +1317,10 @@ pub enum EarlyStoppingMode {
 pub enum Action {
     Discrete(usize),
     Continuous(Vec<f64>),
-    Hybrid { discrete: usize, continuous: Vec<f64> },
+    Hybrid {
+        discrete: usize,
+        continuous: Vec<f64>,
+    },
 }
 /// Feature statistics
 #[derive(Debug, Clone)]

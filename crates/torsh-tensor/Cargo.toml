@@ -22,6 +22,13 @@ workspace = true
 torsh-core = { workspace = true }
 # torsh-autograd = { workspace = true, optional = true }
 torsh-backend = { workspace = true, optional = true }
+# GPU compute backend (replaces scirs2-core GPU). Pure-Rust CUDA stack; the trait
+# crate is dependency-free and builds on CPU-only CI (no CUDA SDK at build time).
+oxicuda-backend = { workspace = true, optional = true }
+# Leaf crates backing ToRSh's own thin CudaBackend (src/cuda_backend), pulled by `cuda`.
+oxicuda-driver = { workspace = true, optional = true }
+oxicuda-launch = { workspace = true, optional = true }
+oxicuda-ptx = { workspace = true, optional = true }
 scirs2-core = { workspace = true }
 scirs2-autograd = { workspace = true }
 scirs2-stats = { workspace = true }
@@ -76,9 +83,13 @@ std = ["torsh-core/std"]
 autograd = []
 async = ["tokio"]
 simd = ["torsh-backend", "torsh-backend/simd", "scirs2-core/simd"]
-gpu = ["torsh-backend"]
+# GPU dispatch via oxicuda's ComputeBackend trait (see src/gpu_dispatch.rs).
+gpu = ["torsh-backend", "dep:oxicuda-backend"]
+# Real CUDA backend via ToRSh's own thin CudaBackend (src/cuda_backend) over the
+# oxicuda leaf crates. No CUDA SDK needed at build time (runtime driver load).
+cuda = ["gpu", "dep:oxicuda-driver", "dep:oxicuda-launch", "dep:oxicuda-ptx"]
 profiling = []
-memory_efficient = []
+memory_efficient = ["scirs2-core/memory_efficient"]
 # ndarray-interop = ["ndarray"]  # REMOVED: Use scirs2_core::ndarray instead (SciRS2 POLICY)
 serialize = ["serde", "serde_json", "oxicode", "oxiarc-deflate", "oxiarc-zstd", "torsh-core/serialize"]
 serialize-hdf5 = ["serialize", "hdf5"]
@@ -113,4 +124,8 @@ harness = false
 
 [[bench]]
 name = "alloc_tracking"
+harness = false
+
+[[bench]]
+name = "cross_platform_simd"
 harness = false

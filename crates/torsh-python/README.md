@@ -26,7 +26,7 @@ maturin develop
 maturin develop --release
 ```
 
-#### From PyPI (v0.1.2 pending publication)
+#### From PyPI (v0.1.3 pending publication)
 
 ```bash
 pip install RsTorch
@@ -58,7 +58,7 @@ See [examples/basic_usage.py](examples/basic_usage.py) for more examples.
 
 ### Current Status
 
-**Version**: 0.1.2
+**Version**: 0.1.3
 
 **Note**: This crate is in active development. Many features are currently disabled due to dependency conflicts with scirs2-autograd and are being re-enabled incrementally.
 
@@ -325,4 +325,4 @@ Licensed under the Apache License, Version 2.0. See [LICENSE](../../LICENSE) for
 
 ---
 
-**Status**: Active Development | **Version**: 0.1.2 | **Last Updated**: 2026-04-26
+**Status**: Active Development | **Version**: 0.1.3 | **Last Updated**: 2026-06-30

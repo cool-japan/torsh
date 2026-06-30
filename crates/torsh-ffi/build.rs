@@ -11,6 +11,32 @@ fn main() {
     println!("cargo:rerun-if-env-changed=PYTHON_SYS_EXECUTABLE");
     println!("cargo:rerun-if-env-changed=PYO3_PYTHON");
 
+    // macOS resolves cdylib symbols against a two-level namespace and rejects
+    // undefined symbols at link time. The symbols this crate references from its
+    // host are bound at *load* time, not link time:
+    //   * Node N-API (`_napi_*`)  — supplied by the `node` process; there is no
+    //     import library to link against, so dynamic lookup is the only option.
+    //   * Python C-API (`_Py*`)   — supplied by `python` (or libpython below).
+    // Emit the flag from the build script rather than relying solely on
+    // `.cargo/config.toml`'s `[target].rustflags`: Cargo discards config
+    // `rustflags` wholesale whenever a `RUSTFLAGS` env var is present (e.g.
+    // `-D warnings` in a CI/test harness), which silently dropped the flag and
+    // broke `cargo test --all-features` linking. Build-script link args survive
+    // that override. `rustc-link-arg` covers the cdylib and any future test/bin
+    // target; `rustc-cdylib-link-arg` is kept for explicitness on the addon.
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") {
+        println!("cargo:rustc-cdylib-link-arg=-Wl,-undefined,dynamic_lookup");
+        println!("cargo:rustc-link-arg=-Wl,-undefined,dynamic_lookup");
+    }
+
+    // When building as a Node.js N-API addon, or when the "python" feature is
+    // not active, skip Python linking entirely.
+    let nodejs_feature = std::env::var("CARGO_FEATURE_NODEJS").is_ok();
+    let python_feature = std::env::var("CARGO_FEATURE_PYTHON").is_ok();
+    if nodejs_feature || !python_feature {
+        return;
+    }
+
     pyo3_build_config::use_pyo3_cfgs();
     let config = pyo3_build_config::get();
 

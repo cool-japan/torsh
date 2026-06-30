@@ -455,26 +455,21 @@ fn apply_2_4_sparsity(tensor: &Tensor) -> TorshResult<Tensor> {
     if shape_dims.len() != 2 || shape_dims[1] % 4 != 0 {
         return Ok(tensor.clone());
     }
-    let result = tensor.clone();
     let rows = shape_dims[0];
     let cols = shape_dims[1];
+    let mut data = tensor.to_vec()?;
     for row in 0..rows {
         for col_group in 0..(cols / 4) {
-            let base_col = col_group * 4;
-            let mut values_with_indices = Vec::new();
-            for i in 0..4 {
-                let col = base_col + i;
-                let val = tensor.get(&[row, col]).unwrap_or(0.0);
-                values_with_indices.push((val.abs(), col));
-            }
-            values_with_indices
-                .sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
-            for i in 2..4 {
-                let _col_to_zero = values_with_indices[i].1;
-            }
+            let base = row * cols + col_group * 4;
+            // sort indices by |value| descending, zero the last 2 (smallest magnitude)
+            let mut indices: [usize; 4] = [base, base + 1, base + 2, base + 3];
+            indices.sort_unstable_by(|&a, &b| data[b].abs().total_cmp(&data[a].abs()));
+            data[indices[2]] = 0.0;
+            data[indices[3]] = 0.0;
         }
     }
-    Ok(result)
+    let shape_dims = tensor.shape().dims().to_vec();
+    Tensor::from_vec(data, &shape_dims)
 }
 /// Apply block sparsity
 fn apply_block_sparsity(tensor: &Tensor, block_size: usize) -> TorshResult<Tensor> {
@@ -488,23 +483,43 @@ fn apply_block_sparsity(tensor: &Tensor, block_size: usize) -> TorshResult<Tenso
     if rows < block_size || cols < block_size {
         return Ok(tensor.clone());
     }
-    let result = tensor.clone();
-    for row_block in 0..(rows / block_size) {
-        for col_block in 0..(cols / block_size) {
-            let base_row = row_block * block_size;
-            let base_col = col_block * block_size;
-            let mut block_magnitude = 0.0;
+    let num_row_blocks = rows / block_size;
+    let num_col_blocks = cols / block_size;
+    let flat = tensor.to_vec()?;
+    // collect block L1 magnitudes
+    let mut block_magnitudes = Vec::with_capacity(num_row_blocks * num_col_blocks);
+    for rb in 0..num_row_blocks {
+        for cb in 0..num_col_blocks {
+            let mut mag = 0.0f32;
             for r in 0..block_size {
                 for c in 0..block_size {
-                    let val = tensor.get(&[base_row + r, base_col + c]).unwrap_or(0.0);
-                    block_magnitude += val.abs();
+                    let idx = (rb * block_size + r) * cols + (cb * block_size + c);
+                    mag += flat[idx].abs();
                 }
             }
-            let threshold = (row_block + col_block) as f32 * 0.1;
-            if block_magnitude < threshold {}
+            block_magnitudes.push(mag);
         }
     }
-    Ok(result)
+    // threshold: mean * 0.5 — zero below-average blocks
+    let mean_mag = block_magnitudes.iter().sum::<f32>() / block_magnitudes.len() as f32;
+    let threshold = mean_mag * 0.5;
+    let mut data = flat;
+    let mut block_idx = 0;
+    for rb in 0..num_row_blocks {
+        for cb in 0..num_col_blocks {
+            if block_magnitudes[block_idx] < threshold {
+                for r in 0..block_size {
+                    for c in 0..block_size {
+                        let idx = (rb * block_size + r) * cols + (cb * block_size + c);
+                        data[idx] = 0.0;
+                    }
+                }
+            }
+            block_idx += 1;
+        }
+    }
+    let shape_dims = tensor.shape().dims().to_vec();
+    Tensor::from_vec(data, &shape_dims)
 }
 /// Apply channel-wise sparsity
 fn apply_channel_sparsity(tensor: &Tensor, sparsity: f32) -> TorshResult<Tensor> {
@@ -513,26 +528,37 @@ fn apply_channel_sparsity(tensor: &Tensor, sparsity: f32) -> TorshResult<Tensor>
     if shape_dims.len() < 2 {
         return Ok(tensor.clone());
     }
-    if shape_dims.len() == 4 {
-        let out_channels = shape_dims[0];
-        let _channels_to_prune = ((out_channels as f32) * sparsity).round() as usize;
-        let mut channel_magnitudes = Vec::new();
-        for ch in 0..out_channels {
-            let mut magnitude = 0.0;
-            for in_ch in 0..shape_dims[1] {
-                for h in 0..shape_dims[2] {
-                    for w in 0..shape_dims[3] {
-                        let val = tensor.get(&[ch, in_ch, h, w]).unwrap_or(0.0);
-                        magnitude += val.abs();
-                    }
-                }
-            }
-            channel_magnitudes.push((magnitude, ch));
-        }
-        channel_magnitudes
-            .sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+    let out_channels = shape_dims[0];
+    let num_to_prune = ((out_channels as f32) * sparsity).round() as usize;
+    if num_to_prune == 0 {
+        return Ok(tensor.clone());
     }
-    Ok(tensor.clone())
+    let mut data = tensor.to_vec()?;
+    let total_elements: usize = shape_dims.iter().product();
+    let per_channel = total_elements / out_channels;
+    // compute L2 norm per output channel
+    let mut channel_norms: Vec<(f32, usize)> = (0..out_channels)
+        .map(|ch| {
+            let base = ch * per_channel;
+            let norm = data[base..base + per_channel]
+                .iter()
+                .map(|&v| v * v)
+                .sum::<f32>()
+                .sqrt();
+            (norm, ch)
+        })
+        .collect();
+    // sort ascending by norm, take bottom num_to_prune
+    channel_norms.sort_unstable_by(|a, b| a.0.total_cmp(&b.0));
+    for i in 0..num_to_prune {
+        let ch = channel_norms[i].1;
+        let base = ch * per_channel;
+        for j in 0..per_channel {
+            data[base + j] = 0.0;
+        }
+    }
+    let shape_dims = tensor.shape().dims().to_vec();
+    Tensor::from_vec(data, &shape_dims)
 }
 /// Cluster weights to reduce unique values using advanced clustering algorithms
 fn cluster_weights(tensor: &Tensor, num_clusters: usize) -> TorshResult<Tensor> {
@@ -574,15 +600,15 @@ fn cluster_weights(tensor: &Tensor, num_clusters: usize) -> TorshResult<Tensor> 
             break;
         }
     }
-    let mut clustered = tensor.clone();
+    // Replace each element with its nearest centroid value
+    let mut result_data = Vec::with_capacity(total_elements);
     for i in 0..total_elements {
         let original_value = flat_tensor.get(&[i]).unwrap_or(0.0);
         let cluster_idx = find_nearest_cluster(original_value, &centers);
-        let clustered_value = centers[cluster_idx];
-        let _ = clustered_value;
+        result_data.push(centers[cluster_idx]);
     }
-    apply_weight_sharing_pattern(&mut clustered, &centers)?;
-    Ok(clustered)
+    let shape_dims = tensor.shape().dims().to_vec();
+    Tensor::from_vec(result_data, &shape_dims)
 }
 /// Initialize cluster centers using K-means++ algorithm
 fn initialize_kmeans_plus_plus(values: &[f32], num_clusters: usize) -> Vec<f32> {
@@ -623,48 +649,6 @@ fn find_nearest_cluster(value: f32, centers: &[f32]) -> usize {
     }
     nearest_idx
 }
-/// Apply weight sharing pattern optimization
-fn apply_weight_sharing_pattern(tensor: &mut Tensor, centers: &[f32]) -> TorshResult<()> {
-    let pow2_centers: Vec<f32> = centers
-        .iter()
-        .map(|&center| {
-            if center == 0.0 {
-                0.0
-            } else {
-                let log2_val = center.abs().log2();
-                let rounded_log2 = log2_val.round();
-                center.signum() * (2.0_f32).powf(rounded_log2)
-            }
-        })
-        .collect();
-    apply_codebook_compression(tensor, &pow2_centers)?;
-    optimize_for_simd_weights(tensor)?;
-    Ok(())
-}
-/// Apply codebook compression for efficient storage
-fn apply_codebook_compression(tensor: &Tensor, codebook: &[f32]) -> TorshResult<()> {
-    let shape = tensor.shape();
-    let _total_elements = shape.dims().iter().product::<usize>();
-    let original_bits = 32;
-    let compressed_bits = (codebook.len() as f32).log2().ceil() as u32;
-    let compression_ratio = original_bits as f32 / compressed_bits as f32;
-    let _ = compression_ratio;
-    Ok(())
-}
-/// Optimize weights for SIMD operations
-fn optimize_for_simd_weights(tensor: &Tensor) -> TorshResult<()> {
-    let shape = tensor.shape();
-    let shape_dims = shape.as_slice();
-    if shape_dims.len() >= 2 {
-        let last_dim = shape_dims[shape_dims.len() - 1];
-        let simd_alignment = 8;
-        if last_dim % simd_alignment != 0 {
-            let padded_size = ((last_dim + simd_alignment - 1) / simd_alignment) * simd_alignment;
-            let _ = padded_size;
-        }
-    }
-    Ok(())
-}
 /// Compress linear layer using advanced SVD-based techniques
 fn compress_linear_layer(weight: &Tensor, compression_ratio: f32) -> TorshResult<Tensor> {
     let shape = weight.shape();
@@ -699,50 +683,165 @@ fn calculate_optimal_rank(rows: usize, cols: usize, target_params: usize) -> usi
 fn apply_column_wise_compression(weight: &Tensor, rank: usize) -> TorshResult<Tensor> {
     let shape = weight.shape();
     let shape_dims = shape.as_slice();
-    let _rows = shape_dims[0];
+    if shape_dims.len() != 2 {
+        return Ok(weight.clone());
+    }
+    let rows = shape_dims[0];
     let cols = shape_dims[1];
     if rank >= cols {
         return Ok(weight.clone());
     }
-    let mut compressed_weight = weight.clone();
-    let energy_scale = (rank as f32 / cols as f32).sqrt();
-    compressed_weight = compressed_weight.mul_scalar(energy_scale)?;
-    for col in rank..cols {
-        let col_idx = col;
-        let _ = col_idx;
+    let mut data = weight.to_vec()?;
+    // compute L2 norm for each column
+    let mut col_norms: Vec<(f32, usize)> = (0..cols)
+        .map(|c| {
+            let norm = (0..rows)
+                .map(|r| {
+                    let v = data[r * cols + c];
+                    v * v
+                })
+                .sum::<f32>()
+                .sqrt();
+            (norm, c)
+        })
+        .collect();
+    // sort ascending, zero the (cols - rank) columns with smallest norms
+    col_norms.sort_unstable_by(|a, b| a.0.total_cmp(&b.0));
+    let num_to_zero = cols - rank;
+    for i in 0..num_to_zero {
+        let c = col_norms[i].1;
+        for r in 0..rows {
+            data[r * cols + c] = 0.0;
+        }
     }
-    Ok(compressed_weight)
+    let shape_dims = weight.shape().dims().to_vec();
+    Tensor::from_vec(data, &shape_dims)
 }
 /// Apply row-wise compression for wide matrices
 fn apply_row_wise_compression(weight: &Tensor, rank: usize) -> TorshResult<Tensor> {
     let shape = weight.shape();
     let shape_dims = shape.as_slice();
+    if shape_dims.len() != 2 {
+        return Ok(weight.clone());
+    }
     let rows = shape_dims[0];
-    let _cols = shape_dims[1];
+    let cols = shape_dims[1];
     if rank >= rows {
         return Ok(weight.clone());
     }
-    let mut compressed_weight = weight.clone();
-    let energy_scale = (rank as f32 / rows as f32).sqrt();
-    compressed_weight = compressed_weight.mul_scalar(energy_scale)?;
-    for row in rank..rows {
-        let row_idx = row;
-        let _ = row_idx;
+    let mut data = weight.to_vec()?;
+    // compute L2 norm for each row
+    let mut row_norms: Vec<(f32, usize)> = (0..rows)
+        .map(|r| {
+            let norm = (0..cols)
+                .map(|c| {
+                    let v = data[r * cols + c];
+                    v * v
+                })
+                .sum::<f32>()
+                .sqrt();
+            (norm, r)
+        })
+        .collect();
+    // sort ascending, zero the (rows - rank) rows with smallest norms
+    row_norms.sort_unstable_by(|a, b| a.0.total_cmp(&b.0));
+    let num_to_zero = rows - rank;
+    for i in 0..num_to_zero {
+        let r = row_norms[i].1;
+        let base = r * cols;
+        for j in 0..cols {
+            data[base + j] = 0.0;
+        }
     }
-    Ok(compressed_weight)
+    let shape_dims = weight.shape().dims().to_vec();
+    Tensor::from_vec(data, &shape_dims)
 }
-/// Apply symmetric compression for square matrices
+/// Apply symmetric compression for square matrices via truncated SVD (power iteration)
 fn apply_symmetric_compression(weight: &Tensor, rank: usize) -> TorshResult<Tensor> {
     let shape = weight.shape();
     let shape_dims = shape.as_slice();
-    let size = shape_dims[0];
-    if rank >= size || shape_dims[0] != shape_dims[1] {
+    if shape_dims.len() != 2 || shape_dims[0] != shape_dims[1] {
         return Ok(weight.clone());
     }
-    let mut compressed_weight = weight.clone();
-    let compression_factor = (rank as f32 / size as f32).sqrt();
-    compressed_weight = compressed_weight.mul_scalar(compression_factor)?;
-    Ok(compressed_weight)
+    let n = shape_dims[0];
+    if rank >= n {
+        return Ok(weight.clone());
+    }
+    let data = weight.to_vec()?;
+    let effective_rank = rank.min(n);
+    let mut residual = data.clone();
+    let mut result = vec![0.0f32; n * n];
+    for _k in 0..effective_rank {
+        // power iteration: find dominant singular vector pair of residual
+        let mut v: Vec<f32> = (0..n).map(|i| if i == 0 { 1.0 } else { 0.0 }).collect();
+        for _ in 0..30 {
+            // u = residual * v
+            let mut u: Vec<f32> = vec![0.0; n];
+            for r in 0..n {
+                for c in 0..n {
+                    u[r] += residual[r * n + c] * v[c];
+                }
+            }
+            let u_norm = u.iter().map(|&x| x * x).sum::<f32>().sqrt();
+            if u_norm < 1e-10 {
+                break;
+            }
+            for x in u.iter_mut() {
+                *x /= u_norm;
+            }
+            // v = residual^T * u
+            let mut v_new: Vec<f32> = vec![0.0; n];
+            for r in 0..n {
+                for c in 0..n {
+                    v_new[c] += residual[r * n + c] * u[r];
+                }
+            }
+            let v_norm = v_new.iter().map(|&x| x * x).sum::<f32>().sqrt();
+            if v_norm < 1e-10 {
+                break;
+            }
+            for x in v_new.iter_mut() {
+                *x /= v_norm;
+            }
+            let diff: f32 = v
+                .iter()
+                .zip(v_new.iter())
+                .map(|(&a, &b)| (a - b).abs())
+                .sum();
+            v = v_new;
+            if diff < 1e-6 {
+                break;
+            }
+        }
+        // recompute u from final v to get accurate sigma
+        let mut u_final: Vec<f32> = vec![0.0; n];
+        for r in 0..n {
+            for c in 0..n {
+                u_final[r] += residual[r * n + c] * v[c];
+            }
+        }
+        let u_norm = u_final.iter().map(|&x| x * x).sum::<f32>().sqrt();
+        if u_norm < 1e-10 {
+            break;
+        }
+        let sigma = u_norm;
+        for x in u_final.iter_mut() {
+            *x /= u_norm;
+        }
+        // add rank-1 contribution: sigma * u * v^T
+        for r in 0..n {
+            for c in 0..n {
+                result[r * n + c] += sigma * u_final[r] * v[c];
+            }
+        }
+        // deflate: residual -= sigma * u * v^T
+        for r in 0..n {
+            for c in 0..n {
+                residual[r * n + c] -= sigma * u_final[r] * v[c];
+            }
+        }
+    }
+    Tensor::from_vec(result, &[n, n])
 }
 /// Advanced mobile-specific benchmarking with detailed metrics
 pub fn benchmark_mobile_model_advanced(
@@ -1453,5 +1552,157 @@ mod tests {
         };
         assert_eq!(graph.nodes.len(), 3);
         assert_eq!(graph.edges.len(), 2);
+    }
+
+    #[test]
+    fn test_2_4_sparsity_zeros_introduced() {
+        // 2×4 tensor: each group of 4 must retain 2 largest magnitudes, zero 2 smallest
+        let data = vec![1.0f32, 3.0, 0.5, 2.0, 0.1, 4.0, 0.2, 5.0];
+        let tensor = Tensor::from_vec(data, &[2, 4]).expect("from_vec should succeed");
+        let result = apply_2_4_sparsity(&tensor).expect("apply_2_4_sparsity should succeed");
+        let out = result.to_vec().expect("to_vec should succeed");
+        // row 0: magnitudes [1.0, 3.0, 0.5, 2.0] → keep 3.0 and 2.0, zero 1.0 and 0.5
+        assert_eq!(out[0], 0.0, "row0 col0 (mag 1.0) should be zeroed");
+        assert_eq!(out[1], 3.0, "row0 col1 (mag 3.0) should be kept");
+        assert_eq!(out[2], 0.0, "row0 col2 (mag 0.5) should be zeroed");
+        assert_eq!(out[3], 2.0, "row0 col3 (mag 2.0) should be kept");
+        // row 1: magnitudes [0.1, 4.0, 0.2, 5.0] → keep 5.0 and 4.0, zero 0.1 and 0.2
+        assert_eq!(out[4], 0.0, "row1 col0 (mag 0.1) should be zeroed");
+        assert_eq!(out[5], 4.0, "row1 col1 (mag 4.0) should be kept");
+        assert_eq!(out[6], 0.0, "row1 col2 (mag 0.2) should be zeroed");
+        assert_eq!(out[7], 5.0, "row1 col3 (mag 5.0) should be kept");
+        // exactly 4 zeros total (2 per row)
+        let zero_count = out.iter().filter(|&&v| v == 0.0).count();
+        assert_eq!(zero_count, 4, "exactly 4 zeros expected in 2×4 tensor");
+    }
+
+    #[test]
+    fn test_channel_sparsity_zeros_channels() {
+        // 4D tensor [4, 2, 2, 2]: prune 2 channels (50% sparsity)
+        // channels 0 and 1 get tiny weights so they should be pruned
+        let mut data = vec![0.0f32; 4 * 2 * 2 * 2];
+        // channel 0: tiny values
+        for i in 0..8 {
+            data[i] = 0.001 * (i as f32 + 1.0);
+        }
+        // channel 1: tiny values
+        for i in 8..16 {
+            data[i] = 0.001 * (i as f32 - 7.0);
+        }
+        // channel 2: large values
+        for i in 16..24 {
+            data[i] = 10.0 * (i as f32 - 15.0);
+        }
+        // channel 3: large values
+        for i in 24..32 {
+            data[i] = 10.0 * (i as f32 - 23.0);
+        }
+        let tensor = Tensor::from_vec(data, &[4, 2, 2, 2]).expect("from_vec should succeed");
+        let result =
+            apply_channel_sparsity(&tensor, 0.5).expect("apply_channel_sparsity should succeed");
+        let out = result.to_vec().expect("to_vec should succeed");
+        // channels 0 and 1 (indices 0..16) should all be zeros
+        for i in 0..16 {
+            assert_eq!(out[i], 0.0, "channel 0/1 element {i} should be zeroed");
+        }
+        // channels 2 and 3 should be non-zero
+        for i in 16..32 {
+            assert_ne!(out[i], 0.0, "channel 2/3 element {i} should be non-zero");
+        }
+    }
+
+    #[test]
+    fn test_cluster_weights_replaces_values() {
+        // 6 values spanning a range; cluster to 2 centers
+        // expected centers approximately: mean of {-3, -2, -1} = -2 and mean of {1, 2, 3} = 2
+        let data = vec![-3.0f32, -2.0, -1.0, 1.0, 2.0, 3.0];
+        let tensor = Tensor::from_vec(data, &[6]).expect("from_vec should succeed");
+        let result = cluster_weights(&tensor, 2).expect("cluster_weights should succeed");
+        let out = result.to_vec().expect("to_vec should succeed");
+        // all output values must match one of exactly 2 distinct centroid values
+        let mut centroids: Vec<f32> = out.clone();
+        centroids.dedup_by(|a, b| (*a - *b).abs() < 1e-5);
+        // dedup on unsorted won't work well; use a manual unique set
+        let mut unique_vals: Vec<f32> = Vec::new();
+        for &v in &out {
+            if !unique_vals.iter().any(|&u| (u - v).abs() < 1e-5) {
+                unique_vals.push(v);
+            }
+        }
+        assert_eq!(
+            unique_vals.len(),
+            2,
+            "all output values should belong to exactly 2 cluster centers, got unique vals: {unique_vals:?}"
+        );
+        // every value must exactly equal one of the two centroids
+        for &v in &out {
+            assert!(
+                unique_vals.iter().any(|&u| (u - v).abs() < 1e-5),
+                "output value {v} does not match any centroid"
+            );
+        }
+    }
+
+    #[test]
+    fn test_column_compression_zeros_columns() {
+        // 3×4 matrix, rank=2: zero the 2 columns with smallest L2 norms
+        // col0: [1,1,1] norm=sqrt(3)≈1.73
+        // col1: [100,100,100] norm=sqrt(30000)≈173 (large)
+        // col2: [0.01,0.01,0.01] norm≈0.017 (smallest)
+        // col3: [0.02,0.02,0.02] norm≈0.035 (second smallest)
+        let data = vec![
+            1.0f32, 100.0, 0.01, 0.02, 1.0, 100.0, 0.01, 0.02, 1.0, 100.0, 0.01, 0.02,
+        ];
+        let tensor = Tensor::from_vec(data, &[3, 4]).expect("from_vec should succeed");
+        let result =
+            apply_column_wise_compression(&tensor, 2).expect("column compression should succeed");
+        let out = result.to_vec().expect("to_vec should succeed");
+        // columns 2 and 3 (indices [0,2],[0,3],[1,2],[1,3],[2,2],[2,3]) should be zero
+        assert_eq!(out[2], 0.0, "col2 row0 should be zeroed");
+        assert_eq!(out[3], 0.0, "col3 row0 should be zeroed");
+        assert_eq!(out[6], 0.0, "col2 row1 should be zeroed");
+        assert_eq!(out[7], 0.0, "col3 row1 should be zeroed");
+        assert_eq!(out[10], 0.0, "col2 row2 should be zeroed");
+        assert_eq!(out[11], 0.0, "col3 row2 should be zeroed");
+        // columns 0 and 1 should be non-zero
+        assert_ne!(out[0], 0.0, "col0 should be kept");
+        assert_ne!(out[1], 0.0, "col1 should be kept");
+    }
+
+    #[test]
+    fn test_symmetric_compression_reduces_rank() {
+        // 4×4 identity matrix compressed to rank 2
+        let data = vec![
+            1.0f32, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
+        ];
+        let tensor = Tensor::from_vec(data, &[4, 4]).expect("from_vec should succeed");
+        let result =
+            apply_symmetric_compression(&tensor, 2).expect("symmetric compression should succeed");
+        let out = result.to_vec().expect("to_vec should succeed");
+        // result should not be all zeros
+        let all_zero = out.iter().all(|&v| v.abs() < 1e-8);
+        assert!(!all_zero, "rank-2 approximation should not be all zeros");
+        // result should not equal the original identity (rank was reduced)
+        let identity_data = vec![
+            1.0f32, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
+        ];
+        let differs_from_identity = out
+            .iter()
+            .zip(identity_data.iter())
+            .any(|(&r, &i)| (r - i).abs() > 1e-5);
+        assert!(
+            differs_from_identity,
+            "rank-2 approximation of 4×4 identity should differ from original"
+        );
+        // Frobenius norm of result should be positive but less than original (rank reduction)
+        let frob_norm: f32 = out.iter().map(|&v| v * v).sum::<f32>().sqrt();
+        assert!(
+            frob_norm > 0.1,
+            "Frobenius norm should be substantially positive, got {frob_norm}"
+        );
+        assert!(
+            frob_norm < 4.0 * (2.0f32 / 4.0).sqrt() + 0.5,
+            "Frobenius norm should be reduced, got {frob_norm}"
+        );
     }
 }

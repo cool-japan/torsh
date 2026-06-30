@@ -244,18 +244,101 @@ impl PSDEstimator {
         })
     }
 
-    /// Welch's method for PSD estimation
+    /// Welch's method for PSD estimation using 50% overlapping Hann-windowed segments.
+    ///
+    /// The algorithm:
+    /// 1. Split the signal into overlapping segments of length `nperseg`.
+    /// 2. Apply a Hann window to each segment.
+    /// 3. Compute the periodogram of each segment.
+    /// 4. Average all periodograms to reduce variance.
     fn welch_psd(&self, series: &TimeSeries) -> Result<PSDResult> {
-        // TODO: Implement Welch's method with overlapping segments when scirs2-signal available
-        // For now, fallback to periodogram
-        self.periodogram_psd(series)
+        let data = series.values.to_vec()?;
+        let n = data.len();
+
+        // Choose segment length: roughly sqrt(n), clamped to [8, 256]
+        let nperseg = ((n as f64).sqrt() as usize).max(8).min(256);
+        // 50% overlap
+        let step = nperseg / 2;
+
+        if n < nperseg {
+            // Fall back to periodogram when the signal is too short
+            return self.periodogram_psd(series);
+        }
+
+        // Hann window coefficients
+        let window: Vec<f64> = (0..nperseg)
+            .map(|i| {
+                0.5 * (1.0 - (2.0 * std::f64::consts::PI * i as f64 / (nperseg - 1) as f64).cos())
+            })
+            .collect();
+
+        // Window power normalisation (sum of squared window values)
+        let win_power: f64 = window.iter().map(|&w| w * w).sum();
+
+        let mut psd_accum = vec![0.0f64; nperseg];
+        let mut num_segments = 0usize;
+
+        let mut start = 0;
+        while start + nperseg <= n {
+            let segment: Vec<f64> = data[start..start + nperseg]
+                .iter()
+                .enumerate()
+                .map(|(i, &x)| x as f64 * window[i])
+                .collect();
+
+            // DFT of this segment
+            let (re, im) = self.segment_dft(&segment, nperseg);
+
+            // Accumulate power spectrum
+            for k in 0..nperseg {
+                psd_accum[k] += (re[k] * re[k] + im[k] * im[k]) / (self.sampling_rate * win_power);
+            }
+
+            num_segments += 1;
+            start += step;
+        }
+
+        // Average over segments
+        let divisor = num_segments.max(1) as f64;
+        let psd: Vec<f64> = psd_accum.iter().map(|&s| s / divisor).collect();
+
+        let frequencies: Vec<f64> = (0..nperseg)
+            .map(|k| k as f64 * self.sampling_rate / nperseg as f64)
+            .collect();
+
+        Ok(PSDResult {
+            psd,
+            frequencies,
+            method: "Welch".to_string(),
+        })
     }
 
-    /// Thomson's multitaper method
+    /// Compute DFT of a single real-valued segment (length `n`).
+    fn segment_dft(&self, segment: &[f64], n: usize) -> (Vec<f64>, Vec<f64>) {
+        let mut re = vec![0.0f64; n];
+        let mut im = vec![0.0f64; n];
+
+        for k in 0..n {
+            for t in 0..n {
+                let angle = -2.0 * std::f64::consts::PI * (k * t) as f64 / n as f64;
+                re[k] += segment[t] * angle.cos();
+                im[k] += segment[t] * angle.sin();
+            }
+        }
+
+        (re, im)
+    }
+
+    /// Thomson's multitaper method (falls back to Welch for now).
+    ///
+    /// A full multitaper implementation requires discrete prolate spheroidal
+    /// sequences (DPSS tapers), which depend on a Laplacian eigensolver not
+    /// yet available in the workspace.  Welch's method is a reasonable
+    /// substitute that already reduces variance relative to the plain
+    /// periodogram.
     fn multitaper_psd(&self, series: &TimeSeries) -> Result<PSDResult> {
-        // TODO: Implement multitaper method when scirs2-signal available
-        // For now, fallback to periodogram
-        self.periodogram_psd(series)
+        // Use Welch as an approximation until DPSS tapers are available
+        self.welch_psd(series)
     }
 }
 
@@ -501,5 +584,59 @@ mod tests {
                 .expect("FFT computation should succeed");
             assert_eq!(result.real.len(), 128);
         }
+    }
+
+    /// Welch's method should produce non-negative PSD values and at least one
+    /// non-zero bin for a non-trivial sinusoidal signal.
+    #[test]
+    fn test_psd_welch() {
+        let series = create_test_series();
+        let estimator = PSDEstimator::new(PSDMethod::Welch, 10.0);
+        let result = estimator
+            .estimate(&series)
+            .expect("Welch PSD should succeed");
+
+        assert!(!result.psd.is_empty(), "PSD should have entries");
+        assert!(
+            !result.frequencies.is_empty(),
+            "Frequencies should have entries"
+        );
+        assert_eq!(result.method, "Welch");
+        assert!(
+            result.psd.iter().all(|&v| v >= 0.0),
+            "PSD values must be non-negative"
+        );
+        // The signal is sinusoidal, so peak power should be positive
+        let max_power = result.psd.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        assert!(
+            max_power > 0.0,
+            "Welch PSD should show non-zero power for a sinusoid"
+        );
+    }
+
+    /// Welch PSD on a very short series (< nperseg minimum) should fall back
+    /// gracefully to the periodogram path.
+    #[test]
+    fn test_psd_welch_short_series() {
+        let data = vec![1.0f32, 2.0, 1.0, 0.0, -1.0, -2.0];
+        let tensor = Tensor::from_vec(data, &[6]).expect("Tensor should succeed");
+        let series = TimeSeries::new(tensor);
+        let estimator = PSDEstimator::new(PSDMethod::Welch, 1.0);
+        let result = estimator
+            .estimate(&series)
+            .expect("Welch PSD on short series should succeed");
+        assert!(!result.psd.is_empty());
+    }
+
+    /// Multitaper method delegates to Welch and should produce valid output.
+    #[test]
+    fn test_psd_multitaper() {
+        let series = create_test_series();
+        let estimator = PSDEstimator::new(PSDMethod::MultitaperThomson, 10.0);
+        let result = estimator
+            .estimate(&series)
+            .expect("Multitaper PSD should succeed");
+        assert!(!result.psd.is_empty());
+        assert!(result.psd.iter().all(|&v| v >= 0.0));
     }
 }

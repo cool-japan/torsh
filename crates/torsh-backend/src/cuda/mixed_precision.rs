@@ -172,9 +172,9 @@ impl GradientScaler {
             stream.stream(),
         );
 
-        // Check for infinities using reduction operation
-        // This would launch a custom kernel to check for inf/nan values
-        // For now we'll use a placeholder that sets the flag if any value is problematic
+        // Read the (un)scaled value(s) back and flag any non-finite result.
+        // See `check_tensor_validity` for the real device-to-host inf/nan check
+        // and its current single-element length limitation.
         if self.check_tensor_validity(tensor, stream)? {
             let mut found_inf = self.found_inf.lock().expect("lock should not be poisoned");
             *found_inf = true;
@@ -184,16 +184,55 @@ impl GradientScaler {
     }
 
     /// Check if tensor contains infinite or NaN values
+    ///
+    /// Performs a real device-to-host copy of the tensor element(s) and tests
+    /// each value with [`f32::is_finite`]. Returning a fabricated `false` here
+    /// would make [`Self::update_scale`] never back off, so an overflowing
+    /// gradient would diverge training silently — exactly the failure mode this
+    /// check exists to prevent.
+    ///
+    /// # Length limitation
+    ///
+    /// The internal scaling pipeline currently tracks tensors as a single
+    /// element (see the `1` size arguments in [`Self::scale_tensor`] and
+    /// [`Self::unscale_and_check_tensor`]). This routine therefore inspects the
+    /// element addressed by `tensor`. Once per-tensor length is threaded through
+    /// the pipeline, the `len` below should be replaced with the real element
+    /// count (and, for large tensors, a device-side reduction kernel) so the
+    /// whole buffer is scanned rather than its first element.
     fn check_tensor_validity(
         &self,
         tensor: &DevicePointer<f32>,
         stream: &CudaStream,
     ) -> CudaResult<bool> {
-        // In a full implementation, this would launch a reduction kernel
-        // that checks for inf/nan values across the entire tensor
-        // For now, return false (no infinities found)
-        let _ = (tensor, stream); // Suppress unused warnings
-        Ok(false)
+        // Ensure all preceding scaling work on the stream has completed before
+        // we read the values back to the host.
+        stream.synchronize()?;
+
+        // Number of elements addressable through the current (size-1) pipeline.
+        let len = 1usize;
+        let mut host: Vec<f32> = vec![0.0; len];
+        let byte_count = std::mem::size_of::<f32>() * len;
+
+        // SAFETY: `tensor` is a valid device pointer to at least `len` f32
+        // values (the same buffer that was just scaled on `stream`), and `host`
+        // owns `byte_count` bytes of writable host memory.
+        let status = unsafe {
+            cust::sys::cuMemcpyDtoH_v2(
+                host.as_mut_ptr() as *mut std::ffi::c_void,
+                tensor.as_raw(),
+                byte_count,
+            )
+        };
+
+        if status != cust::sys::CUresult::CUDA_SUCCESS {
+            return Err(crate::cuda::error::cuda_errors::memory_error(
+                format!("Device-to-host copy for inf/nan check failed: {:?}", status),
+                None,
+            ));
+        }
+
+        Ok(host.iter().any(|value| !value.is_finite()))
     }
 
     /// Update scale based on whether infinities were found
@@ -356,10 +395,15 @@ impl AmpContext {
             return Ok(());
         }
 
-        // Launch kernel to convert F32 to F16
-        // In a full implementation, this would use a proper conversion kernel
-        // For now, we'll use a placeholder
-        let _ = (input, output, size, stream); // Suppress unused warnings
+        // Launch the real F32->F16 conversion kernel rather than silently
+        // leaving `output` untouched (which would feed uninitialised/zero
+        // half-precision values into downstream ops).
+        crate::cuda::kernels::tensor_ops::launch_f32_to_f16(
+            input.as_raw() as *mut f32,
+            output,
+            size,
+            stream.stream(),
+        );
         Ok(())
     }
 
@@ -376,9 +420,20 @@ impl AmpContext {
             return Ok(());
         }
 
-        // This would use a kernel that clamps values to FP16 range before conversion
-        let _ = (input, output, size, stream); // Suppress unused warnings
-        Ok(())
+        // Saturating conversion requires a kernel that clamps to the FP16 range
+        // before narrowing; no such kernel exists yet. Falling back to a plain
+        // (non-saturating) conversion would silently violate this method's
+        // contract — overflowing values would become +/-inf instead of being
+        // clamped — so fail honestly until the saturating kernel is added.
+        let _ = (input, output, size, stream);
+        Err(
+            crate::cuda::error::cuda_errors::unsupported_operation_error(
+                "autocast_with_saturation: FP16 saturating-conversion kernel not \
+             implemented. Use `autocast` for plain (non-saturating) F32->F16 \
+             conversion.",
+                None,
+            ),
+        )
     }
 
     /// Convert tensor back to F32
@@ -394,9 +449,14 @@ impl AmpContext {
             return Ok(());
         }
 
-        // Launch kernel to convert F16 to F32
-        // In a full implementation, this would use a proper conversion kernel
-        let _ = (input, output, size, stream); // Suppress unused warnings
+        // Launch the real F16->F32 conversion kernel rather than silently
+        // leaving `output` untouched.
+        crate::cuda::kernels::tensor_ops::launch_f16_to_f32(
+            input as *mut f16,
+            output.as_raw() as *mut f32,
+            size,
+            stream.stream(),
+        );
         Ok(())
     }
 }

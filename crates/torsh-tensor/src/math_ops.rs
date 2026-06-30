@@ -22,6 +22,8 @@ use torsh_core::{
     error::{Result, TorshError},
 };
 
+use crate::memory_pool::global_acquire_uninit;
+
 // ✅ SciRS2 Advanced Features Integration
 // Performance acceleration through SciRS2 ecosystem
 #[cfg(feature = "simd")]
@@ -38,11 +40,6 @@ mod simd_imports {
 
 #[cfg(feature = "simd")]
 use simd_imports::*;
-
-#[cfg(feature = "parallel")]
-// TODO: scirs2_core::gpu module not available yet
-// #[cfg(feature = "gpu")]
-// use scirs2_core::gpu::{GpuBuffer, GpuContext};
 
 // Chunking and parallel processing
 #[cfg(feature = "parallel")]
@@ -387,7 +384,15 @@ impl<T: TensorElement + Copy> Tensor<T> {
                 let b_f32: &[f32] = unsafe {
                     std::slice::from_raw_parts(other_data.as_ptr() as *const f32, other_data.len())
                 };
-                let mut out = vec![0.0f32; self_data.len()];
+                let n = self_data.len();
+                let mut buf = global_acquire_uninit::<f32>(n);
+                {
+                    let uninit = buf.as_uninit_slice_mut();
+                    for slot in uninit.iter_mut() {
+                        slot.write(0.0);
+                    }
+                }
+                let mut out = buf.into_vec(n);
                 crate::simd_ops_f32::add_into_f32(a_f32, b_f32, &mut out);
                 // Safety: T == f32 confirmed above; same size, alignment, and bit representation.
                 let result_data: Vec<T> = unsafe {
@@ -449,9 +454,12 @@ impl<T: TensorElement + Copy> Tensor<T> {
         let other_data = other.data()?;
 
         // Perform broadcasting addition
-        let mut result_data = Vec::with_capacity(broadcast_shape.iter().product());
+        let total_elems: usize = broadcast_shape.iter().product();
+        let mut buf = global_acquire_uninit::<T>(total_elems);
+        let uninit = buf.as_uninit_slice_mut();
+        let mut count = 0;
 
-        for i in 0..broadcast_shape.iter().product::<usize>() {
+        for i in 0..total_elems {
             let self_idx = compute_broadcast_index(i, &broadcast_shape, self_shape);
             let other_idx = compute_broadcast_index(i, &broadcast_shape, other_shape);
 
@@ -467,9 +475,11 @@ impl<T: TensorElement + Copy> Tensor<T> {
                     index: other_idx,
                     size: other_data.len(),
                 })?;
-            result_data.push(self_val + other_val);
+            uninit[count].write(self_val + other_val);
+            count += 1;
         }
 
+        let result_data = buf.into_vec(count);
         let mut result = Self::from_data(result_data, broadcast_shape, self.device)?;
 
         // Preserve gradient tracking
@@ -502,16 +512,45 @@ impl<T: TensorElement + Copy> Tensor<T> {
                 let b_f32: &[f32] = unsafe {
                     std::slice::from_raw_parts(other_data.as_ptr() as *const f32, other_data.len())
                 };
-                let mut out = vec![0.0f32; self_data.len()];
+                let n = self_data.len();
+                let mut buf = global_acquire_uninit::<f32>(n);
+                {
+                    let uninit = buf.as_uninit_slice_mut();
+                    for slot in uninit.iter_mut() {
+                        slot.write(0.0);
+                    }
+                }
+                let mut out = buf.into_vec(n);
                 crate::simd_ops_f32::sub_into_f32(a_f32, b_f32, &mut out);
                 let result_data: Vec<T> = unsafe {
                     let mut v = std::mem::ManuallyDrop::new(out);
                     Vec::from_raw_parts(v.as_mut_ptr() as *mut T, v.len(), v.capacity())
                 };
-                return Self::from_data(result_data, self.shape().dims().to_vec(), self.device);
+                let mut result =
+                    Self::from_data(result_data, self.shape().dims().to_vec(), self.device)?;
+                if self.requires_grad || other.requires_grad {
+                    result.requires_grad = true;
+                    result.operation = crate::Operation::Sub {
+                        lhs: Arc::new(self.clone()),
+                        rhs: Arc::new(other.clone()),
+                    };
+                }
+                return Ok(result);
             }
         }
-        self.elementwise_operation(other, |a, b| a - b)
+
+        let mut result = self.elementwise_operation(other, |a, b| a - b)?;
+
+        // Propagate requires_grad and record operation for autograd
+        if self.requires_grad || other.requires_grad {
+            result.requires_grad = true;
+            result.operation = crate::Operation::Sub {
+                lhs: Arc::new(self.clone()),
+                rhs: Arc::new(other.clone()),
+            };
+        }
+
+        Ok(result)
     }
 
     /// Element-wise multiplication with another tensor
@@ -532,7 +571,15 @@ impl<T: TensorElement + Copy> Tensor<T> {
                 let b_f32: &[f32] = unsafe {
                     std::slice::from_raw_parts(other_data.as_ptr() as *const f32, other_data.len())
                 };
-                let mut out = vec![0.0f32; self_data.len()];
+                let n = self_data.len();
+                let mut buf = global_acquire_uninit::<f32>(n);
+                {
+                    let uninit = buf.as_uninit_slice_mut();
+                    for slot in uninit.iter_mut() {
+                        slot.write(0.0);
+                    }
+                }
+                let mut out = buf.into_vec(n);
                 crate::simd_ops_f32::mul_into_f32(a_f32, b_f32, &mut out);
                 let result_data: Vec<T> = unsafe {
                     let mut v = std::mem::ManuallyDrop::new(out);
@@ -562,7 +609,15 @@ impl<T: TensorElement + Copy> Tensor<T> {
                 let b_f32: &[f32] = unsafe {
                     std::slice::from_raw_parts(other_data.as_ptr() as *const f32, other_data.len())
                 };
-                let mut out = vec![0.0f32; self_data.len()];
+                let n = self_data.len();
+                let mut buf = global_acquire_uninit::<f32>(n);
+                {
+                    let uninit = buf.as_uninit_slice_mut();
+                    for slot in uninit.iter_mut() {
+                        slot.write(0.0);
+                    }
+                }
+                let mut out = buf.into_vec(n);
                 crate::simd_ops_f32::div_into_f32(a_f32, b_f32, &mut out);
                 let result_data: Vec<T> = unsafe {
                     let mut v = std::mem::ManuallyDrop::new(out);
@@ -593,7 +648,9 @@ impl<T: TensorElement + Copy> Tensor<T> {
         let other_data = other.data()?;
 
         let total_elements = broadcast_shape.iter().product::<usize>();
-        let mut result_data = Vec::with_capacity(total_elements);
+        let mut buf = global_acquire_uninit::<T>(total_elements);
+        let uninit = buf.as_uninit_slice_mut();
+        let mut count = 0;
 
         // Generate all possible indices for the broadcast shape
         let mut indices = vec![0; broadcast_shape.len()];
@@ -604,12 +661,14 @@ impl<T: TensorElement + Copy> Tensor<T> {
                 other.compute_broadcast_index(&indices, other_shape, &broadcast_shape)?;
 
             let result = op(self_data[self_idx], other_data[other_idx]);
-            result_data.push(result);
+            uninit[count].write(result);
+            count += 1;
 
             // Increment indices (like an odometer)
             Self::increment_indices(&mut indices, &broadcast_shape);
         }
 
+        let result_data = buf.into_vec(count);
         Self::from_data(result_data, broadcast_shape, self.device)
     }
 
@@ -757,57 +816,30 @@ impl<T: TensorElement + Copy> Tensor<T> {
 impl<T: TensorElement + Copy> Tensor<T> {
     /// Element-wise in-place addition: `self += other`.
     ///
+    /// Supports broadcasting `other` into `self`'s shape (e.g. adding a `[C]`
+    /// bias to a `[B, C]` activation). If broadcasting would force `self` to
+    /// grow, an error is returned — in-place ops cannot resize the destination.
     /// For f32 tensors with ≥ 1024 elements and matching shapes, this routes
-    /// through the SIMD-backed `simd_ops_f32::add_assign_f32` without any
-    /// additional allocation.
+    /// through the SIMD-backed `simd_ops_f32::add_assign_f32`. No new tensor
+    /// data buffer is ever allocated.
     ///
     /// # Errors
-    /// Returns an error if `requires_grad` is true (autograd cannot be tracked
-    /// through in-place mutations).
+    /// - `requires_grad` is true (autograd cannot be tracked through in-place mutations)
+    /// - shapes are not broadcast-compatible
+    /// - broadcasting would require `self` to grow
     pub fn add_(&mut self, other: &Self) -> Result<&mut Self>
     where
         T: std::ops::Add<Output = T>,
     {
-        if self.requires_grad {
-            return Err(TorshError::InvalidArgument(
-                "In-place operation on tensor that requires grad is not allowed".to_string(),
-            ));
-        }
-        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>()
-            && self.shape() == other.shape()
-            && self.numel() >= 1024
-        {
-            // Ensure mutable storage (converts SimdOptimized → Aligned when needed).
-            self.make_unique()?;
-            let other_data = other.data()?;
-            self.storage.with_slice_mut(|out_t: &mut [T]| {
-                // Safety: TypeId confirmed T == f32.
-                let out_f32: &mut [f32] = unsafe {
-                    std::slice::from_raw_parts_mut(out_t.as_mut_ptr() as *mut f32, out_t.len())
-                };
-                let rhs_f32: &[f32] = unsafe {
-                    std::slice::from_raw_parts(other_data.as_ptr() as *const f32, other_data.len())
-                };
-                crate::simd_ops_f32::add_assign_f32(out_f32, rhs_f32);
-                Ok(())
-            })?;
-            return Ok(self);
-        }
-        // Scalar fallback
-        let len = self.storage.len();
-        let other_data = other.data()?;
-        for i in 0..len {
-            let a = self.storage.get(i)?;
-            let b = *other_data.get(i).ok_or_else(|| TorshError::IndexError {
-                index: i,
-                size: other_data.len(),
-            })?;
-            self.storage.set(i, a + b)?;
-        }
-        Ok(self)
+        self.inplace_binary_op(
+            other,
+            "add_",
+            crate::simd_ops_f32::add_assign_f32,
+            |a, b| a + b,
+        )
     }
 
-    /// Element-wise in-place subtraction: `self -= other`.
+    /// Element-wise in-place subtraction: `self -= other` (with broadcast of `other` into `self`).
     ///
     /// For f32 tensors with ≥ 1024 elements and matching shapes, this routes
     /// through `simd_ops_f32::sub_assign_f32`.
@@ -815,43 +847,15 @@ impl<T: TensorElement + Copy> Tensor<T> {
     where
         T: std::ops::Sub<Output = T>,
     {
-        if self.requires_grad {
-            return Err(TorshError::InvalidArgument(
-                "In-place operation on tensor that requires grad is not allowed".to_string(),
-            ));
-        }
-        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>()
-            && self.shape() == other.shape()
-            && self.numel() >= 1024
-        {
-            self.make_unique()?;
-            let other_data = other.data()?;
-            self.storage.with_slice_mut(|out_t: &mut [T]| {
-                let out_f32: &mut [f32] = unsafe {
-                    std::slice::from_raw_parts_mut(out_t.as_mut_ptr() as *mut f32, out_t.len())
-                };
-                let rhs_f32: &[f32] = unsafe {
-                    std::slice::from_raw_parts(other_data.as_ptr() as *const f32, other_data.len())
-                };
-                crate::simd_ops_f32::sub_assign_f32(out_f32, rhs_f32);
-                Ok(())
-            })?;
-            return Ok(self);
-        }
-        let len = self.storage.len();
-        let other_data = other.data()?;
-        for i in 0..len {
-            let a = self.storage.get(i)?;
-            let b = *other_data.get(i).ok_or_else(|| TorshError::IndexError {
-                index: i,
-                size: other_data.len(),
-            })?;
-            self.storage.set(i, a - b)?;
-        }
-        Ok(self)
+        self.inplace_binary_op(
+            other,
+            "sub_",
+            crate::simd_ops_f32::sub_assign_f32,
+            |a, b| a - b,
+        )
     }
 
-    /// Element-wise in-place multiplication: `self *= other`.
+    /// Element-wise in-place multiplication: `self *= other` (with broadcast of `other` into `self`).
     ///
     /// For f32 tensors with ≥ 1024 elements and matching shapes, this routes
     /// through `simd_ops_f32::mul_assign_f32`.
@@ -859,43 +863,15 @@ impl<T: TensorElement + Copy> Tensor<T> {
     where
         T: std::ops::Mul<Output = T>,
     {
-        if self.requires_grad {
-            return Err(TorshError::InvalidArgument(
-                "In-place operation on tensor that requires grad is not allowed".to_string(),
-            ));
-        }
-        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>()
-            && self.shape() == other.shape()
-            && self.numel() >= 1024
-        {
-            self.make_unique()?;
-            let other_data = other.data()?;
-            self.storage.with_slice_mut(|out_t: &mut [T]| {
-                let out_f32: &mut [f32] = unsafe {
-                    std::slice::from_raw_parts_mut(out_t.as_mut_ptr() as *mut f32, out_t.len())
-                };
-                let rhs_f32: &[f32] = unsafe {
-                    std::slice::from_raw_parts(other_data.as_ptr() as *const f32, other_data.len())
-                };
-                crate::simd_ops_f32::mul_assign_f32(out_f32, rhs_f32);
-                Ok(())
-            })?;
-            return Ok(self);
-        }
-        let len = self.storage.len();
-        let other_data = other.data()?;
-        for i in 0..len {
-            let a = self.storage.get(i)?;
-            let b = *other_data.get(i).ok_or_else(|| TorshError::IndexError {
-                index: i,
-                size: other_data.len(),
-            })?;
-            self.storage.set(i, a * b)?;
-        }
-        Ok(self)
+        self.inplace_binary_op(
+            other,
+            "mul_",
+            crate::simd_ops_f32::mul_assign_f32,
+            |a, b| a * b,
+        )
     }
 
-    /// Element-wise in-place division: `self /= other`.
+    /// Element-wise in-place division: `self /= other` (with broadcast of `other` into `self`).
     ///
     /// For f32 tensors with ≥ 1024 elements and matching shapes, this routes
     /// through `simd_ops_f32::div_assign_f32`.
@@ -903,11 +879,35 @@ impl<T: TensorElement + Copy> Tensor<T> {
     where
         T: std::ops::Div<Output = T>,
     {
+        self.inplace_binary_op(
+            other,
+            "div_",
+            crate::simd_ops_f32::div_assign_f32,
+            |a, b| a / b,
+        )
+    }
+
+    /// Shared in-place binary-op driver: validates shapes (with broadcast-into-self),
+    /// then dispatches to the f32 SIMD fast path when applicable, otherwise to a
+    /// single-locked slice loop. Never allocates a new data buffer.
+    fn inplace_binary_op<S, F>(
+        &mut self,
+        other: &Self,
+        op_name: &str,
+        simd_f32: S,
+        scalar_op: F,
+    ) -> Result<&mut Self>
+    where
+        S: Fn(&mut [f32], &[f32]),
+        F: Fn(T, T) -> T,
+    {
         if self.requires_grad {
-            return Err(TorshError::InvalidArgument(
-                "In-place operation on tensor that requires grad is not allowed".to_string(),
-            ));
+            return Err(TorshError::InvalidArgument(format!(
+                "In-place operation `{op_name}` on tensor that requires grad is not allowed"
+            )));
         }
+
+        // f32 SIMD fast path: identical shapes, large enough to amortise dispatch.
         if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>()
             && self.shape() == other.shape()
             && self.numel() >= 1024
@@ -915,324 +915,65 @@ impl<T: TensorElement + Copy> Tensor<T> {
             self.make_unique()?;
             let other_data = other.data()?;
             self.storage.with_slice_mut(|out_t: &mut [T]| {
+                // Safety: TypeId guard above confirms T == f32, so reinterpreting
+                // &mut [T] / &[T] as &mut [f32] / &[f32] is a no-op.
                 let out_f32: &mut [f32] = unsafe {
                     std::slice::from_raw_parts_mut(out_t.as_mut_ptr() as *mut f32, out_t.len())
                 };
                 let rhs_f32: &[f32] = unsafe {
                     std::slice::from_raw_parts(other_data.as_ptr() as *const f32, other_data.len())
                 };
-                crate::simd_ops_f32::div_assign_f32(out_f32, rhs_f32);
+                simd_f32(out_f32, rhs_f32);
                 Ok(())
             })?;
             return Ok(self);
         }
-        let len = self.storage.len();
+
+        // Shape validation + broadcast-into-self path.
+        let self_dims_vec = self.shape().dims().to_vec();
+        let other_dims_vec = other.shape().dims().to_vec();
         let other_data = other.data()?;
-        for i in 0..len {
-            let a = self.storage.get(i)?;
-            let b = *other_data.get(i).ok_or_else(|| TorshError::IndexError {
-                index: i,
-                size: other_data.len(),
-            })?;
-            self.storage.set(i, a / b)?;
-        }
-        Ok(self)
-    }
-}
 
-// Mathematical functions for floating-point tensors
-impl<T: TensorElement + Copy> Tensor<T>
-where
-    T: scirs2_core::numeric::Float + torsh_core::dtype::FloatElement,
-{
-    /// Square root of all elements
-    pub fn sqrt(&self) -> Result<Self> {
-        self.map(|x| x.sqrt())
-    }
-
-    /// Square of all elements
-    pub fn square(&self) -> Result<Self> {
-        self.map(|x| x * x)
-    }
-
-    /// Reciprocal square root of all elements (1/sqrt(x))
-    pub fn rsqrt(&self) -> Result<Self> {
-        self.map(|x| T::from(1.0).expect("numeric conversion should succeed") / x.sqrt())
-    }
-
-    /// Reciprocal of all elements (1/x)
-    pub fn reciprocal(&self) -> Result<Self> {
-        self.map(|x| T::from(1.0).expect("numeric conversion should succeed") / x)
-    }
-
-    /// Exponential of all elements
-    pub fn exp(&self) -> Result<Self> {
-        self.map(|x| x.exp())
-    }
-
-    /// Natural logarithm of all elements
-    pub fn ln(&self) -> Result<Self> {
-        self.map(|x| x.ln())
-    }
-
-    /// Logarithm base 10 of all elements
-    pub fn log10(&self) -> Result<Self> {
-        self.map(|x| x.log10())
-    }
-
-    /// Logarithm base 2 of all elements
-    pub fn log2(&self) -> Result<Self> {
-        self.map(|x| x.log2())
-    }
-
-    /// Natural logarithm of all elements
-    pub fn log(&self) -> Result<Self> {
-        self.map(|x| x.ln())
-    }
-
-    /// Sine of all elements
-    pub fn sin(&self) -> Result<Self> {
-        self.map(|x| x.sin())
-    }
-
-    /// Cosine of all elements
-    pub fn cos(&self) -> Result<Self> {
-        self.map(|x| x.cos())
-    }
-
-    /// Tangent of all elements
-    pub fn tan(&self) -> Result<Self> {
-        self.map(|x| x.tan())
-    }
-
-    /// GELU (Gaussian Error Linear Unit) activation function with GPU and SIMD optimization
-    pub fn gelu(&self) -> Result<Self> {
-        // ✅ SciRS2 GPU Acceleration - Use GPU for very large tensors (10x-100x speedup potential)
-        #[cfg(feature = "gpu")]
-        {
-            if self.numel() > 50000 {
-                if let Ok(result) = self.gpu_gelu() {
-                    return Ok(result);
+        if self_dims_vec == other_dims_vec {
+            // Equal shapes, generic-T scalar pass.
+            self.make_unique()?;
+            self.storage.with_slice_mut(|slice: &mut [T]| {
+                debug_assert_eq!(slice.len(), other_data.len());
+                for (dst, src) in slice.iter_mut().zip(other_data.iter()) {
+                    *dst = scalar_op(*dst, *src);
                 }
-            }
+                Ok(())
+            })?;
+            return Ok(self);
         }
 
-        // ✅ SciRS2 SIMD Optimization - Vectorized GELU for f32 tensors
-        #[cfg(feature = "simd")]
-        {
-            if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() && self.numel() > 1000 {
-                return self.simd_gelu_f32();
-            }
+        // Broadcast path: must be broadcast-compatible AND self's shape must
+        // already equal the broadcast shape (cannot grow self in place).
+        use crate::broadcast::BroadcastOps;
+        let broadcast_shape =
+            BroadcastOps::compute_broadcast_shape(&self_dims_vec, &other_dims_vec)?;
+        if broadcast_shape != self_dims_vec {
+            return Err(TorshError::ShapeMismatch {
+                expected: self_dims_vec,
+                got: broadcast_shape,
+            });
         }
 
-        // ✅ SciRS2 Parallel Processing - Use parallel computation for medium tensors
-        #[cfg(feature = "parallel")]
-        {
-            if self.numel() > 100 {
-                return self.parallel_map(|x| self.compute_gelu_scalar(x));
+        self.make_unique()?;
+        let total = self_dims_vec.iter().product::<usize>();
+        let self_dims = self_dims_vec.as_slice();
+        let other_dims = other_dims_vec.as_slice();
+        self.storage.with_slice_mut(|slice: &mut [T]| {
+            for flat_idx in 0..total {
+                let multi_index = BroadcastOps::flat_to_multi_index(flat_idx, self_dims);
+                let other_idx =
+                    BroadcastOps::compute_broadcast_index(&multi_index, other_dims, self_dims)?;
+                slice[flat_idx] = scalar_op(slice[flat_idx], other_data[other_idx]);
             }
-        }
+            Ok(())
+        })?;
 
-        // Fallback to sequential processing
-        // GELU(x) = 0.5 * x * (1 + tanh(sqrt(2/π) * (x + 0.044715 * x^3)))
-        self.map(|x| self.compute_gelu_scalar(x))
-    }
-
-    /// GPU-accelerated GELU activation function
-    /// TODO: Temporarily disabled - GpuElement trait not yet available in scirs2_core
-    #[cfg(feature = "gpu")]
-    #[allow(dead_code)]
-    fn gpu_gelu(&self) -> Result<Self>
-    where
-        T: torsh_core::dtype::FloatElement,
-    {
-        #[cfg(feature = "profiling")]
-        // let _profile = profile_section!("gpu_gelu");
-
-        // TODO: GPU support temporarily disabled
-        // use scirs2_core::gpu::{GpuBuffer, GpuContext, GpuKernel};
-        // Initialize GPU context
-        // let gpu_context = GpuContext::new()?;
-        // Transfer data to GPU
-        // let data = self.data()?;
-        // let gpu_input = GpuBuffer::from_slice(&gpu_context, &data)?;
-        // let gpu_output = GpuBuffer::zeros(&gpu_context, data.len())?;
-        // Launch GELU kernel (optimized with tensor cores if available)
-        // let kernel = GpuKernel::gelu_activation(&gpu_context)?;
-        // kernel.launch_1d(&gpu_input, &gpu_output, data.len())?;
-        // Transfer result back to CPU
-        // let result_data = gpu_output.to_vec()?;
-        // Self::from_data(result_data, self.shape().dims().to_vec(), self.device())
-        Err(TorshError::InvalidArgument(
-            "GPU GELU temporarily unavailable".to_string(),
-        ))
-    }
-
-    /// Compute GELU for a single scalar value
-    fn compute_gelu_scalar(&self, x: T) -> T {
-        let pi = T::from(std::f64::consts::PI).expect("numeric conversion should succeed");
-        let two = T::from(2.0).expect("numeric conversion should succeed");
-        let sqrt_2_over_pi = (two / pi).sqrt();
-        let point_044715 = T::from(0.044715).expect("numeric conversion should succeed");
-        let one = <T as scirs2_core::numeric::One>::one();
-        let half = T::from(0.5).expect("numeric conversion should succeed");
-
-        let x_cubed = x * x * x;
-        let tanh_input = sqrt_2_over_pi * (x + point_044715 * x_cubed);
-        half * x * (one + tanh_input.tanh())
-    }
-
-    /// SIMD-optimized GELU activation function for f32 tensors
-    #[cfg(feature = "simd")]
-    fn simd_gelu_f32(&self) -> Result<Self> {
-        use scirs2_core::ndarray::ArrayView1;
-
-        let data = self.data()?;
-
-        // Cast to f32 for SIMD operations
-        let data_f32: &[f32] =
-            unsafe { std::slice::from_raw_parts(data.as_ptr() as *const f32, data.len()) };
-
-        // Create ArrayView1 for SIMD function
-        let data_view = ArrayView1::from(data_f32);
-
-        // Use scirs2_core SIMD-accelerated GELU
-        let result_array = adaptive_simd::adaptive_simd_gelu_f32(&data_view);
-
-        // Convert result back to T type
-        let result_vec: Vec<T> = result_array
-            .to_vec()
-            .into_iter()
-            .map(|f| unsafe { std::mem::transmute_copy::<f32, T>(&f) })
-            .collect();
-
-        Self::from_data(
-            result_vec,
-            self.shape().dims().to_vec(),
-            self.device.clone(),
-        )
-    }
-
-    /// Leaky ReLU activation function with negative slope
-    pub fn leaky_relu(&self, negative_slope: T) -> Result<Self> {
-        self.map(|x| {
-            if x > scirs2_core::numeric::Zero::zero() {
-                x
-            } else {
-                negative_slope * x
-            }
-        })
-    }
-
-    /// Arcsine of all elements
-    pub fn asin(&self) -> Result<Self> {
-        self.map(|x| x.asin())
-    }
-
-    /// Arccosine of all elements
-    pub fn acos(&self) -> Result<Self> {
-        self.map(|x| x.acos())
-    }
-
-    /// Arctangent of all elements
-    pub fn atan(&self) -> Result<Self> {
-        self.map(|x| x.atan())
-    }
-
-    /// Hyperbolic sine of all elements
-    pub fn sinh(&self) -> Result<Self> {
-        self.map(|x| x.sinh())
-    }
-
-    /// Hyperbolic cosine of all elements
-    pub fn cosh(&self) -> Result<Self> {
-        self.map(|x| x.cosh())
-    }
-
-    /// Hyperbolic tangent of all elements
-    pub fn tanh(&self) -> Result<Self> {
-        self.map(|x| x.tanh())
-    }
-
-    /// Power function (element-wise)
-    pub fn pow(&self, exponent: T) -> Result<Self>
-    where
-        T: TensorElement + Into<f32>,
-    {
-        // Convert T to f32 for the Operation::Power storage
-        let exponent_f32: f32 = exponent.into();
-
-        let mut result = self.map(|x| x.powf(exponent))?;
-
-        // Set up gradient computation if needed
-        if self.requires_grad {
-            result.requires_grad = true;
-            result.operation = Operation::Power {
-                input: Arc::new(self.clone()),
-                exponent: exponent_f32,
-            };
-        }
-
-        Ok(result)
-    }
-
-    /// Power function with scalar exponent (alias for pow)
-    pub fn pow_scalar(&self, exponent: T) -> Result<Self>
-    where
-        T: TensorElement + Into<f32>,
-    {
-        self.pow(exponent)
-    }
-
-    /// Power function with tensor exponents
-    pub fn pow_tensor(&self, exponent: &Self) -> Result<Self> {
-        self.elementwise_operation(exponent, |base, exp| base.powf(exp))
-    }
-
-    /// Floor of all elements
-    pub fn floor(&self) -> Result<Self> {
-        self.map(|x| x.floor())
-    }
-
-    /// Ceiling of all elements
-    pub fn ceil(&self) -> Result<Self> {
-        self.map(|x| x.ceil())
-    }
-
-    /// Round to nearest integer
-    pub fn round(&self) -> Result<Self> {
-        self.map(|x| x.round())
-    }
-
-    /// Truncate to integer part
-    pub fn trunc(&self) -> Result<Self> {
-        self.map(|x| x.trunc())
-    }
-
-    /// Fractional part
-    pub fn fract(&self) -> Result<Self> {
-        self.map(|x| x.fract())
-    }
-
-    /// Negation of all elements
-    pub fn neg(&self) -> Result<Self>
-    where
-        T: std::ops::Neg<Output = T>,
-    {
-        self.map(|x| -x)
-    }
-
-    /// Sign of all elements (-1, 0, or 1)
-    pub fn sign(&self) -> Result<Self> {
-        self.map(|x| {
-            if x > <T as scirs2_core::numeric::Zero>::zero() {
-                <T as scirs2_core::numeric::One>::one()
-            } else if x < <T as scirs2_core::numeric::Zero>::zero() {
-                -<T as scirs2_core::numeric::One>::one()
-            } else {
-                <T as scirs2_core::numeric::Zero>::zero()
-            }
-        })
+        Ok(self)
     }
 }
 
@@ -1259,6 +1000,15 @@ impl<T: TensorElement + Copy> Tensor<T> {
     where
         T: torsh_core::dtype::FloatElement,
     {
+        // GPU fast path: f32 CUDA tensors dispatch to oxicuda's ComputeBackend.
+        // Declines to None (CPU fallback) unless a GPU backend is active.
+        #[cfg(feature = "gpu")]
+        if let Some(result) =
+            crate::gpu_dispatch::try_unary_f32(self, crate::gpu_dispatch::UnaryOp::Sigmoid)
+        {
+            return Ok(result);
+        }
+
         // ✅ SciRS2 SIMD Optimization - Vectorized sigmoid for f32 tensors
         #[cfg(feature = "simd")]
         {
@@ -1324,6 +1074,15 @@ impl<T: TensorElement + Copy> Tensor<T> {
     where
         T: std::cmp::PartialOrd + scirs2_core::numeric::Zero,
     {
+        // GPU fast path: f32 CUDA tensors dispatch to oxicuda's ComputeBackend.
+        // Declines to None (CPU fallback) unless a GPU backend is active.
+        #[cfg(feature = "gpu")]
+        if let Some(result) =
+            crate::gpu_dispatch::try_unary_f32(self, crate::gpu_dispatch::UnaryOp::Relu)
+        {
+            return Ok(result);
+        }
+
         let zero = <T as scirs2_core::numeric::Zero>::zero();
 
         // ✅ SciRS2 SIMD Optimization - Vectorized ReLU for f32 tensors
@@ -1891,6 +1650,9 @@ impl<T: TensorElement + Copy + std::ops::Mul<Output = T>> Tensor<T> {
         Ok(self)
     }
 }
+
+#[path = "math_ops_trig.rs"]
+mod math_ops_trig;
 
 #[cfg(test)]
 #[path = "math_ops_tests.rs"]

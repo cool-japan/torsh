@@ -20,6 +20,7 @@ use torsh_core::{
 };
 
 use crate::core_ops::{Operation, Tensor};
+use crate::memory_pool::global_acquire_uninit;
 
 impl<T: TensorElement + Copy> Tensor<T> {
     /// Get size of a specific dimension
@@ -448,14 +449,19 @@ impl<T: TensorElement + Copy> Tensor<T> {
 
         let (rows, cols) = (shape[0], shape[1]);
         let data = self.to_vec()?;
-        let mut transposed_data = Vec::with_capacity(data.len());
+        let n = data.len();
+        let mut buf = global_acquire_uninit::<T>(n);
+        let uninit = buf.as_uninit_slice_mut();
+        let mut count = 0;
 
         for col in 0..cols {
             for row in 0..rows {
-                transposed_data.push(data[row * cols + col]);
+                uninit[count].write(data[row * cols + col]);
+                count += 1;
             }
         }
 
+        let transposed_data = buf.into_vec(count);
         Self::from_data(transposed_data, vec![cols, rows], self.device)
     }
 
@@ -706,96 +712,48 @@ impl<T: TensorElement + Copy> Tensor<T> {
             ));
         }
 
-        // Check dimension compatibility (broadcasting rules)
+        // Check dimension compatibility (broadcasting rules) and build the strides
+        // for a zero-copy broadcast view.
+        //
+        // A dimension of size 1 that is expanded to size N is given stride 0, so all
+        // N logical indices resolve to the same storage element (PyTorch `expand`
+        // semantics). Newly-introduced leading dimensions are likewise stride 0, and
+        // dimensions that keep their size retain their original (possibly
+        // non-contiguous) stride. No tensor data is copied: the result shares the
+        // source storage via `Arc`, so an expanded tensor never duplicates data.
         let offset = shape.len() - old_shape.len();
+        let current_strides = self.strides();
+        let mut new_strides = vec![0usize; shape.len()];
         for (i, &old_dim) in old_shape.iter().enumerate() {
             let new_dim = shape[offset + i];
-            if old_dim != 1 && old_dim != new_dim {
+            if old_dim == new_dim {
+                new_strides[offset + i] = current_strides[i];
+            } else if old_dim == 1 {
+                new_strides[offset + i] = 0;
+            } else {
                 return Err(TorshError::InvalidShape(format!(
                     "Cannot expand dimension {} from {} to {}",
                     i, old_dim, new_dim
                 )));
             }
         }
+        // Any leading broadcast dimensions already have stride 0 from initialization.
 
-        // For now, implement expansion by copying data
-        // TODO: Implement efficient expansion with strided views
-        let source_data = self.to_vec()?;
-        let target_numel = shape.iter().product();
-        let mut result_data = Vec::with_capacity(target_numel);
-
-        self.expand_data_recursive(&source_data, &mut result_data, shape, old_shape, 0, 0)?;
-
-        Self::from_data(result_data, shape.to_vec(), self.device)
-    }
-
-    /// Helper for recursive data expansion
-    fn expand_data_recursive(
-        &self,
-        source: &[T],
-        dest: &mut Vec<T>,
-        target_shape: &[usize],
-        source_shape: &[usize],
-        target_dim: usize,
-        source_offset: usize,
-    ) -> Result<()> {
-        if target_dim == target_shape.len() {
-            // Base case: copy single element
-            dest.push(source[source_offset]);
-            return Ok(());
-        }
-
-        let target_size = target_shape[target_dim];
-        let source_dim_idx = target_dim + source_shape.len() - target_shape.len();
-
-        if source_dim_idx < source_shape.len() {
-            let source_size = source_shape[source_dim_idx];
-            let stride = if source_dim_idx + 1 < source_shape.len() {
-                source_shape[source_dim_idx + 1..].iter().product()
+        Ok(Self {
+            storage: self.storage.clone(),
+            shape: Shape::new(shape.to_vec()),
+            device: self.device,
+            requires_grad: false,
+            grad: Arc::new(RwLock::new(None)),
+            operation: Operation::Leaf,
+            strides: Some(new_strides),
+            storage_offset: self.storage_offset,
+            base_tensor: if self.is_view() {
+                self.base_tensor.clone()
             } else {
-                1
-            };
-
-            if source_size == 1 {
-                // Broadcast this dimension
-                for _ in 0..target_size {
-                    self.expand_data_recursive(
-                        source,
-                        dest,
-                        target_shape,
-                        source_shape,
-                        target_dim + 1,
-                        source_offset,
-                    )?;
-                }
-            } else {
-                // Copy along this dimension
-                for i in 0..target_size {
-                    self.expand_data_recursive(
-                        source,
-                        dest,
-                        target_shape,
-                        source_shape,
-                        target_dim + 1,
-                        source_offset + i * stride,
-                    )?;
-                }
-            }
-        } else {
-            // This is a new dimension, repeat the entire subtensor
-            for _ in 0..target_size {
-                self.expand_data_recursive(
-                    source,
-                    dest,
-                    target_shape,
-                    source_shape,
-                    target_dim + 1,
-                    source_offset,
-                )?;
-            }
-        }
-
-        Ok(())
+                Some(Arc::downgrade(&Arc::new(self.clone())))
+            },
+        })
     }
 
     /// Move dimensions from source positions to destination positions
@@ -1118,6 +1076,80 @@ mod tests {
         let expanded = tensor.expand(&[3, 2]).expect("expand should succeed");
         assert_eq!(expanded.shape().dims(), &[3, 2]);
         assert_eq!(expanded.numel(), 6);
+
+        // Correctness: broadcasting the size-1 leading dimension repeats the row.
+        assert_eq!(
+            expanded.to_vec().expect("to_vec should succeed"),
+            vec![1.0, 2.0, 1.0, 2.0, 1.0, 2.0]
+        );
+
+        // The size-1 dimension is broadcast with stride 0; the kept dimension
+        // retains its contiguous stride of 1, so the result is a non-contiguous view.
+        assert_eq!(expanded.strides(), vec![0, 1]);
+        assert!(!expanded.is_contiguous());
+        assert!(expanded.is_view());
+    }
+
+    #[test]
+    fn test_expand_new_leading_dimension() {
+        // Expanding [2] -> [3, 2] introduces a brand new leading dimension.
+        let tensor = Tensor::from_data(vec![7.0f32, 8.0], vec![2], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
+
+        let expanded = tensor.expand(&[3, 2]).expect("expand should succeed");
+        assert_eq!(expanded.shape().dims(), &[3, 2]);
+
+        // New leading dimension -> stride 0; the original dimension keeps stride 1.
+        assert_eq!(expanded.strides(), vec![0, 1]);
+        assert_eq!(
+            expanded.to_vec().expect("to_vec should succeed"),
+            vec![7.0, 8.0, 7.0, 8.0, 7.0, 8.0]
+        );
+
+        // Element access flows through the strided view.
+        assert_eq!(expanded.get(&[0, 1]).expect("get should succeed"), 8.0);
+        assert_eq!(expanded.get(&[2, 0]).expect("get should succeed"), 7.0);
+    }
+
+    #[test]
+    fn test_expand_zero_copy_no_data_duplication() {
+        // A single element expanded to one million logical elements must NOT copy
+        // data: the resulting view shares the source's one-element storage.
+        let source = Tensor::from_data(vec![5.0f32], vec![1], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
+        let source_memory = source.memory_usage();
+
+        let expanded = source.expand(&[1024, 1024]).expect("expand should succeed");
+        assert_eq!(expanded.numel(), 1024 * 1024);
+
+        // Shared storage => identical reported memory, far below a materialized copy.
+        assert_eq!(expanded.memory_usage(), source_memory);
+        assert!(expanded.memory_usage() < expanded.numel() * std::mem::size_of::<f32>());
+
+        // Fully broadcast view: both dimensions have stride 0.
+        assert_eq!(expanded.strides(), vec![0, 0]);
+        assert!(!expanded.is_contiguous());
+        assert!(expanded.is_view());
+
+        // Every logical element resolves to the single stored value.
+        assert_eq!(expanded.get(&[0, 0]).expect("get should succeed"), 5.0);
+        assert_eq!(expanded.get(&[500, 700]).expect("get should succeed"), 5.0);
+        assert_eq!(
+            expanded.get(&[1023, 1023]).expect("get should succeed"),
+            5.0
+        );
+    }
+
+    #[test]
+    fn test_expand_rejects_incompatible_dimension() {
+        // Expanding a non-unit dimension to a different size is invalid.
+        let tensor = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
+        assert!(tensor.expand(&[5]).is_err());
+        // Fewer dimensions than the source is also invalid.
+        let matrix = Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu)
+            .expect("tensor creation should succeed");
+        assert!(matrix.expand(&[4]).is_err());
     }
 
     #[test]

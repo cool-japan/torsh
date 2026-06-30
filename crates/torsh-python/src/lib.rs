@@ -25,10 +25,10 @@ pub mod optim;
 pub mod tensor;
 pub mod utils;
 
-// Legacy modules (temporarily kept for compatibility)
-// pub mod autograd;  // Temporarily disabled due to scirs2 API incompatibilities
-// pub mod distributed;  // Temporarily disabled for compilation
-// pub mod functional;  // Fixed for PyO3 0.25 but disabled until tensor ops are implemented
+pub mod autograd;
+pub mod data;
+pub mod distributed;
+// pub mod functional;  // Disabled until tensor ops are fully implemented
 
 // Re-export main types
 pub use device::PyDevice;
@@ -48,13 +48,17 @@ fn rstorch(m: &Bound<'_, PyModule>) -> PyResult<()> {
     nn::register_nn_module(m.py(), m)?;
     optim::register_optim_module(m.py(), m)?;
 
-    // let autograd_module = PyModule::new(m.py(), "autograd")?;
-    // autograd::register_autograd_module(m.py(), &autograd_module)?;
-    // m.add_submodule(&autograd_module)?;
+    let data_module = PyModule::new(m.py(), "data")?;
+    data::register_data_module(m.py(), &data_module)?;
+    m.add_submodule(&data_module)?;
 
-    // let distributed_module = PyModule::new(m.py(), "distributed")?;
-    // distributed::register_distributed_module(m.py(), &distributed_module)?;
-    // m.add_submodule(&distributed_module)?;
+    let autograd_module = PyModule::new(m.py(), "autograd")?;
+    autograd::register_autograd_module(m.py(), &autograd_module)?;
+    m.add_submodule(&autograd_module)?;
+
+    let distributed_module = PyModule::new(m.py(), "distributed")?;
+    distributed::register_distributed_module(m.py(), &distributed_module)?;
+    m.add_submodule(&distributed_module)?;
 
     // let functional_module = PyModule::new(m.py(), "F")?;
     // functional::register_functional_module(m.py(), &functional_module)?;

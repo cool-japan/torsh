@@ -518,11 +518,14 @@ impl QuantizationBenchmarkSuite {
             throughput_gbps: (data_size_bytes as f32) / (duration.as_secs_f32() * 1e9),
             average_latency_ms: duration.as_secs_f32() * 1000.0,
             peak_memory_usage: end_memory.saturating_sub(start_memory),
-            memory_bandwidth_utilization: 85.0, // Placeholder
-            compute_utilization: 75.0, // Placeholder
+            // Hardware utilization counters are not collected by this CPU timing
+            // harness. Report NaN ("not measured") rather than inventing
+            // plausible percentages that callers could mistake for real data.
+            memory_bandwidth_utilization: f32::NAN,
+            compute_utilization: f32::NAN,
             operations_per_second: data.len() as f64 / duration.as_secs_f64(),
             energy_efficiency: None,
-            cache_hit_rate: 90.0, // Placeholder
+            cache_hit_rate: f32::NAN,
         })
     }
 
@@ -551,18 +554,25 @@ impl QuantizationBenchmarkSuite {
             throughput_gbps: (data_size_bytes as f32) / (duration.as_secs_f32() * 1e9),
             average_latency_ms: duration.as_secs_f32() * 1000.0,
             peak_memory_usage: end_memory.saturating_sub(start_memory),
-            memory_bandwidth_utilization: 80.0, // Placeholder
-            compute_utilization: 70.0, // Placeholder
+            // See `run_quantization_benchmark`: these counters are not measured
+            // by the CPU timing harness, so they are reported as NaN rather than
+            // fabricated.
+            memory_bandwidth_utilization: f32::NAN,
+            compute_utilization: f32::NAN,
             operations_per_second: data.len() as f64 / duration.as_secs_f64(),
             energy_efficiency: None,
-            cache_hit_rate: 88.0, // Placeholder
+            cache_hit_rate: f32::NAN,
         })
     }
 
+    /// Current process memory usage in bytes, or `0` when unavailable.
+    ///
+    /// There is no portable, dependency-free way to read RSS here, so this
+    /// returns `0` ("not measured") instead of a fabricated constant. With both
+    /// the start and end samples at `0`, the derived `peak_memory_usage` is an
+    /// honest `0` rather than a value that looks measured but is not.
     fn get_current_memory_usage(&self) -> usize {
-        // Platform-specific memory usage detection would go here
-        // For now, return a placeholder value
-        1024 * 1024 // 1MB placeholder
+        0
     }
 
     fn average_metrics(&self, metrics: &[BenchmarkMetrics]) -> BenchmarkMetrics {

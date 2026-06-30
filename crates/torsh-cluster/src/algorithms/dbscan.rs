@@ -460,10 +460,67 @@ impl FitPredict for DBSCAN {
 }
 
 impl DensityBasedClustering for DBSCAN {
-    fn density_estimates(&self, _data: &Tensor) -> ClusterResult<Tensor> {
-        Err(ClusterError::NotImplemented(
-            "DBSCAN density_estimates not yet implemented".to_string(),
-        ))
+    /// Compute local density estimates for each point.
+    ///
+    /// The density at point `p` is estimated as the inverse of the mean distance
+    /// to its `min_samples` nearest neighbors (the "reachability density" used
+    /// in OPTICS/HDBSCAN literature).  Points with no neighbors get density 0.
+    ///
+    /// Returns a 1-D tensor of length `n_samples` with non-negative density
+    /// values; higher values indicate denser regions.
+    fn density_estimates(&self, data: &Tensor) -> ClusterResult<Tensor> {
+        let data_vec = data.to_vec().map_err(ClusterError::TensorError)?;
+        let shape = data.shape();
+        let data_shape = shape.dims();
+
+        if data_shape.len() != 2 {
+            return Err(ClusterError::InvalidInput(
+                "Data must be 2-dimensional for density estimation".to_string(),
+            ));
+        }
+
+        let n_samples = data_shape[0];
+        let n_features = data_shape[1];
+        let k = self.config.min_samples;
+
+        if n_samples == 0 {
+            return Tensor::from_vec(vec![], &[0]).map_err(ClusterError::TensorError);
+        }
+
+        let data_array = Array2::from_shape_vec((n_samples, n_features), data_vec)
+            .map_err(|e| ClusterError::InvalidInput(format!("Failed to reshape: {}", e)))?;
+
+        let mut densities = vec![0.0_f32; n_samples];
+
+        for i in 0..n_samples {
+            // Compute distances from point i to all other points
+            let mut dists: Vec<f64> = (0..n_samples)
+                .filter(|&j| j != i)
+                .map(|j| {
+                    let diff = &data_array.row(i) - &data_array.row(j);
+                    diff.iter().map(|x| (*x as f64).powi(2)).sum::<f64>().sqrt()
+                })
+                .collect();
+
+            if dists.is_empty() {
+                densities[i] = 0.0;
+                continue;
+            }
+
+            dists.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
+            // Take the k nearest neighbors (or all available if fewer than k)
+            let k_actual = k.min(dists.len());
+            let mean_k_dist: f64 = dists[..k_actual].iter().sum::<f64>() / k_actual as f64;
+
+            densities[i] = if mean_k_dist > 1e-15 {
+                (1.0 / mean_k_dist) as f32
+            } else {
+                f32::MAX / 2.0 // Very dense neighbourhood
+            };
+        }
+
+        Tensor::from_vec(densities, &[n_samples]).map_err(ClusterError::TensorError)
     }
 }
 
@@ -1431,6 +1488,55 @@ mod tests {
         assert!(params.contains_key("min_cluster_size"));
         assert!(params.contains_key("metric"));
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_density_estimates_two_clusters() -> ClusterResult<()> {
+        use crate::traits::DensityBasedClustering;
+        // Dense cluster near origin, sparse points far away
+        let data = Tensor::from_vec(
+            vec![
+                // Dense cluster
+                0.0_f32, 0.0, 0.05, 0.05, -0.05, 0.05, // Sparse / isolated points
+                10.0, 10.0, 20.0, 20.0,
+            ],
+            &[5, 2],
+        )?;
+
+        let dbscan = DBSCAN::new(0.5, 2);
+        let densities = dbscan.density_estimates(&data)?;
+
+        let dense_shape = densities.shape();
+        assert_eq!(dense_shape.dims()[0], 5, "one density value per sample");
+
+        let dens_vec = densities.to_vec().map_err(ClusterError::TensorError)?;
+        assert!(
+            dens_vec.iter().all(|&d| d >= 0.0),
+            "densities must be non-negative"
+        );
+
+        // Points in the tight cluster should have higher density than isolated points
+        let dense_avg = (dens_vec[0] + dens_vec[1] + dens_vec[2]) / 3.0;
+        let sparse_avg = (dens_vec[3] + dens_vec[4]) / 2.0;
+        assert!(
+            dense_avg > sparse_avg,
+            "dense cluster points should have higher estimated density"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_density_estimates_single_point() -> ClusterResult<()> {
+        use crate::traits::DensityBasedClustering;
+        let data = Tensor::from_vec(vec![1.0_f32, 2.0], &[1, 2])?;
+        let dbscan = DBSCAN::new(0.5, 1);
+        // Single point has no neighbours → density should be 0
+        let dens = dbscan.density_estimates(&data)?;
+        let v = dens.to_vec().map_err(ClusterError::TensorError)?;
+        assert_eq!(v.len(), 1);
+        assert_eq!(v[0], 0.0);
         Ok(())
     }
 }

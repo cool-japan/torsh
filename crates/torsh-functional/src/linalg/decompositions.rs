@@ -11,8 +11,6 @@ use torsh_tensor::{
     Tensor,
 };
 
-use super::core::tensor_to_array2;
-
 /// LU decomposition with partial pivoting
 ///
 /// Computes the LU decomposition of a square matrix A:
@@ -312,6 +310,8 @@ pub fn svd(tensor: &Tensor, full_matrices: bool) -> TorshResult<(Tensor, Tensor,
 /// - **Matrix powers**: A^k = V Λ^k V⁻¹
 /// - **Matrix functions**: f(A) = V f(Λ) V⁻¹
 pub fn eig(tensor: &Tensor) -> TorshResult<(Tensor, Tensor)> {
+    use scirs2_core::ndarray::Array2;
+
     if tensor.shape().ndim() != 2 {
         return Err(TorshError::invalid_argument_with_context(
             "Eigenvalue decomposition requires 2D tensor",
@@ -328,21 +328,188 @@ pub fn eig(tensor: &Tensor) -> TorshResult<(Tensor, Tensor)> {
         ));
     }
 
-    // Convert tensor to ndarray for scirs2-linalg processing
-    let _array = tensor_to_array2(tensor)?;
+    let n = dims[0];
+    let device = tensor.device();
 
-    // Simple fallback implementation for eigenvalue decomposition
-    // Note: Advanced linalg dependencies not available, using basic fallback
+    // Work in f64 internally for numerical accuracy, then narrow back to f32.
+    // `to_vec` yields the matrix in row-major order, so element (i, j) lives at
+    // index `i * n + j`.
+    let data: Vec<f64> = tensor.to_vec()?.into_iter().map(|x| x as f64).collect();
 
-    // For now, return identity matrix as a placeholder
-    // This should be replaced with proper eigenvalue computation when dependencies are available
-    let shape_binding = tensor.shape();
-    let dims = shape_binding.dims();
-    let eigenvalues_tensor = ones(&[dims[0]])?;
-    let eigenvectors_tensor = eye(dims[0])?;
+    // The matrix that is actually decomposed (the symmetric part for the
+    // symmetric branch, the original matrix otherwise). Kept for the residual
+    // verification below.
+    let decomposed: Vec<f64>;
 
-    // Return basic implementation
-    Ok((eigenvalues_tensor, eigenvectors_tensor))
+    // Eigenpairs as (eigenvalue, unit-norm eigenvector) in f64.
+    let mut pairs: Vec<(f64, Vec<f64>)> = if matrix_is_symmetric(&data, n) {
+        // Symmetric / Hermitian case. scirs2-linalg's symmetric eigensolver is
+        // numerically robust for exactly the degenerate cases that break naive
+        // power iteration: repeated eigenvalues (e.g. diag(2, 2, 5)) and
+        // rank-deficient matrices with zero eigenvalues both yield a full,
+        // orthonormal eigenvector basis. We symmetrize first so the (A + Aᵀ)/2
+        // handed to the solver is exactly symmetric in f64.
+        let symmetric = symmetrize(&data, n);
+        let a = Array2::from_shape_vec((n, n), symmetric.clone()).map_err(|e| {
+            TorshError::ComputeError(format!("eig: matrix construction failed: {e}"))
+        })?;
+        decomposed = symmetric;
+        let (values, vectors) = scirs2_linalg::eigh(&a.view(), None).map_err(|e| {
+            TorshError::ComputeError(format!("eig: symmetric eigensolver failed: {e}"))
+        })?;
+        if values.len() != n {
+            return Err(TorshError::ComputeError(format!(
+                "eig: solver returned {} eigenvalues for an {n}x{n} matrix",
+                values.len()
+            )));
+        }
+        (0..n)
+            .map(|j| {
+                let column = normalized((0..n).map(|i| vectors[[i, j]]).collect());
+                (values[j], column)
+            })
+            .collect()
+    } else {
+        // General (non-symmetric) case. The QR-based solver returns complex
+        // eigenpairs; a real eigendecomposition only exists when every
+        // eigenvalue is real. The vectors it accumulates are Schur vectors,
+        // which coincide with eigenvectors only for normal matrices, so each
+        // returned pair is verified below and an honest error is produced
+        // otherwise — never a fabricated decomposition.
+        let a = Array2::from_shape_vec((n, n), data.clone()).map_err(|e| {
+            TorshError::ComputeError(format!("eig: matrix construction failed: {e}"))
+        })?;
+        decomposed = data.clone();
+        let (values, vectors) = scirs2_linalg::eig(&a.view(), None)
+            .map_err(|e| TorshError::ComputeError(format!("eig: eigensolver failed: {e}")))?;
+        if values.len() != n {
+            return Err(TorshError::ComputeError(format!(
+                "eig: solver returned {} eigenvalues for an {n}x{n} matrix",
+                values.len()
+            )));
+        }
+
+        let scale = data.iter().fold(1.0f64, |m, &x| m.max(x.abs()));
+        for k in 0..n {
+            if values[k].im.abs() > 1e-6 * scale {
+                return Err(TorshError::ComputeError(format!(
+                    "eig: matrix has a complex eigenvalue ({:.6}{:+.6}i); a real \
+                     eigendecomposition does not exist for this matrix",
+                    values[k].re, values[k].im
+                )));
+            }
+        }
+
+        (0..n)
+            .map(|j| {
+                // For a real eigenvalue the eigenvector spans a real line, so the
+                // complex column is a complex multiple of a real vector and its
+                // real and imaginary parts are parallel. Keep whichever part is
+                // larger to avoid selecting a (near) zero vector.
+                let re: Vec<f64> = (0..n).map(|i| vectors[[i, j]].re).collect();
+                let im: Vec<f64> = (0..n).map(|i| vectors[[i, j]].im).collect();
+                let re_norm = re.iter().map(|x| x * x).sum::<f64>().sqrt();
+                let im_norm = im.iter().map(|x| x * x).sum::<f64>().sqrt();
+                let column = normalized(if re_norm >= im_norm { re } else { im });
+                (values[j].re, column)
+            })
+            .collect()
+    };
+
+    // Order eigenpairs by descending eigenvalue (dominant first): a stable,
+    // PCA-friendly convention that keeps the dominant eigenpair in column 0.
+    pairs.sort_by(|a, b| b.0.total_cmp(&a.0));
+
+    // Anti-fabrication guard: verify A v ≈ λ v for every returned eigenpair.
+    // A defective / non-diagonalizable matrix (or a solver failure) surfaces as
+    // an honest error here instead of a plausible-but-wrong decomposition.
+    let residual = max_relative_residual(&decomposed, n, &pairs);
+    if residual > 1e-3 {
+        return Err(TorshError::ComputeError(format!(
+            "eig: failed to compute an accurate eigendecomposition (max relative \
+             residual {residual:.3e}); the matrix is likely defective / \
+             non-diagonalizable"
+        )));
+    }
+
+    // Pack results: eigenvalues as a length-n vector and eigenvectors as the
+    // columns of an n x n matrix (column j is the eigenvector for eigenvalue j).
+    let mut eigenvalue_data = Vec::with_capacity(n);
+    let mut eigenvector_data = vec![0.0f32; n * n];
+    for (col, (lambda, vector)) in pairs.iter().enumerate() {
+        eigenvalue_data.push(*lambda as f32);
+        for (row, &value) in vector.iter().enumerate() {
+            eigenvector_data[row * n + col] = value as f32;
+        }
+    }
+
+    let eigenvalues = Tensor::from_data(eigenvalue_data, vec![n], device)?;
+    let eigenvectors = Tensor::from_data(eigenvector_data, vec![n, n], device)?;
+    Ok((eigenvalues, eigenvectors))
+}
+
+/// Returns `true` if the row-major `n` x `n` matrix is symmetric within a small
+/// relative tolerance.
+fn matrix_is_symmetric(data: &[f64], n: usize) -> bool {
+    for i in 0..n {
+        for j in (i + 1)..n {
+            let upper = data[i * n + j];
+            let lower = data[j * n + i];
+            let scale = upper.abs().max(lower.abs()).max(1.0);
+            if (upper - lower).abs() > 1e-6 * scale {
+                return false;
+            }
+        }
+    }
+    true
+}
+
+/// Returns the symmetric part `(A + Aᵀ) / 2` of a row-major `n` x `n` matrix.
+fn symmetrize(data: &[f64], n: usize) -> Vec<f64> {
+    let mut out = vec![0.0f64; n * n];
+    for i in 0..n {
+        for j in 0..n {
+            out[i * n + j] = 0.5 * (data[i * n + j] + data[j * n + i]);
+        }
+    }
+    out
+}
+
+/// Scales a vector to unit Euclidean norm (a numerically zero vector is left
+/// untouched).
+fn normalized(mut v: Vec<f64>) -> Vec<f64> {
+    let norm = v.iter().map(|x| x * x).sum::<f64>().sqrt();
+    if norm > 1e-300 {
+        for x in v.iter_mut() {
+            *x /= norm;
+        }
+    }
+    v
+}
+
+/// Largest relative residual `‖A v − λ v‖₂ / (|λ| + 1)` over all eigenpairs.
+/// `pairs` holds `(λ, v)` columns and `matrix` is the row-major `n` x `n` matrix
+/// that was decomposed.
+fn max_relative_residual(matrix: &[f64], n: usize, pairs: &[(f64, Vec<f64>)]) -> f64 {
+    let mut worst = 0.0f64;
+    for pair in pairs {
+        let lambda = pair.0;
+        let v = &pair.1;
+        let mut residual_sq = 0.0f64;
+        for i in 0..n {
+            let mut av_i = 0.0f64;
+            for j in 0..n {
+                av_i += matrix[i * n + j] * v[j];
+            }
+            let diff = av_i - lambda * v[i];
+            residual_sq += diff * diff;
+        }
+        let relative = residual_sq.sqrt() / (lambda.abs() + 1.0);
+        if relative > worst {
+            worst = relative;
+        }
+    }
+    worst
 }
 
 /// Low-rank SVD approximation using randomized algorithms
@@ -440,4 +607,200 @@ pub fn pca_lowrank(
 
     // For PCA, we typically return V^T as the principal components
     Ok((u, s, v.transpose(-2, -1)?))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use torsh_tensor::creation::eye;
+
+    #[test]
+    fn test_eig_identity_returns_ones() {
+        // The identity matrix has every eigenvalue equal to 1.
+        let identity = eye::<f32>(4).unwrap();
+        let (eigenvalues, eigenvectors) = eig(&identity).unwrap();
+
+        assert_eq!(eigenvalues.shape().dims(), &[4]);
+        assert_eq!(eigenvectors.shape().dims(), &[4, 4]);
+
+        for &lambda in eigenvalues.to_vec().unwrap().iter() {
+            assert!(
+                (lambda - 1.0).abs() < 1e-5,
+                "identity eigenvalue should be 1.0, got {lambda}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_eig_diagonal_exact() {
+        // Diagonal matrices have an exact eigendecomposition: the eigenvalues
+        // are precisely the diagonal entries.
+        let diag = Tensor::from_data(
+            vec![3.0, 0.0, 0.0, 0.0, -2.0, 0.0, 0.0, 0.0, 5.0],
+            vec![3, 3],
+            torsh_core::device::DeviceType::Cpu,
+        )
+        .unwrap();
+
+        let (eigenvalues, _vectors) = eig(&diag).unwrap();
+        let mut values = eigenvalues.to_vec().unwrap();
+        values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+        let expected = [-2.0_f32, 3.0, 5.0];
+        for (got, want) in values.iter().zip(expected.iter()) {
+            assert!(
+                (got - want).abs() < 1e-5,
+                "diagonal eigenvalue mismatch: got {got}, want {want}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_eig_non_square_errors() {
+        let rect = Tensor::from_data(
+            vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+            vec![2, 3],
+            torsh_core::device::DeviceType::Cpu,
+        )
+        .unwrap();
+        assert!(eig(&rect).is_err());
+    }
+
+    #[test]
+    fn test_eig_dominant_eigenpair_residual() {
+        // For a symmetric 2x2 matrix [[2, 1], [1, 2]] the eigenvalues are 1 and
+        // 3. Verify the dominant eigenpair satisfies A v = lambda v.
+        let a = Tensor::from_data(
+            vec![2.0, 1.0, 1.0, 2.0],
+            vec![2, 2],
+            torsh_core::device::DeviceType::Cpu,
+        )
+        .unwrap();
+
+        let (eigenvalues, eigenvectors) = eig(&a).unwrap();
+        let lambda = eigenvalues.to_vec().unwrap()[0];
+        let vecs = eigenvectors.to_vec().unwrap();
+        // First eigenvector is column 0 of the (2x2) matrix stored row-major.
+        let v = [vecs[0], vecs[2]];
+
+        // Compute A v.
+        let av0 = 2.0 * v[0] + 1.0 * v[1];
+        let av1 = 1.0 * v[0] + 2.0 * v[1];
+
+        assert!(
+            (av0 - lambda * v[0]).abs() < 1e-3 && (av1 - lambda * v[1]).abs() < 1e-3,
+            "A v should equal lambda v (lambda={lambda}, v=[{}, {}])",
+            v[0],
+            v[1]
+        );
+        // The dominant eigenvalue of this matrix is 3.
+        assert!(
+            (lambda - 3.0).abs() < 1e-3,
+            "dominant eigenvalue should be 3.0, got {lambda}"
+        );
+    }
+
+    /// Asserts that every column eigenvector `v_j` of the returned decomposition
+    /// satisfies `A v_j ≈ λ_j v_j` and is non-degenerate. This is the assertion
+    /// that fails for a fabricated decomposition.
+    fn assert_eigenpairs_valid(
+        a: &Tensor,
+        eigenvalues: &Tensor,
+        eigenvectors: &Tensor,
+        n: usize,
+        tol: f32,
+    ) {
+        let a_data = a.to_vec().unwrap();
+        let vals = eigenvalues.to_vec().unwrap();
+        let vecs = eigenvectors.to_vec().unwrap();
+
+        for col in 0..n {
+            let lambda = vals[col];
+            let v: Vec<f32> = (0..n).map(|row| vecs[row * n + col]).collect();
+
+            // A genuine eigenvector must be non-trivial (these are unit-norm).
+            let v_norm = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+            assert!(
+                v_norm > 0.5,
+                "eigenvector {col} is degenerate (norm {v_norm})"
+            );
+
+            for row in 0..n {
+                let mut av = 0.0f32;
+                for k in 0..n {
+                    av += a_data[row * n + k] * v[k];
+                }
+                assert!(
+                    (av - lambda * v[row]).abs() < tol,
+                    "A v != lambda v at row {row}, col {col}: Av={av}, lambda*v={}",
+                    lambda * v[row]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_eig_repeated_eigenvalue() {
+        // A = [[3,1,1],[1,3,1],[1,1,3]] = 2I + J (J all-ones) has spectrum
+        // {5, 2, 2}: the eigenvalue 2 has algebraic multiplicity 2. A repeated
+        // eigenvalue breaks single-vector power iteration but must be handled by
+        // a robust symmetric eigensolver, which returns a full orthonormal basis
+        // for the 2-eigenspace.
+        let a = Tensor::from_data(
+            vec![3.0, 1.0, 1.0, 1.0, 3.0, 1.0, 1.0, 1.0, 3.0],
+            vec![3, 3],
+            torsh_core::device::DeviceType::Cpu,
+        )
+        .unwrap();
+
+        let (eigenvalues, eigenvectors) = eig(&a).unwrap();
+        assert_eq!(eigenvalues.shape().dims(), &[3]);
+        assert_eq!(eigenvectors.shape().dims(), &[3, 3]);
+
+        let mut values = eigenvalues.to_vec().unwrap();
+        values.sort_by(|x, y| x.partial_cmp(y).unwrap());
+        let expected = [2.0_f32, 2.0, 5.0];
+        for (got, want) in values.iter().zip(expected.iter()) {
+            assert!(
+                (got - want).abs() < 1e-3,
+                "repeated-eigenvalue spectrum mismatch: got {got}, want {want}"
+            );
+        }
+
+        // Every returned eigenpair (including both copies of 2) must satisfy
+        // A v = lambda v.
+        assert_eigenpairs_valid(&a, &eigenvalues, &eigenvectors, 3, 1e-3);
+    }
+
+    #[test]
+    fn test_eig_rank_deficient_zero_eigenvalue() {
+        // The all-ones 3x3 matrix has rank 1 and spectrum {3, 0, 0}: two zero
+        // eigenvalues. Naive deflation bails out at the first zero eigenvalue and
+        // pads the result with standard basis vectors that are NOT eigenvectors,
+        // so `A v = 0` fails for those columns. A correct decomposition returns
+        // genuine null-space vectors for the zero eigenvalues.
+        let a = Tensor::from_data(
+            vec![1.0; 9],
+            vec![3, 3],
+            torsh_core::device::DeviceType::Cpu,
+        )
+        .unwrap();
+
+        let (eigenvalues, eigenvectors) = eig(&a).unwrap();
+
+        let mut values = eigenvalues.to_vec().unwrap();
+        values.sort_by(|x, y| x.partial_cmp(y).unwrap());
+        let expected = [0.0_f32, 0.0, 3.0];
+        for (got, want) in values.iter().zip(expected.iter()) {
+            assert!(
+                (got - want).abs() < 1e-3,
+                "rank-deficient spectrum mismatch: got {got}, want {want}"
+            );
+        }
+
+        // The eigenvectors for the zero eigenvalues must really lie in the null
+        // space (A v = 0), which is precisely what the old power-iteration path
+        // got wrong.
+        assert_eigenpairs_valid(&a, &eigenvalues, &eigenvectors, 3, 1e-3);
+    }
 }

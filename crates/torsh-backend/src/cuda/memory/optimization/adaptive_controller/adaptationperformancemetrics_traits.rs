@@ -8,7 +8,7 @@
 //!
 //! 🤖 Generated with [SplitRS](https://github.com/cool-japan/splitrs)
 
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use super::types::AdaptationPerformanceMetrics;
 
@@ -25,4 +25,3 @@ impl Default for AdaptationPerformanceMetrics {
         }
     }
 }
-

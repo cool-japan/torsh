@@ -1,8 +1,7 @@
 //! Time series feature extraction
 
-// Framework infrastructure - components designed for future use
-#![allow(dead_code)]
 use crate::TimeSeries;
+use torsh_core::error::{Result, TorshError};
 use torsh_tensor::Tensor;
 
 /// Statistical features of a time series
@@ -600,12 +599,21 @@ pub struct SeasonalityFeatures {
 /// //  [3, 2],   // t=3: lag1=3, lag2=2
 /// //  [4, 3]]   // t=4: lag1=4, lag2=3
 /// ```text
-pub fn create_lag_features(series: &TimeSeries, lags: &[usize]) -> TimeSeries {
-    let data = series.values.to_vec().unwrap_or_default();
+pub fn create_lag_features(series: &TimeSeries, lags: &[usize]) -> Result<TimeSeries> {
+    let data = series.values.to_vec()?;
     let n = data.len();
 
-    if lags.is_empty() || n == 0 {
-        return TimeSeries::new(series.values.clone());
+    // Honest error rather than silently returning the unprocessed series: an
+    // empty lag list means there is nothing to engineer.
+    if lags.is_empty() {
+        return Err(TorshError::InvalidArgument(
+            "create_lag_features requires at least one lag".to_string(),
+        ));
+    }
+    if n == 0 {
+        return Err(TorshError::InvalidArgument(
+            "create_lag_features requires a non-empty series".to_string(),
+        ));
     }
 
     let num_lags = lags.len();
@@ -626,9 +634,8 @@ pub fn create_lag_features(series: &TimeSeries, lags: &[usize]) -> TimeSeries {
         }
     }
 
-    let tensor =
-        Tensor::from_vec(lag_matrix, &[n, num_lags]).expect("tensor creation should succeed");
-    TimeSeries::new(tensor)
+    let tensor = Tensor::from_vec(lag_matrix, &[n, num_lags])?;
+    Ok(TimeSeries::new(tensor))
 }
 
 /// Rolling window statistics
@@ -753,12 +760,21 @@ pub fn rolling_statistics(
 /// // For series [1, 3, 6, 10] with periods [1]:
 /// // Result: [[0], [2], [3], [4]]  // First differences
 /// ```text
-pub fn create_difference_features(series: &TimeSeries, periods: &[usize]) -> TimeSeries {
-    let data = series.values.to_vec().unwrap_or_default();
+pub fn create_difference_features(series: &TimeSeries, periods: &[usize]) -> Result<TimeSeries> {
+    let data = series.values.to_vec()?;
     let n = data.len();
 
-    if periods.is_empty() || n == 0 {
-        return TimeSeries::new(series.values.clone());
+    // Empty periods means no difference features can be produced — error
+    // instead of returning the unprocessed series.
+    if periods.is_empty() {
+        return Err(TorshError::InvalidArgument(
+            "create_difference_features requires at least one period".to_string(),
+        ));
+    }
+    if n == 0 {
+        return Err(TorshError::InvalidArgument(
+            "create_difference_features requires a non-empty series".to_string(),
+        ));
     }
 
     let num_features = periods.len();
@@ -775,9 +791,8 @@ pub fn create_difference_features(series: &TimeSeries, periods: &[usize]) -> Tim
         }
     }
 
-    let tensor =
-        Tensor::from_vec(diff_matrix, &[n, num_features]).expect("tensor creation should succeed");
-    TimeSeries::new(tensor)
+    let tensor = Tensor::from_vec(diff_matrix, &[n, num_features])?;
+    Ok(TimeSeries::new(tensor))
 }
 
 /// Create interaction features
@@ -801,11 +816,19 @@ pub fn create_interaction_features(
     series: &TimeSeries,
     degree: usize,
     include_time_features: bool,
-) -> TimeSeries {
+) -> Result<TimeSeries> {
     let n = series.len();
 
-    if n == 0 || degree == 0 {
-        return TimeSeries::new(series.values.clone());
+    // A degree of 0 produces no polynomial terms; refuse rather than echo input.
+    if degree == 0 {
+        return Err(TorshError::InvalidArgument(
+            "create_interaction_features requires degree >= 1".to_string(),
+        ));
+    }
+    if n == 0 {
+        return Err(TorshError::InvalidArgument(
+            "create_interaction_features requires a non-empty series".to_string(),
+        ));
     }
 
     // Calculate number of features
@@ -846,32 +869,106 @@ pub fn create_interaction_features(
         }
     }
 
-    let tensor = Tensor::from_vec(feature_matrix, &[n, num_features])
-        .expect("tensor creation should succeed");
-    TimeSeries::new(tensor)
+    let tensor = Tensor::from_vec(feature_matrix, &[n, num_features])?;
+    Ok(TimeSeries::new(tensor))
 }
 
 /// Create comprehensive feature set
 ///
-/// Generates a complete set of engineered features combining all methods.
+/// Generates a complete set of engineered features by concatenating, column
+/// by column, the lag features, rolling-window statistics, and polynomial /
+/// cyclic interaction features for every time step.
 ///
 /// # Arguments
 /// * `series` - Input time series
 /// * `lags` - Lag periods to include
-/// * `window_size` - Rolling window size
-/// * `polynomial_degree` - Degree for polynomial features
+/// * `window_size` - Rolling window size (must be >= 1; produces a rolling
+///   mean and rolling std column)
+/// * `polynomial_degree` - Degree for polynomial + cyclic interaction features
+///   (must be >= 1)
 ///
 /// # Returns
-/// TimeSeries with all engineered features concatenated
+/// TimeSeries of shape `[n, num_features]` with all engineered features
+/// concatenated, where
+/// `num_features = lags.len() + 2 (rolling mean/std) + polynomial_degree + 4 (cyclic)`.
+///
+/// # Errors
+/// Returns an error if any argument is degenerate (empty lags, zero window,
+/// zero polynomial degree, or an empty series). Previously this silently
+/// ignored `window_size` / `polynomial_degree` and only returned lag features.
 pub fn create_comprehensive_features(
     series: &TimeSeries,
     lags: &[usize],
-    _window_size: usize,
-    _polynomial_degree: usize,
-) -> TimeSeries {
-    // This is a simplified version - in practice, you'd concatenate all features
-    // For now, just return lag features as the primary engineered features
-    create_lag_features(series, lags)
+    window_size: usize,
+    polynomial_degree: usize,
+) -> Result<TimeSeries> {
+    let n = series.len();
+    if n == 0 {
+        return Err(TorshError::InvalidArgument(
+            "create_comprehensive_features requires a non-empty series".to_string(),
+        ));
+    }
+    if lags.is_empty() {
+        return Err(TorshError::InvalidArgument(
+            "create_comprehensive_features requires at least one lag".to_string(),
+        ));
+    }
+    if window_size == 0 {
+        return Err(TorshError::InvalidArgument(
+            "create_comprehensive_features requires window_size >= 1".to_string(),
+        ));
+    }
+    if polynomial_degree == 0 {
+        return Err(TorshError::InvalidArgument(
+            "create_comprehensive_features requires polynomial_degree >= 1".to_string(),
+        ));
+    }
+
+    // Build each feature block. These honour their arguments (the previous
+    // implementation discarded window_size and polynomial_degree entirely).
+    let lag_block = create_lag_features(series, lags)?.values.to_vec()?;
+    let lag_cols = lags.len();
+
+    // Rolling mean and std with `min_periods = 1` so early rows are populated
+    // (NaNs would corrupt downstream models); window_size is now actually used.
+    let rolling = rolling_statistics(series, window_size, Some(1));
+
+    let interaction = create_interaction_features(series, polynomial_degree, true)?
+        .values
+        .to_vec()?;
+    let interaction_cols = polynomial_degree + 4; // poly terms + 4 cyclic terms
+
+    // Total feature columns and assembled row-major matrix.
+    let rolling_cols = 2; // mean + std
+    let total_cols = lag_cols + rolling_cols + interaction_cols;
+    let mut feature_matrix = vec![0.0f32; n * total_cols];
+
+    for t in 0..n {
+        let mut col = 0;
+
+        // Lag features.
+        for l in 0..lag_cols {
+            feature_matrix[t * total_cols + col] = lag_block[t * lag_cols + l];
+            col += 1;
+        }
+
+        // Rolling mean / std (replace NaN with 0.0 defensively).
+        let mean = rolling.mean.get(t).copied().unwrap_or(0.0);
+        let std = rolling.std.get(t).copied().unwrap_or(0.0);
+        feature_matrix[t * total_cols + col] = if mean.is_finite() { mean as f32 } else { 0.0 };
+        col += 1;
+        feature_matrix[t * total_cols + col] = if std.is_finite() { std as f32 } else { 0.0 };
+        col += 1;
+
+        // Interaction (polynomial + cyclic) features.
+        for c in 0..interaction_cols {
+            feature_matrix[t * total_cols + col] = interaction[t * interaction_cols + c];
+            col += 1;
+        }
+    }
+
+    let tensor = Tensor::from_vec(feature_matrix, &[n, total_cols])?;
+    Ok(TimeSeries::new(tensor))
 }
 
 #[cfg(test)]
@@ -997,5 +1094,71 @@ mod tests {
         let features_auto = seasonality_features(&series_seasonal, 0);
         assert!(features_auto.seasonal_period >= 1);
         assert!(features_auto.seasonal_strength > 0.0);
+    }
+
+    #[test]
+    fn test_create_lag_features_values_and_errors() {
+        let series = create_test_series(); // [1,2,3,4,5]
+        let lagged = create_lag_features(&series, &[1, 2]).expect("lag features");
+        // shape [5, 2]
+        assert_eq!(lagged.values.shape().dims(), [5, 2]);
+        let v = lagged.values.to_vec().expect("vals");
+        // t=2: lag1 = data[1] = 2, lag2 = data[0] = 1
+        assert_eq!(v[2 * 2], 2.0);
+        assert_eq!(v[2 * 2 + 1], 1.0);
+
+        // Empty lags must error, not echo the input.
+        assert!(create_lag_features(&series, &[]).is_err());
+    }
+
+    #[test]
+    fn test_create_difference_features_values_and_errors() {
+        // [1,3,6,10] period 1 -> [0,2,3,4]
+        let tensor = Tensor::from_vec(vec![1.0f32, 3.0, 6.0, 10.0], &[4]).expect("tensor");
+        let series = TimeSeries::new(tensor);
+        let diff = create_difference_features(&series, &[1]).expect("diff features");
+        let v = diff.values.to_vec().expect("vals");
+        assert_eq!(v, vec![0.0, 2.0, 3.0, 4.0]);
+
+        assert!(create_difference_features(&series, &[]).is_err());
+    }
+
+    #[test]
+    fn test_create_interaction_features_errors() {
+        let series = create_test_series();
+        // degree 0 must error.
+        assert!(create_interaction_features(&series, 0, true).is_err());
+        // valid degree produces degree + 4 cyclic columns.
+        let feats = create_interaction_features(&series, 2, true).expect("interaction");
+        assert_eq!(feats.values.shape().dims(), [5, 6]);
+    }
+
+    #[test]
+    fn test_create_comprehensive_features_honors_args() {
+        let series = create_test_series(); // n = 5
+        let lags = [1usize, 2];
+        let window = 3usize;
+        let poly = 2usize;
+        let feats =
+            create_comprehensive_features(&series, &lags, window, poly).expect("comprehensive");
+
+        // num_features = lags(2) + rolling(2) + interaction(poly+4 = 6) = 10
+        let expected_cols = lags.len() + 2 + (poly + 4);
+        assert_eq!(feats.values.shape().dims(), [5, expected_cols]);
+
+        // Changing window_size must change the output (it was previously ignored).
+        let feats_w5 =
+            create_comprehensive_features(&series, &lags, 5, poly).expect("comprehensive w5");
+        let a = feats.values.to_vec().expect("a");
+        let b = feats_w5.values.to_vec().expect("b");
+        assert_ne!(
+            a, b,
+            "window_size must affect the comprehensive feature output"
+        );
+
+        // Degenerate arguments must error.
+        assert!(create_comprehensive_features(&series, &[], window, poly).is_err());
+        assert!(create_comprehensive_features(&series, &lags, 0, poly).is_err());
+        assert!(create_comprehensive_features(&series, &lags, window, 0).is_err());
     }
 }

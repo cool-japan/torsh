@@ -1,6 +1,7 @@
 //! Multiple seasonal decomposition methods
 
 use crate::TimeSeries;
+use torsh_core::error::{Result, TorshError};
 use torsh_tensor::{creation::zeros, Tensor};
 
 /// MSTL decomposition result
@@ -54,18 +55,23 @@ impl MSTLDecomposition {
     /// - trend: Overall trend component
     /// - seasonal_components: One seasonal component per period (in same order as input)
     /// - residual: Remaining unexplained variation
-    pub fn fit(&self, series: &TimeSeries) -> MSTLResult {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `periods` is empty: MSTL is meaningless without at
+    /// least one seasonal period, and silently returning the input as "trend"
+    /// with a zero residual would be a fabricated decomposition.
+    pub fn fit(&self, series: &TimeSeries) -> Result<MSTLResult> {
         use super::stl::STLDecomposition;
 
         let n = series.len();
 
-        // If no periods specified, return placeholder
+        // MSTL requires at least one seasonal period. Refuse to fabricate a
+        // decomposition rather than return the input unchanged as "trend".
         if self.periods.is_empty() {
-            return MSTLResult {
-                trend: series.values.clone(),
-                seasonal_components: vec![],
-                residual: zeros(&[n]).expect("tensor creation should succeed"),
-            };
+            return Err(TorshError::InvalidArgument(
+                "MSTL requires at least one seasonal period".to_string(),
+            ));
         }
 
         // Sort periods in ascending order for processing
@@ -73,10 +79,10 @@ impl MSTLDecomposition {
         sorted_periods.sort();
 
         // Initialize with original series
-        let mut remaining_data = series.values.to_vec().unwrap_or_default();
+        let mut remaining_data = series.values.to_vec()?;
         let mut seasonal_components = Vec::new();
         let mut final_trend = series.values.clone();
-        let mut final_residual = zeros(&[n]).expect("tensor creation should succeed");
+        let mut final_residual = zeros(&[n])?;
 
         // Iterate for the specified number of iterations to refine decomposition
         for _iter in 0..self.iterations {
@@ -112,8 +118,9 @@ impl MSTLDecomposition {
                     }
                 };
 
-                // Extract seasonal component
-                let seasonal_data = stl_result.seasonal.to_vec().unwrap_or(vec![0.0; n]);
+                // Extract seasonal component (STL succeeded, so this conversion
+                // must succeed too — propagate any genuine failure).
+                let seasonal_data = stl_result.seasonal.to_vec()?;
                 iter_seasonals.push(seasonal_data.clone());
 
                 // Remove seasonal component from remaining data
@@ -142,7 +149,7 @@ impl MSTLDecomposition {
             }
 
             // Prepare for next iteration: start with original series minus all seasonals
-            remaining_data = series.values.to_vec().unwrap_or_default();
+            remaining_data = series.values.to_vec()?;
             for seasonal in &seasonal_components {
                 for i in 0..n.min(seasonal.len()) {
                     remaining_data[i] -= seasonal[i];
@@ -151,31 +158,27 @@ impl MSTLDecomposition {
         }
 
         // Convert seasonal components to tensors (in original order from self.periods)
-        let seasonal_tensors: Vec<Tensor> = self
-            .periods
-            .iter()
-            .enumerate()
-            .map(|(i, _period)| {
-                // Find the index in sorted_periods
-                let sorted_idx = sorted_periods
-                    .iter()
-                    .position(|&p| p == self.periods[i])
-                    .unwrap_or(i);
+        let mut seasonal_tensors: Vec<Tensor> = Vec::with_capacity(self.periods.len());
+        for (i, _period) in self.periods.iter().enumerate() {
+            // Find the index in sorted_periods
+            let sorted_idx = sorted_periods
+                .iter()
+                .position(|&p| p == self.periods[i])
+                .unwrap_or(i);
 
-                if sorted_idx < seasonal_components.len() {
-                    Tensor::from_vec(seasonal_components[sorted_idx].clone(), &[n])
-                        .unwrap_or_else(|_| zeros(&[n]).expect("tensor creation should succeed"))
-                } else {
-                    zeros(&[n]).expect("tensor creation should succeed")
-                }
-            })
-            .collect();
+            let tensor = if sorted_idx < seasonal_components.len() {
+                Tensor::from_vec(seasonal_components[sorted_idx].clone(), &[n])?
+            } else {
+                zeros(&[n])?
+            };
+            seasonal_tensors.push(tensor);
+        }
 
-        MSTLResult {
+        Ok(MSTLResult {
             trend: final_trend,
             seasonal_components: seasonal_tensors,
             residual: final_residual,
-        }
+        })
     }
 }
 
@@ -201,7 +204,7 @@ mod tests {
     fn test_mstl_decomposition() {
         let series = create_test_series();
         let mstl = MSTLDecomposition::new(vec![7, 12]);
-        let result = mstl.fit(&series);
+        let result = mstl.fit(&series).expect("mstl fit should succeed");
 
         assert_eq!(result.trend.shape().dims()[0], series.len());
         assert_eq!(result.residual.shape().dims()[0], series.len());
@@ -212,5 +215,16 @@ mod tests {
     fn test_mstl_with_iterations() {
         let mstl = MSTLDecomposition::new(vec![12]).with_iterations(5);
         assert_eq!(mstl.iterations, 5);
+    }
+
+    #[test]
+    fn test_mstl_empty_periods_is_error() {
+        // No periods => honest error, not a fabricated "trend = input" result.
+        let series = create_test_series();
+        let mstl = MSTLDecomposition::new(vec![]);
+        assert!(
+            mstl.fit(&series).is_err(),
+            "MSTL with no periods must return an error"
+        );
     }
 }

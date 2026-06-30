@@ -200,7 +200,7 @@ impl Profiler {
             output_shapes,
             flops,
             memory_bandwidth: Some(memory_bandwidth),
-            cpu_utilization: None, // TODO: Implement CPU utilization tracking
+            cpu_utilization: None, // pure-Rust per-process CPU time not yet available in workspace deps
             custom_metrics: HashMap::new(),
         };
 

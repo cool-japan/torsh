@@ -16,7 +16,7 @@
 //! ## Usage Examples
 //!
 //! ```rust,no_run
-//! use torsh_sparse::{CooTensor, CsrTensor, SparseFormat};
+//! use torsh_sparse::{CooTensor, CsrTensor, SparseFormat, SparseTensor};
 //! use torsh_core::Shape;
 //!
 //! // Create a COO tensor from triplets
@@ -77,7 +77,7 @@ pub mod pattern_analysis;
 pub mod performance_tools;
 pub mod rle;
 pub mod scipy_sparse;
-// pub mod scirs2_integration; // temporarily disabled due to import issues
+pub mod scirs2_integration;
 
 // Enhanced SciRS2 integration
 #[cfg(feature = "scirs2-integration")]
@@ -102,8 +102,8 @@ pub use gpu::{CudaSparseOps, CudaSparseTensor, CudaSparseTensorFactory};
 // Autograd support
 pub use autograd::{SparseAutogradTensor, SparseData, SparseGradFn, SparseGradientAccumulator};
 
-// SciRS2 integration (temporarily disabled due to import issues)
-// pub use scirs2_integration::{scirs2_add, scirs2_enhanced_ops};
+// SciRS2 integration: native sparse arithmetic + optional scirs2-sparse interop
+pub use scirs2_integration::{scirs2_add, scirs2_enhanced_ops};
 
 // Enhanced SciRS2 sparse integration
 #[cfg(feature = "scirs2-integration")]

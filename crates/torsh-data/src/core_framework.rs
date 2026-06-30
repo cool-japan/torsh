@@ -246,9 +246,7 @@ impl<T> Transform<T> for Compose<T> {
 /// Normalize tensor values using mean and standard deviation
 #[derive(Debug, Clone)]
 pub struct Normalize<T: TensorElement> {
-    #[allow(dead_code)] // Used in future full implementation
     mean: Vec<T>,
-    #[allow(dead_code)] // Used in future full implementation
     std: Vec<T>,
 }
 
@@ -264,18 +262,57 @@ impl<T: TensorElement> Normalize<T> {
     }
 }
 
-impl<T: TensorElement> Transform<Tensor<T>> for Normalize<T> {
+impl<
+        T: TensorElement + Copy + Default + core::ops::Sub<Output = T> + core::ops::Div<Output = T>,
+    > Transform<Tensor<T>> for Normalize<T>
+{
     type Output = Tensor<T>;
 
     fn transform(&self, input: Tensor<T>) -> Result<Self::Output> {
-        // Placeholder implementation - real normalization would require tensor operations
-        // For now, just return the input tensor
-        // NOTE: tracing disabled (not a dependency)
-        // tracing::debug!(
-        //     "Normalize transform applied with {} channels",
-        //     self.mean.len()
-        // );
-        Ok(input)
+        let num_channels = self.mean.len();
+        let ndim = input.ndim();
+
+        // Determine channel dimension:
+        // - 4D (NCHW): dim 1
+        // - 1D, 2D, 3D (CHW or CL or C): dim 0
+        let channel_dim = if ndim == 4 { 1 } else { 0 };
+
+        // For 1D tensors with 1 channel, treat the whole tensor as a single channel
+        let tensor_channels = if ndim == 0 {
+            return Err(TorshError::InvalidArgument(
+                "Normalize requires at least 1-dimensional tensor".to_string(),
+            ));
+        } else {
+            input.shape().dims()[channel_dim]
+        };
+
+        if tensor_channels != num_channels {
+            return Err(TorshError::InvalidArgument(format!(
+                "Tensor has {} channels at dim {} but Normalize has {} channels in mean/std",
+                tensor_channels, channel_dim, num_channels
+            )));
+        }
+
+        // Validate std is nonzero for all channels
+        for (c, std_val) in self.std.iter().enumerate() {
+            if std_val.is_zero() {
+                return Err(TorshError::InvalidArgument(format!(
+                    "std[{c}] is zero, which would cause division by zero in Normalize"
+                )));
+            }
+        }
+
+        // Process each channel: (x - mean[c]) / std[c]
+        let mut channel_slices: Vec<Tensor<T>> = Vec::with_capacity(num_channels);
+        for c in 0..num_channels {
+            let channel_slice = input.slice_tensor(channel_dim, c, c + 1)?;
+            let centered = channel_slice.sub_scalar(self.mean[c])?;
+            let normalized = centered.div_scalar(self.std[c])?;
+            channel_slices.push(normalized);
+        }
+
+        let channel_refs: Vec<&Tensor<T>> = channel_slices.iter().collect();
+        Tensor::cat(&channel_refs, channel_dim as i32)
     }
 }
 
@@ -442,5 +479,86 @@ mod tests {
 
         let chain = deterministic.then(lambda(|x: i32| Ok(x * 2)));
         assert!(chain.is_deterministic());
+    }
+
+    #[test]
+    fn test_normalize_transform_3channel_chw() {
+        use torsh_core::device::DeviceType;
+
+        // 3-channel CHW tensor: shape [3, 2, 2]
+        // Channel 0: all 1.0, Channel 1: all 3.0, Channel 2: all 5.0
+        let data = vec![
+            1.0f32, 1.0, 1.0, 1.0, // channel 0
+            3.0f32, 3.0, 3.0, 3.0, // channel 1
+            5.0f32, 5.0, 5.0, 5.0, // channel 2
+        ];
+        let input = Tensor::from_data(data, vec![3, 2, 2], DeviceType::Cpu).unwrap();
+
+        let mean = vec![0.0f32, 1.0, 2.0];
+        let std = vec![1.0f32, 2.0, 1.0];
+        let norm = Normalize::new(mean, std).unwrap();
+
+        let output = norm.transform(input).unwrap();
+        assert_eq!(output.shape().dims(), &[3, 2, 2]);
+
+        let out_data = output.data().unwrap();
+        // Channel 0: (1.0 - 0.0) / 1.0 = 1.0
+        assert!(
+            (out_data[0] - 1.0f32).abs() < 1e-5,
+            "ch0 expected 1.0, got {}",
+            out_data[0]
+        );
+        assert!(
+            (out_data[1] - 1.0f32).abs() < 1e-5,
+            "ch0 expected 1.0, got {}",
+            out_data[1]
+        );
+        // Channel 1: (3.0 - 1.0) / 2.0 = 1.0
+        assert!(
+            (out_data[4] - 1.0f32).abs() < 1e-5,
+            "ch1 expected 1.0, got {}",
+            out_data[4]
+        );
+        // Channel 2: (5.0 - 2.0) / 1.0 = 3.0
+        assert!(
+            (out_data[8] - 3.0f32).abs() < 1e-5,
+            "ch2 expected 3.0, got {}",
+            out_data[8]
+        );
+    }
+
+    #[test]
+    fn test_normalize_transform_channel_mismatch() {
+        use torsh_core::device::DeviceType;
+
+        let input = Tensor::from_data(
+            vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0],
+            vec![3, 2],
+            DeviceType::Cpu,
+        )
+        .unwrap();
+
+        // mean/std have 2 channels but tensor has 3
+        let mean = vec![0.0f32, 1.0];
+        let std = vec![1.0f32, 2.0];
+        let norm = Normalize::new(mean, std).unwrap();
+
+        let result = norm.transform(input);
+        assert!(result.is_err(), "Expected error due to channel mismatch");
+    }
+
+    #[test]
+    fn test_normalize_transform_zero_std() {
+        use torsh_core::device::DeviceType;
+
+        let input =
+            Tensor::from_data(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu).unwrap();
+
+        let mean = vec![0.0f32, 1.0];
+        let std = vec![1.0f32, 0.0]; // std[1] = 0, invalid
+        let norm = Normalize::new(mean, std).unwrap();
+
+        let result = norm.transform(input);
+        assert!(result.is_err(), "Expected error due to zero std");
     }
 }

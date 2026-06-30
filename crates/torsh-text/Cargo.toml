@@ -23,7 +23,7 @@ torsh-data = { workspace = true }
 torsh-linalg = { workspace = true }
 
 # Text processing
-tokenizers = { version = "0.22", features = ["unstable_wasm"] }
+tokenizers = { version = "0.23", features = ["unstable_wasm"] }
 unicode-segmentation = "1.13"
 regex = "1.12"
 

@@ -6,7 +6,6 @@ use crate::{
 };
 use parking_lot::RwLock;
 use std::collections::HashMap;
-use std::ops::Add;
 use std::sync::Arc;
 use torsh_core::error::{Result, TorshError};
 use torsh_linalg::solve;
@@ -88,14 +87,24 @@ impl KFAC {
         KFACBuilder::default()
     }
 
-    /// Compute Kronecker factorization for a layer
-    /// For a linear layer with weight W (input_size x output_size), we approximate:
-    /// F ≈ A ⊗ G where A is the activation covariance and G is the gradient covariance
-    fn compute_kronecker_factors(
-        &self,
-        weight: &Tensor,
-        _grad: &Tensor,
-    ) -> Result<(Tensor, Tensor)> {
+    /// Compute Kronecker factorization for a layer.
+    ///
+    /// For a linear layer with weight `W` stored as `[input_size, output_size]`,
+    /// K-FAC approximates the Fisher block as `F ≈ A ⊗ G`, where `A` is the input
+    /// (activation) covariance and `G` is the pre-activation gradient covariance.
+    ///
+    /// Without forward/backward hooks the true activation statistics are
+    /// unavailable, so we use the gradient-only approximation that estimates both
+    /// factors from the empirical second moment of the weight gradient `Gw`:
+    ///     A ≈ (1 / output_size) · Gw · Gwᵀ   -> [input_size, input_size]
+    ///     G ≈ (1 / input_size)  · Gwᵀ · Gw   -> [output_size, output_size]
+    ///
+    /// Both factors are symmetric positive semi-definite, matching the structure
+    /// of the true Kronecker factors and genuinely carrying curvature information.
+    ///
+    /// This is an associated function (no `&self`) so it can be called from inside
+    /// `step()`'s `&mut self.base.param_groups` loop without a borrow conflict.
+    fn compute_kronecker_factors(weight: &Tensor, grad: &Tensor) -> Result<(Tensor, Tensor)> {
         let shape = weight.shape();
         let dims = shape.dims();
         if dims.len() != 2 {
@@ -104,40 +113,56 @@ impl KFAC {
             ));
         }
 
+        let grad_shape = grad.shape();
+        if grad_shape.dims() != dims {
+            return Err(TorshError::Other(format!(
+                "K-FAC gradient shape {:?} must match weight shape {:?}",
+                grad_shape.dims(),
+                dims
+            )));
+        }
+
         let input_size = dims[0];
         let output_size = dims[1];
 
-        // For simplicity, we approximate the activations and gradients
-        // In a real implementation, these would come from forward/backward hooks
+        if input_size == 0 || output_size == 0 {
+            return Err(TorshError::Other(
+                "K-FAC weight matrix dimensions must be non-zero".to_string(),
+            ));
+        }
 
-        // A: Activation covariance matrix (input_size x input_size)
-        // We approximate this with identity for now
-        let activation_cov = eye(input_size);
+        let grad_t = grad.t()?; // [output_size, input_size]
 
-        // G: Gradient covariance matrix (output_size x output_size)
-        // We use a simplified approximation since outer product is not available
-        let grad_cov = eye(output_size);
+        // A: input covariance estimate (input_size x input_size)
+        let activation_cov = grad.matmul(&grad_t)?.mul_scalar(1.0 / output_size as f32)?;
 
-        Ok((activation_cov?, grad_cov?))
+        // G: output (gradient) covariance estimate (output_size x output_size)
+        let grad_cov = grad_t.matmul(grad)?.mul_scalar(1.0 / input_size as f32)?;
+
+        Ok((activation_cov, grad_cov))
     }
 
-    /// Apply Kronecker factorized preconditioning
-    fn apply_kfac_preconditioning(
-        &self,
-        grad: &Tensor,
-        a_inv: &Tensor,
-        g_inv: &Tensor,
-    ) -> Result<Tensor> {
-        // Preconditioned gradient: vec(A^{-1} * G * G^{-1})
-        // For matrix G with gradient dL/dG, the preconditioned gradient is:
-        // A^{-1} * (dL/dG) * G^{-1}
-
+    /// Apply Kronecker factorized preconditioning: `A^{-1} · Gw · G^{-1}`.
+    ///
+    /// Associated function (no `&self`) so it can be invoked from `step()`'s
+    /// mutable-borrow loop without conflicting borrows.
+    fn apply_kfac_preconditioning(grad: &Tensor, a_inv: &Tensor, g_inv: &Tensor) -> Result<Tensor> {
+        // Preconditioned gradient: A^{-1} * (dL/dW) * G^{-1}.
         let preconditioned = a_inv.matmul(grad)?.matmul(g_inv)?;
         Ok(preconditioned)
     }
 
-    /// Compute matrix inverse with damping for numerical stability
-    fn damped_inverse(&self, matrix: &Tensor) -> Result<Tensor> {
+    /// Compute matrix inverse with Tikhonov damping for numerical stability.
+    ///
+    /// Returns `(matrix + damping · I)^{-1}` using a true dense matrix inverse
+    /// (the same `solve::inv` routine the optimizer's `step()` uses), not an
+    /// element-wise reciprocal. The damping keeps the system well-conditioned even
+    /// when `matrix` is singular or near-singular, exactly as required for the
+    /// K-FAC preconditioner.
+    ///
+    /// Associated function taking `damping` explicitly (rather than reading
+    /// `self.damping`) so it can be called from `step()` without borrowing `self`.
+    fn damped_inverse(matrix: &Tensor, damping: f32) -> Result<Tensor> {
         let shape = matrix.shape();
         let dims = shape.dims();
         if dims.len() != 2 || dims[0] != dims[1] {
@@ -146,13 +171,13 @@ impl KFAC {
             ));
         }
 
-        // Add damping to diagonal
-        let damping_matrix = eye(dims[0])?.mul_scalar(self.damping)?;
+        // Add damping to the diagonal: matrix + damping · I.
+        let damping_matrix = eye(dims[0])?.mul_scalar(damping)?;
         let damped_matrix = matrix.add(&damping_matrix)?;
 
-        // For simplicity, we approximate the inverse with reciprocal for diagonal matrices
-        // In practice, you'd use proper matrix inversion (Cholesky, LU, etc.)
-        damped_matrix.reciprocal()
+        // Proper dense matrix inversion (LU-based) rather than a diagonal-only
+        // reciprocal approximation.
+        Ok(solve::inv(&damped_matrix)?)
     }
 }
 
@@ -227,37 +252,27 @@ impl Optimizer for KFAC {
 
                 // Update Kronecker factors if needed
                 if should_update_kfac {
-                    // Extract data to avoid borrowing conflicts
+                    // Snapshot the data we need and copy the scalar hyper-parameters
+                    // so the factor/inverse helpers (associated functions) never need
+                    // to borrow `self` while `self.base.param_groups` is borrowed by
+                    // the surrounding loop.
                     let param_data = param.clone();
-                    let _grad_data = grad.clone();
+                    let grad_data = grad.clone();
                     let stat_decay = self.stat_decay;
                     let damping = self.damping;
 
                     // Temporarily drop param to avoid borrowing conflicts
                     drop(param);
 
-                    // Compute Kronecker factors inline to avoid borrowing conflicts
-                    let (new_a, new_g) = {
-                        let shape = param_data.shape();
-                        let dims = shape.dims();
-                        if dims.len() != 2 {
-                            return Err(OptimizerError::TensorError(TorshError::InvalidArgument(
-                                "K-FAC only supports 2D weight matrices".to_string(),
-                            )));
-                        }
+                    // Estimate the Kronecker factors A and G from the current weight
+                    // gradient (see `compute_kronecker_factors` for the math). This
+                    // genuinely injects curvature information into the preconditioner,
+                    // unlike the previous `Tensor::ones` placeholder that made K-FAC
+                    // behave like plain SGD.
+                    let (new_a, new_g) = Self::compute_kronecker_factors(&param_data, &grad_data)?;
 
-                        // For simplicity, use identity matrices as placeholders
-                        // In a full implementation, these would be computed from activations and gradients
-                        let input_size = dims[0];
-                        let output_size = dims[1];
-
-                        // Create identity-like matrices (simplified implementation)
-                        let a = Tensor::ones(&[input_size, input_size], param_data.device())?;
-                        let g = Tensor::ones(&[output_size, output_size], param_data.device())?;
-                        (a, g)
-                    };
-
-                    // Update covariance matrices with exponential moving average
+                    // Update covariance matrices with an exponential moving average so
+                    // the factors track curvature statistics across steps.
                     activation_cov = activation_cov
                         .mul_scalar(stat_decay)?
                         .add(&new_a.mul_scalar(1.0 - stat_decay)?)?;
@@ -265,11 +280,9 @@ impl Optimizer for KFAC {
                         .mul_scalar(stat_decay)?
                         .add(&new_g.mul_scalar(1.0 - stat_decay)?)?;
 
-                    // Compute damped inverses manually to avoid borrowing self
-                    let damped_a = activation_cov.add_scalar(damping)?;
-                    let damped_g = gradient_cov.add_scalar(damping)?;
-                    a_inv = solve::inv(&damped_a)?;
-                    g_inv = solve::inv(&damped_g)?;
+                    // Damped (Tikhonov) inverses of the running factors.
+                    a_inv = Self::damped_inverse(&activation_cov, damping)?;
+                    g_inv = Self::damped_inverse(&gradient_cov, damping)?;
 
                     // Re-acquire parameter lock
                     param = param_arc.write();
@@ -282,13 +295,9 @@ impl Optimizer for KFAC {
                     grad
                 };
 
-                // Apply preconditioning if enabled (inline to avoid borrowing issues)
+                // Apply the Kronecker-factored preconditioner A^{-1} · Gw · G^{-1}.
                 let preconditioned_grad = if self.use_preconditioning {
-                    // Manual implementation of KFAC preconditioning
-                    grad.matmul(&g_inv)?
-                        .transpose(0, 1)?
-                        .matmul(&a_inv)?
-                        .transpose(0, 1)?
+                    Self::apply_kfac_preconditioning(&grad, &a_inv, &g_inv)?
                 } else {
                     grad
                 };
@@ -333,6 +342,10 @@ impl Optimizer for KFAC {
 
     fn add_param_group(&mut self, params: Vec<Arc<RwLock<Tensor>>>, options: HashMap<String, f32>) {
         self.base.add_param_group(params, options);
+    }
+
+    fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {
+        self.base.parameters()
     }
 
     fn state_dict(&self) -> OptimizerResult<OptimizerState> {
@@ -430,6 +443,7 @@ impl KFACBuilder {
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
+    use torsh_core::device::DeviceType;
     use torsh_tensor::creation::randn;
 
     #[test]
@@ -510,14 +524,11 @@ mod tests {
     }
 
     #[test]
-    #[allow(dead_code)]
     fn test_kronecker_factors() {
         let weight = randn::<f32>(&[3, 2]).unwrap();
         let grad = randn::<f32>(&[3, 2]).unwrap();
 
-        let optimizer = KFAC::new(vec![], Some(0.001), None, None, None, None, None, None);
-
-        let (a, g) = optimizer.compute_kronecker_factors(&weight, &grad).unwrap();
+        let (a, g) = KFAC::compute_kronecker_factors(&weight, &grad).unwrap();
 
         // Check dimensions
         assert_eq!(a.shape().dims(), &[3, 3]);
@@ -525,13 +536,47 @@ mod tests {
     }
 
     #[test]
-    #[allow(dead_code)]
+    fn test_kronecker_factors_carry_curvature_not_placeholder() {
+        // The factors must be the gradient-based curvature estimate, NOT the old
+        // `Tensor::ones` / identity placeholder. Use a deterministic gradient so we
+        // can compute the expected factors exactly.
+        //
+        // weight/grad shape: [input_size=2, output_size=2]
+        //   Gw = [[1, 2],
+        //         [3, 4]]
+        //   A = (1/output) Gw Gwᵀ = 0.5 * [[5, 11], [11, 25]]  = [[2.5, 5.5], [5.5, 12.5]]
+        //   G = (1/input)  Gwᵀ Gw = 0.5 * [[10, 14], [14, 20]] = [[5.0, 7.0], [7.0, 10.0]]
+        let weight = Tensor::from_data(vec![0.0; 4], vec![2, 2], DeviceType::Cpu).unwrap();
+        let grad =
+            Tensor::from_data(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2], DeviceType::Cpu).unwrap();
+
+        let (a, g) = KFAC::compute_kronecker_factors(&weight, &grad).unwrap();
+
+        let a_vals = a.to_vec().unwrap();
+        let g_vals = g.to_vec().unwrap();
+
+        let expected_a = [2.5f32, 5.5, 5.5, 12.5];
+        let expected_g = [5.0f32, 7.0, 7.0, 10.0];
+
+        for (got, want) in a_vals.iter().zip(expected_a.iter()) {
+            assert_relative_eq!(got, want, epsilon = 1e-5);
+        }
+        for (got, want) in g_vals.iter().zip(expected_g.iter()) {
+            assert_relative_eq!(got, want, epsilon = 1e-5);
+        }
+
+        // Sanity: factors are symmetric and not the all-ones placeholder.
+        assert_relative_eq!(a_vals[1], a_vals[2], epsilon = 1e-6);
+        assert_relative_eq!(g_vals[1], g_vals[2], epsilon = 1e-6);
+        assert!(a_vals.iter().any(|v| (v - 1.0).abs() > 1e-3));
+    }
+
+    #[test]
     fn test_damped_inverse() -> OptimizerResult<()> {
         let matrix = eye(3).unwrap();
 
-        let optimizer = KFAC::new(vec![], Some(0.001), None, Some(0.1), None, None, None, None);
-
-        let inv = optimizer.damped_inverse(&matrix).unwrap();
+        let damping = 0.1f32;
+        let inv = KFAC::damped_inverse(&matrix, damping).unwrap();
 
         // For identity matrix with damping, inverse should approximately be 1/(1+damping) * I
         let expected_diag = 1.0 / (1.0 + 0.1);

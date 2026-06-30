@@ -9,6 +9,8 @@
 //!
 //! 🤖 Generated with [SplitRS](https://github.com/cool-japan/splitrs)
 
+use std::fmt;
+
 use super::types::ConfigError;
 
 impl fmt::Display for ConfigError {
@@ -58,4 +60,3 @@ impl fmt::Display for ConfigError {
 }
 
 impl std::error::Error for ConfigError {}
-

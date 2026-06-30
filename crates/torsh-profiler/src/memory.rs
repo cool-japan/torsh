@@ -709,15 +709,82 @@ impl MemoryProfiler {
     }
 }
 
-/// Get system memory information
+/// Get system memory information by reading real OS-level data.
+///
+/// On Linux, this parses `/proc/meminfo` for `MemTotal`, `MemFree`, and
+/// `MemAvailable`.  On other platforms, the function returns
+/// `TorshError::NotImplemented` rather than returning invented figures.
 pub fn get_system_memory() -> TorshResult<SystemMemoryInfo> {
-    // This is a simplified implementation
-    // In a real implementation, you would use platform-specific APIs
-    Ok(SystemMemoryInfo {
-        total: 8 * 1024 * 1024 * 1024,     // 8 GB
-        available: 4 * 1024 * 1024 * 1024, // 4 GB
-        used: 4 * 1024 * 1024 * 1024,      // 4 GB
-    })
+    #[cfg(target_os = "linux")]
+    {
+        use std::io::{BufRead, BufReader};
+
+        let file = std::fs::File::open("/proc/meminfo")
+            .map_err(|e| TorshError::IoError(format!("Failed to open /proc/meminfo: {e}")))?;
+        let reader = BufReader::new(file);
+
+        let mut mem_total: Option<usize> = None;
+        let mut mem_free: Option<usize> = None;
+        let mut mem_available: Option<usize> = None;
+
+        for line in reader.lines() {
+            let line = line
+                .map_err(|e| TorshError::IoError(format!("Failed to read /proc/meminfo: {e}")))?;
+
+            // Each line has the form: "MemTotal:       16384000 kB"
+            let mut parts = line.splitn(2, ':');
+            let key = match parts.next() {
+                Some(k) => k.trim(),
+                None => continue,
+            };
+            let value_str = match parts.next() {
+                Some(v) => v.trim(),
+                None => continue,
+            };
+
+            // Strip the trailing " kB" unit and parse the number
+            let kb_value: usize = value_str
+                .split_whitespace()
+                .next()
+                .and_then(|n| n.parse().ok())
+                .unwrap_or(0);
+
+            match key {
+                "MemTotal" => mem_total = Some(kb_value * 1024),
+                "MemFree" => mem_free = Some(kb_value * 1024),
+                "MemAvailable" => mem_available = Some(kb_value * 1024),
+                _ => {}
+            }
+
+            if mem_total.is_some() && mem_free.is_some() && mem_available.is_some() {
+                break;
+            }
+        }
+
+        let total = mem_total.ok_or_else(|| {
+            TorshError::IoError("MemTotal not found in /proc/meminfo".to_string())
+        })?;
+        let available = mem_available.ok_or_else(|| {
+            TorshError::IoError("MemAvailable not found in /proc/meminfo".to_string())
+        })?;
+        let used = total.saturating_sub(available);
+
+        Ok(SystemMemoryInfo {
+            total,
+            available,
+            used,
+        })
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        Err(TorshError::NotImplemented(
+            "System memory information is only implemented on Linux via /proc/meminfo. \
+             For other platforms, add a platform-specific implementation using the \
+             appropriate OS APIs (e.g., sysconf on Unix, GlobalMemoryStatusEx on Windows)."
+                .to_string(),
+        ))
+    }
 }
 
 /// System memory information

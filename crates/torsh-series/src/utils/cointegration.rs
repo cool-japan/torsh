@@ -385,24 +385,307 @@ pub fn johansen_test(series: &[TimeSeries], max_rank: usize) -> Result<JohansenR
         ));
     }
 
-    // Simplified implementation - return placeholder
-    // Full implementation would involve:
-    // 1. Estimate VAR model
-    // 2. Compute residual covariance matrices
-    // 3. Solve eigenvalue problem
-    // 4. Compute trace and max eigenvalue statistics
-    // 5. Compare to critical values
+    // ── Johansen reduced-rank (maximum likelihood) procedure ────────────────
+    //
+    // We use the simplest specification: a VAR(1) in levels with an
+    // unrestricted constant, i.e. ΔY_t = Π Y_{t-1} + μ + ε_t. The reduced-rank
+    // regression of ΔY_t on Y_{t-1} (after partialling out the constant by
+    // demeaning) yields the squared canonical correlations λ_1 ≥ … ≥ λ_k that
+    // drive both test statistics.
 
-    let trace_stats = vec![0.0; max_rank.min(k)];
-    let max_eigen_stats = vec![0.0; max_rank.min(k)];
+    // Convert each series to f64.
+    let mut data: Vec<Vec<f64>> = Vec::with_capacity(k);
+    for s in series {
+        let vals = s.values.to_vec()?;
+        data.push(vals.iter().map(|&v| v as f64).collect());
+    }
+
+    // Differenced response ΔY_t = Y_t - Y_{t-1}  (t = 1..n-1) and the matching
+    // lagged levels Y_{t-1}. Effective sample size T = n - 1.
+    let t_eff = n - 1;
+    if t_eff <= k {
+        return Err(torsh_core::error::TorshError::InvalidArgument(
+            "Not enough observations relative to the number of series".to_string(),
+        ));
+    }
+
+    // r0[row][j] = ΔY for variable j at effective time `row`
+    // r1[row][j] = Y_{t-1} for variable j at effective time `row`
+    let mut r0: Vec<Vec<f64>> = vec![vec![0.0; k]; t_eff];
+    let mut r1: Vec<Vec<f64>> = vec![vec![0.0; k]; t_eff];
+    for row in 0..t_eff {
+        let t = row + 1; // original index of Y_t
+        for j in 0..k {
+            r0[row][j] = data[j][t] - data[j][t - 1];
+            r1[row][j] = data[j][t - 1];
+        }
+    }
+
+    // Partial out the unrestricted constant by demeaning each column (this is
+    // the concentration step for an intercept-only deterministic term).
+    demean_columns(&mut r0, k);
+    demean_columns(&mut r1, k);
+
+    // Product-moment matrices S00, S11, S01 (each k×k), scaled by 1/T.
+    let s00 = cross_moment(&r0, &r0, k, t_eff);
+    let s11 = cross_moment(&r1, &r1, k, t_eff);
+    let s01 = cross_moment(&r0, &r1, k, t_eff); // S01 = R0' R1 / T
+    let s10 = transpose_square(&s01); // S10 = S01'
+
+    // Solve the eigenvalue problem  S10 S00^{-1} S01 v = λ S11 v.
+    // Reduce to a symmetric standard problem using the Cholesky factor of S11:
+    //   S11 = L L',  M = L^{-1} (S10 S00^{-1} S01) L^{-T},  eig(M) = λ.
+    let s00_inv = invert_matrix(&s00, k).ok_or_else(|| {
+        torsh_core::error::TorshError::InvalidArgument(
+            "S00 is singular; cannot run Johansen test".to_string(),
+        )
+    })?;
+
+    // A = S10 * S00^{-1} * S01   (k×k, symmetric in exact arithmetic).
+    let tmp = matmul_square(&s10, &s00_inv, k);
+    let a_mat = matmul_square(&tmp, &s01, k);
+
+    let l_chol = cholesky_lower(&s11, k).ok_or_else(|| {
+        torsh_core::error::TorshError::InvalidArgument(
+            "S11 is not positive definite; cannot run Johansen test".to_string(),
+        )
+    })?;
+    let l_inv = invert_lower_triangular(&l_chol, k).ok_or_else(|| {
+        torsh_core::error::TorshError::InvalidArgument(
+            "Cholesky factor of S11 is singular".to_string(),
+        )
+    })?;
+    let l_inv_t = transpose_square(&l_inv);
+
+    // M = L^{-1} A L^{-T}
+    let m_tmp = matmul_square(&l_inv, &a_mat, k);
+    let mut m_mat = matmul_square(&m_tmp, &l_inv_t, k);
+    // Symmetrise to kill rounding asymmetry before the symmetric eigensolver.
+    for i in 0..k {
+        for j in (i + 1)..k {
+            let avg = 0.5 * (m_mat[i][j] + m_mat[j][i]);
+            m_mat[i][j] = avg;
+            m_mat[j][i] = avg;
+        }
+    }
+
+    let (mut eigenvalues, _) = jacobi_eig_symmetric(&m_mat, 200 * k.max(1));
+    // Canonical correlations are in [0,1]; clamp to avoid ln() domain errors
+    // from tiny negative/over-unity rounding, then sort descending by value.
+    for ev in eigenvalues.iter_mut() {
+        *ev = ev.clamp(0.0, 1.0 - 1e-12);
+    }
+    eigenvalues.sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
+
+    // Trace and max-eigenvalue statistics for ranks r = 0..rank_limit-1.
+    // trace(r) = -T Σ_{i=r+1}^{k} ln(1 - λ_i)   (1-indexed i)
+    // max(r)   = -T ln(1 - λ_{r+1})
+    let t_f = t_eff as f64;
+    let rank_limit = max_rank.min(k);
+    let mut trace_statistics = Vec::with_capacity(rank_limit);
+    let mut max_eigen_statistics = Vec::with_capacity(rank_limit);
+    for r in 0..rank_limit {
+        let trace: f64 = eigenvalues[r..k]
+            .iter()
+            .map(|&l| -t_f * (1.0 - l).ln())
+            .sum();
+        trace_statistics.push(trace);
+        let max_eigen = -t_f * (1.0 - eigenvalues[r]).ln();
+        max_eigen_statistics.push(max_eigen);
+    }
+
+    // Critical values (Osterwald-Lenum, constant term, 5% level) indexed by the
+    // number of common stochastic trends k-r.
+    let critical_values_trace: Vec<CriticalValues> = (0..rank_limit)
+        .map(|r| johansen_trace_critical_values(k - r))
+        .collect();
+    let critical_values_max_eigen: Vec<CriticalValues> = (0..rank_limit)
+        .map(|r| johansen_max_eigen_critical_values(k - r))
+        .collect();
+
+    // Determine cointegrating rank: smallest r whose trace statistic fails to
+    // reject (statistic < 5% critical value). If all reject, rank = rank_limit.
+    let mut cointegrating_rank = rank_limit;
+    for r in 0..rank_limit {
+        if trace_statistics[r] < critical_values_trace[r].cv_5pct {
+            cointegrating_rank = r;
+            break;
+        }
+    }
 
     Ok(JohansenResult {
-        trace_statistics: trace_stats,
-        max_eigen_statistics: max_eigen_stats,
-        cointegrating_rank: 0,
-        critical_values_trace: vec![],
-        critical_values_max_eigen: vec![],
+        trace_statistics,
+        max_eigen_statistics,
+        cointegrating_rank,
+        critical_values_trace,
+        critical_values_max_eigen,
     })
+}
+
+/// Subtract the column mean from every entry of each of the `k` columns.
+fn demean_columns(m: &mut [Vec<f64>], k: usize) {
+    let t = m.len();
+    if t == 0 {
+        return;
+    }
+    for j in 0..k {
+        let mean: f64 = m.iter().map(|row| row[j]).sum::<f64>() / t as f64;
+        for row in m.iter_mut() {
+            row[j] -= mean;
+        }
+    }
+}
+
+/// Cross-moment `A' B / T` for two `T×k` matrices, returning a `k×k` matrix.
+fn cross_moment(a: &[Vec<f64>], b: &[Vec<f64>], k: usize, t: usize) -> Vec<Vec<f64>> {
+    let mut out = vec![vec![0.0_f64; k]; k];
+    for (ra, rb) in a.iter().zip(b.iter()) {
+        for i in 0..k {
+            let ai = ra[i];
+            for j in 0..k {
+                out[i][j] += ai * rb[j];
+            }
+        }
+    }
+    let inv_t = 1.0 / t as f64;
+    for i in 0..k {
+        for j in 0..k {
+            out[i][j] *= inv_t;
+        }
+    }
+    out
+}
+
+/// Transpose a square `k×k` matrix.
+fn transpose_square(a: &[Vec<f64>]) -> Vec<Vec<f64>> {
+    let k = a.len();
+    let mut out = vec![vec![0.0_f64; k]; k];
+    for i in 0..k {
+        for j in 0..k {
+            out[j][i] = a[i][j];
+        }
+    }
+    out
+}
+
+/// Multiply two square `k×k` matrices.
+fn matmul_square(a: &[Vec<f64>], b: &[Vec<f64>], k: usize) -> Vec<Vec<f64>> {
+    let mut out = vec![vec![0.0_f64; k]; k];
+    for i in 0..k {
+        for l in 0..k {
+            let ail = a[i][l];
+            if ail == 0.0 {
+                continue;
+            }
+            for j in 0..k {
+                out[i][j] += ail * b[l][j];
+            }
+        }
+    }
+    out
+}
+
+/// Invert a general `k×k` matrix by solving `A x = e_j` for each unit column.
+/// Returns `None` if the matrix is singular.
+fn invert_matrix(a: &[Vec<f64>], k: usize) -> Option<Vec<Vec<f64>>> {
+    let mut inv = vec![vec![0.0_f64; k]; k];
+    for j in 0..k {
+        let mut e = vec![0.0_f64; k];
+        e[j] = 1.0;
+        let col = solve_linear_system(a, &e)?;
+        for (i, &val) in col.iter().enumerate() {
+            inv[i][j] = val;
+        }
+    }
+    Some(inv)
+}
+
+/// Cholesky decomposition of a symmetric positive-definite `k×k` matrix,
+/// returning the lower-triangular factor `L` such that `A = L Lᵀ`.
+/// Returns `None` if `A` is not positive definite.
+fn cholesky_lower(a: &[Vec<f64>], k: usize) -> Option<Vec<Vec<f64>>> {
+    let mut l = vec![vec![0.0_f64; k]; k];
+    for i in 0..k {
+        for j in 0..=i {
+            let mut sum = a[i][j];
+            for p in 0..j {
+                sum -= l[i][p] * l[j][p];
+            }
+            if i == j {
+                if sum <= 1e-15 {
+                    return None;
+                }
+                l[i][j] = sum.sqrt();
+            } else {
+                l[i][j] = sum / l[j][j];
+            }
+        }
+    }
+    Some(l)
+}
+
+/// Invert a lower-triangular `k×k` matrix via forward substitution.
+/// Returns `None` if any diagonal entry is (numerically) zero.
+fn invert_lower_triangular(l: &[Vec<f64>], k: usize) -> Option<Vec<Vec<f64>>> {
+    let mut inv = vec![vec![0.0_f64; k]; k];
+    for col in 0..k {
+        // Solve L x = e_col by forward substitution.
+        for i in col..k {
+            let mut sum = if i == col { 1.0 } else { 0.0 };
+            for p in col..i {
+                sum -= l[i][p] * inv[p][col];
+            }
+            if l[i][i].abs() < 1e-15 {
+                return None;
+            }
+            inv[i][col] = sum / l[i][i];
+        }
+    }
+    Some(inv)
+}
+
+/// Osterwald-Lenum (1992) 5% trace-test critical values for the
+/// constant-term ("case 1*"/H1*) specification, indexed by the number of
+/// common stochastic trends `n_trends = k - r`. Values for `n_trends = 1..=6`
+/// are tabulated; larger systems reuse the last available row.
+fn johansen_trace_critical_values(n_trends: usize) -> CriticalValues {
+    // (cv_10pct, cv_5pct, cv_1pct) per number of common trends.
+    let table: [(f64, f64, f64); 6] = [
+        (2.69, 3.76, 6.65),     // 1
+        (13.33, 15.41, 20.04),  // 2
+        (26.79, 29.68, 35.65),  // 3
+        (43.95, 47.21, 54.46),  // 4
+        (64.84, 68.52, 76.07),  // 5
+        (89.48, 94.15, 103.18), // 6
+    ];
+    let idx = n_trends.clamp(1, table.len()) - 1;
+    let (cv_10pct, cv_5pct, cv_1pct) = table[idx];
+    CriticalValues {
+        cv_1pct,
+        cv_5pct,
+        cv_10pct,
+    }
+}
+
+/// Osterwald-Lenum (1992) 5% maximum-eigenvalue test critical values for the
+/// constant-term specification, indexed by the number of common stochastic
+/// trends `n_trends = k - r`.
+fn johansen_max_eigen_critical_values(n_trends: usize) -> CriticalValues {
+    let table: [(f64, f64, f64); 6] = [
+        (2.69, 3.76, 6.65),    // 1
+        (12.07, 14.07, 18.63), // 2
+        (18.60, 20.97, 25.52), // 3
+        (24.73, 27.07, 32.24), // 4
+        (30.90, 33.46, 38.77), // 5
+        (36.76, 39.37, 45.10), // 6
+    ];
+    let idx = n_trends.clamp(1, table.len()) - 1;
+    let (cv_10pct, cv_5pct, cv_1pct) = table[idx];
+    CriticalValues {
+        cv_1pct,
+        cv_5pct,
+        cv_10pct,
+    }
 }
 
 /// Johansen test result
@@ -1232,9 +1515,49 @@ mod tests {
         assert!(result_nc.cointegrating_vector.len() == 2);
     }
 
+    /// Build a *stochastically* cointegrated pair for the Johansen test.
+    ///
+    /// `create_cointegrated_series` ties `y = 2x + tiny_noise`, which makes the
+    /// first differences Δy ≈ 2Δx perfectly collinear and S00 singular — fine
+    /// for Engle-Granger but degenerate for Johansen. Here we use a common
+    /// stochastic trend `w` (a deterministic pseudo-random walk, no `rand`
+    /// dependency per the SciRS2 policy) plus *independent* stationary noise on
+    /// each series, so the differences are not collinear yet `y - 2x` is
+    /// stationary (cointegrating rank 1).
+    fn create_stochastic_cointegrated_pair() -> (TimeSeries, TimeSeries) {
+        let n = 200usize;
+        let mut x_data = Vec::with_capacity(n);
+        let mut y_data = Vec::with_capacity(n);
+
+        // Deterministic pseudo-random innovations via independent LCG streams.
+        let mut w = 0.0f32; // common stochastic trend (random walk)
+        let mut s_w: u32 = 12345;
+        let mut s_x: u32 = 67891;
+        let mut s_y: u32 = 24680;
+        let next = |state: &mut u32| -> f32 {
+            *state = state.wrapping_mul(1664525).wrapping_add(1013904223);
+            // Map to roughly [-0.5, 0.5].
+            ((*state >> 8) as f32 / (1u32 << 24) as f32) - 0.5
+        };
+
+        for _ in 0..n {
+            w += next(&mut s_w); // integrate -> I(1) common trend
+            let noise_x = next(&mut s_x) * 0.4; // independent stationary noise
+            let noise_y = next(&mut s_y) * 0.4;
+            let x = w + noise_x;
+            let y = 2.0 * w + noise_y; // cointegrated: y - 2x = noise_y - 2 noise_x (stationary)
+            x_data.push(x);
+            y_data.push(y);
+        }
+
+        let x_tensor = Tensor::from_vec(x_data, &[n]).expect("x tensor");
+        let y_tensor = Tensor::from_vec(y_data, &[n]).expect("y tensor");
+        (TimeSeries::new(y_tensor), TimeSeries::new(x_tensor))
+    }
+
     #[test]
     fn test_johansen_basic() {
-        let (y, x) = create_cointegrated_series();
+        let (y, x) = create_stochastic_cointegrated_pair();
         let series = vec![y, x];
 
         let result = johansen_test(&series, 1).expect("johansen test");
@@ -1242,6 +1565,52 @@ mod tests {
         // Should return result structure
         assert!(!result.trace_statistics.is_empty());
         assert!(!result.max_eigen_statistics.is_empty());
+
+        // The statistics must be genuine numbers, not fabricated zeros, and the
+        // trace statistic is non-negative by construction (-T Σ ln(1-λ), λ∈[0,1)).
+        for &t in &result.trace_statistics {
+            assert!(t.is_finite(), "trace statistic must be finite");
+            assert!(t >= 0.0, "trace statistic must be non-negative, got {t}");
+        }
+        assert!(
+            result.trace_statistics.iter().any(|&t| t > 1e-6),
+            "trace statistics should not all be zero"
+        );
+        assert_eq!(
+            result.critical_values_trace.len(),
+            result.trace_statistics.len(),
+            "one critical-value row per tested rank"
+        );
+    }
+
+    #[test]
+    fn test_johansen_detects_cointegration() {
+        // y = 2w + noise, x = w + noise are cointegrated with rank 1; the
+        // rank-0 trace statistic should exceed the 5% critical value (reject r=0).
+        let (y, x) = create_stochastic_cointegrated_pair();
+        let series = vec![y, x];
+
+        let result = johansen_test(&series, 2).expect("johansen test");
+        assert_eq!(result.trace_statistics.len(), 2);
+
+        // r = 0 hypothesis (no cointegration) should be rejected.
+        assert!(
+            result.trace_statistics[0] > result.critical_values_trace[0].cv_5pct,
+            "rank-0 trace stat {} should exceed 5% CV {}",
+            result.trace_statistics[0],
+            result.critical_values_trace[0].cv_5pct
+        );
+
+        // Eigenvalues are ordered, so the rank-0 trace >= rank-1 trace.
+        assert!(result.trace_statistics[0] >= result.trace_statistics[1]);
+    }
+
+    #[test]
+    fn test_johansen_too_few_observations() {
+        // Fewer than 20 observations must yield an honest error.
+        let short = Tensor::from_vec(vec![1.0f32; 10], &[10]).expect("tensor");
+        let series = vec![TimeSeries::new(short.clone()), TimeSeries::new(short)];
+        assert!(johansen_test(&series, 1).is_err());
     }
 
     #[test]

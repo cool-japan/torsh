@@ -28,6 +28,83 @@ impl<
     /// - Medium tensors (512-65K): Phase 3 SIMD (uninit buffer + scirs2 API)
     /// - Large tensors (>65K): Parallel SIMD (Rayon + SIMD chunks)
     pub fn add_op(&self, other: &Self) -> Result<Self> {
+        // GPU dispatch: CUDA-device-only, f32-only, large tensors only.
+        // Falls through to the CPU path if context init or kernel execution fails.
+        #[cfg(feature = "gpu")]
+        {
+            use torsh_core::device::DeviceType;
+            if matches!(self.device, DeviceType::Cuda(_))
+                && self.shape() == other.shape()
+                && std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>()
+                && self.shape().numel() >= 65536
+            {
+                static GPU_CTX: std::sync::OnceLock<
+                    Option<scirs2_core::gpu::GpuContext>,
+                > = std::sync::OnceLock::new();
+                let ctx_opt = GPU_CTX.get_or_init(|| {
+                    scirs2_core::gpu::GpuContext::new(scirs2_core::gpu::GpuBackend::Cuda).ok()
+                });
+                if let Some(ctx) = ctx_opt {
+                    let kernel =
+                        scirs2_core::gpu::kernels::elementwise::ElementwiseAddKernel::new();
+                    use scirs2_core::gpu::kernels::GpuKernel as _;
+                    let source = kernel
+                        .source_for_backend(scirs2_core::gpu::GpuBackend::Cuda)
+                        .unwrap_or_default();
+                    let self_data = self.data()?;
+                    let other_data = other.data()?;
+                    // Transmute slices to f32 — safe because T == f32 is verified via TypeId above.
+                    let self_f32: &[f32] = unsafe {
+                        std::slice::from_raw_parts(
+                            self_data.as_ptr() as *const f32,
+                            self_data.len(),
+                        )
+                    };
+                    let other_f32: &[f32] = unsafe {
+                        std::slice::from_raw_parts(
+                            other_data.as_ptr() as *const f32,
+                            other_data.len(),
+                        )
+                    };
+                    let n = self_data.len() as u32;
+                    let buf_a = ctx.create_buffer_from_slice(self_f32);
+                    let buf_b = ctx.create_buffer_from_slice(other_f32);
+                    let buf_out = ctx.create_buffer::<f32>(self_data.len());
+                    let workgroups = ((n + 255) / 256, 1, 1);
+                    if ctx
+                        .execute_kernel(
+                            &source,
+                            &[buf_a, buf_b, buf_out.clone()],
+                            workgroups,
+                            &[n],
+                            &[],
+                        )
+                        .is_ok()
+                    {
+                        let result_f32 = ctx
+                            .read_buffer(&buf_out)
+                            .map_err(|e| TorshError::Other(e.to_string()))?;
+                        // SAFETY: T == f32, so Vec<f32> has the same bit pattern as Vec<T>.
+                        let result_t: Vec<T> = unsafe { std::mem::transmute(result_f32) };
+                        let mut out = Self::from_data(
+                            result_t,
+                            self.shape().dims().to_vec(),
+                            self.device.clone(),
+                        )?;
+                        if self.requires_grad || other.requires_grad {
+                            use std::sync::Arc;
+                            out.requires_grad = true;
+                            out.operation = crate::Operation::Add {
+                                lhs: Arc::new(self.clone()),
+                                rhs: Arc::new(other.clone()),
+                            };
+                        }
+                        return Ok(out);
+                    }
+                }
+            }
+        }
+
         let mut result = if self.shape() == other.shape() {
             // 🚀 Phase 3/4: Use adaptive SIMD for f32 tensors
             #[cfg(feature = "simd")]
@@ -151,19 +228,44 @@ impl<
     /// - Medium tensors (512-65K): Phase 7 direct SIMD
     /// - Large tensors (>65K): Parallel SIMD
     pub fn sub(&self, other: &Self) -> Result<Self> {
-        if self.shape() == other.shape() {
+        let mut result = if self.shape() == other.shape() {
             // 🚀 Phase 3/4: Use adaptive SIMD for f32 tensors
             #[cfg(feature = "simd")]
             {
                 if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
-                    return self.sub_adaptive(other);
+                    // Use Phase 4 adaptive dispatch for f32
+                    return {
+                        let mut result = self.sub_adaptive(other)?;
+                        // Track the operation for gradient computation
+                        if self.requires_grad || other.requires_grad {
+                            use std::sync::Arc;
+                            result.requires_grad = true;
+                            result.operation = crate::Operation::Sub {
+                                lhs: Arc::new(self.clone()),
+                                rhs: Arc::new(other.clone()),
+                            };
+                        }
+                        Ok(result)
+                    };
                 }
             }
             // Fallback to scalar for non-f32 types
-            self.element_wise_op(other, |a, b| a - b)
+            self.element_wise_op(other, |a, b| a - b)?
         } else {
-            self.broadcast_binary_op(other, |a, b| a - b)
+            self.broadcast_binary_op(other, |a, b| a - b)?
+        };
+
+        // Track the operation for gradient computation
+        if self.requires_grad || other.requires_grad {
+            use std::sync::Arc;
+            result.requires_grad = true;
+            result.operation = crate::Operation::Sub {
+                lhs: Arc::new(self.clone()),
+                rhs: Arc::new(other.clone()),
+            };
         }
+
+        Ok(result)
     }
 
     /// Element-wise multiplication with broadcasting (ops module implementation)
@@ -174,6 +276,83 @@ impl<
     /// - Medium tensors (512-65K): Phase 3 SIMD (uninit buffer + scirs2 API)
     /// - Large tensors (>65K): Parallel SIMD (Rayon + SIMD chunks)
     pub fn mul_op(&self, other: &Self) -> Result<Self> {
+        // GPU dispatch: CUDA-device-only, f32-only, large tensors only.
+        // Falls through to the CPU path if context init or kernel execution fails.
+        #[cfg(feature = "gpu")]
+        {
+            use torsh_core::device::DeviceType;
+            if matches!(self.device, DeviceType::Cuda(_))
+                && self.shape() == other.shape()
+                && std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>()
+                && self.shape().numel() >= 65536
+            {
+                static GPU_CTX: std::sync::OnceLock<
+                    Option<scirs2_core::gpu::GpuContext>,
+                > = std::sync::OnceLock::new();
+                let ctx_opt = GPU_CTX.get_or_init(|| {
+                    scirs2_core::gpu::GpuContext::new(scirs2_core::gpu::GpuBackend::Cuda).ok()
+                });
+                if let Some(ctx) = ctx_opt {
+                    let kernel =
+                        scirs2_core::gpu::kernels::elementwise::ElementwiseMulKernel::new();
+                    use scirs2_core::gpu::kernels::GpuKernel as _;
+                    let source = kernel
+                        .source_for_backend(scirs2_core::gpu::GpuBackend::Cuda)
+                        .unwrap_or_default();
+                    let self_data = self.data()?;
+                    let other_data = other.data()?;
+                    // Transmute slices to f32 — safe because T == f32 is verified via TypeId above.
+                    let self_f32: &[f32] = unsafe {
+                        std::slice::from_raw_parts(
+                            self_data.as_ptr() as *const f32,
+                            self_data.len(),
+                        )
+                    };
+                    let other_f32: &[f32] = unsafe {
+                        std::slice::from_raw_parts(
+                            other_data.as_ptr() as *const f32,
+                            other_data.len(),
+                        )
+                    };
+                    let n = self_data.len() as u32;
+                    let buf_a = ctx.create_buffer_from_slice(self_f32);
+                    let buf_b = ctx.create_buffer_from_slice(other_f32);
+                    let buf_out = ctx.create_buffer::<f32>(self_data.len());
+                    let workgroups = ((n + 255) / 256, 1, 1);
+                    if ctx
+                        .execute_kernel(
+                            &source,
+                            &[buf_a, buf_b, buf_out.clone()],
+                            workgroups,
+                            &[n],
+                            &[],
+                        )
+                        .is_ok()
+                    {
+                        let result_f32 = ctx
+                            .read_buffer(&buf_out)
+                            .map_err(|e| TorshError::Other(e.to_string()))?;
+                        // SAFETY: T == f32, so Vec<f32> has the same bit pattern as Vec<T>.
+                        let result_t: Vec<T> = unsafe { std::mem::transmute(result_f32) };
+                        let mut out = Self::from_data(
+                            result_t,
+                            self.shape().dims().to_vec(),
+                            self.device,
+                        )?;
+                        if self.requires_grad || other.requires_grad {
+                            use std::sync::Arc;
+                            out.requires_grad = true;
+                            out.operation = crate::Operation::Mul {
+                                lhs: Arc::new(self.clone()),
+                                rhs: Arc::new(other.clone()),
+                            };
+                        }
+                        return Ok(out);
+                    }
+                }
+            }
+        }
+
         let mut result = if self.shape() == other.shape() {
             // 🚀 Phase 3/4: Use adaptive SIMD for f32 tensors
             #[cfg(feature = "simd")]
@@ -385,7 +564,7 @@ impl<
     pub fn broadcast_binary_op<F>(&self, other: &Self, op: F) -> Result<Self>
     where
         F: Fn(T, T) -> T + Send + Sync,
-        T: Copy + Default,
+        T: Copy + Default + 'static,
     {
         use crate::broadcast::{BroadcastOps, BroadcastShape};
 
@@ -426,28 +605,36 @@ impl<
         let self_data = self.data()?;
         let other_data = other.data()?;
 
-        let mut result_data = Vec::with_capacity(broadcast_size);
+        // Use pooled buffer to avoid repeated heap allocation for broadcast results.
+        // T: 'static is satisfied by the outer where-clause on broadcast_binary_op.
+        use crate::memory_pool::global_acquire_uninit;
+        let mut buf = global_acquire_uninit::<T>(broadcast_size);
+        {
+            let uninit = buf.as_uninit_slice_mut();
 
-        // Compute broadcasting for each element using optimized indexing
-        for flat_idx in 0..broadcast_size {
-            let broadcast_indices = BroadcastOps::flat_to_multi_index(flat_idx, broadcast_dims);
+            // Compute broadcasting for each element using optimized indexing
+            for flat_idx in 0..broadcast_size {
+                let broadcast_indices = BroadcastOps::flat_to_multi_index(flat_idx, broadcast_dims);
 
-            let self_idx = BroadcastOps::compute_broadcast_index(
-                &broadcast_indices,
-                self.shape().dims(),
-                broadcast_dims,
-            )?;
-            let other_idx = BroadcastOps::compute_broadcast_index(
-                &broadcast_indices,
-                other.shape().dims(),
-                broadcast_dims,
-            )?;
+                let self_idx = BroadcastOps::compute_broadcast_index(
+                    &broadcast_indices,
+                    self.shape().dims(),
+                    broadcast_dims,
+                )?;
+                let other_idx = BroadcastOps::compute_broadcast_index(
+                    &broadcast_indices,
+                    other.shape().dims(),
+                    broadcast_dims,
+                )?;
 
-            let self_val = self_data[self_idx];
-            let other_val = other_data[other_idx];
+                let self_val = self_data[self_idx];
+                let other_val = other_data[other_idx];
 
-            result_data.push(op(self_val, other_val));
+                // SAFETY: flat_idx < broadcast_size == buf.capacity(); element written exactly once.
+                unsafe { uninit[flat_idx].write(op(self_val, other_val)) };
+            }
         }
+        let result_data = buf.into_vec(broadcast_size);
 
         Self::from_data(
             result_data,
@@ -763,6 +950,15 @@ impl<
 }
 
 // ✅ In-place operations for PyTorch compatibility
+//
+// NOTE: This module (`ops/arithmetic.rs`) is currently unreachable because
+// `pub mod ops;` is disabled in `lib.rs` (it conflicts with the live API in
+// `math_ops.rs`). The real `add_` / `sub_` / `mul_` / `div_` family lives in
+// `math_ops.rs` — see that module for the implementation actually compiled
+// into the crate. The bodies below are kept in lock-step with the live ones
+// (single-lock slice mutation via `with_slice_mut`, broadcast-into-self
+// support, never allocates a new buffer) so re-enabling `pub mod ops;` later
+// will not require a rewrite of this file.
 impl<
         T: TensorElement
             + Copy
@@ -773,179 +969,125 @@ impl<
             + std::ops::Div<Output = T>,
     > Tensor<T>
 {
-    /// In-place addition: self += other
-    ///
-    /// # PyTorch Compatibility
-    /// Equivalent to PyTorch's `tensor.add_(other)`
-    ///
-    /// # Errors
-    /// - Returns error if `requires_grad` is true (in-place ops break autograd)
-    /// - Returns error if shapes are incompatible
+    /// Element-wise in-place addition: `self += other` (with broadcast of `other` into `self`)
     pub fn add_(&mut self, other: &Self) -> Result<&mut Self> {
-        if self.requires_grad {
-            return Err(TorshError::InvalidArgument(
-                "In-place operation on tensor that requires grad is not allowed".to_string(),
-            ));
-        }
-
-        if self.shape() != other.shape() {
-            return Err(TorshError::ShapeMismatch {
-                expected: self.shape().to_vec(),
-                got: other.shape().to_vec(),
-            });
-        }
-
-        let other_data = other.data()?;
-
-        // Perform in-place addition
-        for i in 0..other_data.len() {
-            let current = self.storage.get(i)?;
-            self.storage.set(i, current + other_data[i])?;
-        }
-
-        Ok(self)
+        self.inplace_binary_op(other, "add_", |a, b| a + b)
     }
 
-    /// In-place subtraction: self -= other
-    ///
-    /// # PyTorch Compatibility
-    /// Equivalent to PyTorch's `tensor.sub_(other)`
+    /// Element-wise in-place subtraction: `self -= other` (with broadcast of `other` into `self`)
     pub fn sub_(&mut self, other: &Self) -> Result<&mut Self> {
-        if self.requires_grad {
-            return Err(TorshError::InvalidArgument(
-                "In-place operation on tensor that requires grad is not allowed".to_string(),
-            ));
-        }
-
-        if self.shape() != other.shape() {
-            return Err(TorshError::ShapeMismatch {
-                expected: self.shape().to_vec(),
-                got: other.shape().to_vec(),
-            });
-        }
-
-        let other_data = other.data()?;
-
-        for i in 0..other_data.len() {
-            let current = self.storage.get(i)?;
-            self.storage.set(i, current - other_data[i])?;
-        }
-
-        Ok(self)
+        self.inplace_binary_op(other, "sub_", |a, b| a - b)
     }
 
-    /// In-place multiplication: self *= other
-    ///
-    /// # PyTorch Compatibility
-    /// Equivalent to PyTorch's `tensor.mul_(other)`
+    /// Element-wise in-place multiplication: `self *= other` (with broadcast of `other` into `self`)
     pub fn mul_(&mut self, other: &Self) -> Result<&mut Self> {
-        if self.requires_grad {
-            return Err(TorshError::InvalidArgument(
-                "In-place operation on tensor that requires grad is not allowed".to_string(),
-            ));
-        }
-
-        if self.shape() != other.shape() {
-            return Err(TorshError::ShapeMismatch {
-                expected: self.shape().to_vec(),
-                got: other.shape().to_vec(),
-            });
-        }
-
-        let other_data = other.data()?;
-
-        for i in 0..other_data.len() {
-            let current = self.storage.get(i)?;
-            self.storage.set(i, current * other_data[i])?;
-        }
-
-        Ok(self)
+        self.inplace_binary_op(other, "mul_", |a, b| a * b)
     }
 
-    /// In-place division: self /= other
-    ///
-    /// # PyTorch Compatibility
-    /// Equivalent to PyTorch's `tensor.div_(other)`
+    /// Element-wise in-place division: `self /= other` (with broadcast of `other` into `self`)
     pub fn div_(&mut self, other: &Self) -> Result<&mut Self> {
+        self.inplace_binary_op(other, "div_", |a, b| a / b)
+    }
+
+    /// Shared driver for `add_` / `sub_` / `mul_` / `div_`.
+    ///
+    /// Holds the storage write lock for the entire pass (one acquisition) and
+    /// never allocates a new data buffer — broadcasting is done by reading
+    /// `other` through `BroadcastOps::compute_broadcast_index` while writing
+    /// straight into `self`'s slice.
+    fn inplace_binary_op<F>(&mut self, other: &Self, op_name: &str, op: F) -> Result<&mut Self>
+    where
+        F: Fn(T, T) -> T,
+    {
         if self.requires_grad {
-            return Err(TorshError::InvalidArgument(
-                "In-place operation on tensor that requires grad is not allowed".to_string(),
-            ));
+            return Err(TorshError::InvalidArgument(format!(
+                "In-place operation `{op_name}` on tensor that requires grad is not allowed"
+            )));
         }
 
-        if self.shape() != other.shape() {
+        let self_dims_vec = self.shape().dims().to_vec();
+        let other_dims_vec = other.shape().dims().to_vec();
+        let other_data = other.data()?;
+
+        // Fast path: identical shapes — direct elementwise pass over the slice.
+        if self_dims_vec == other_dims_vec {
+            self.storage.with_slice_mut(|slice| {
+                debug_assert_eq!(slice.len(), other_data.len());
+                for (dst, src) in slice.iter_mut().zip(other_data.iter()) {
+                    *dst = op(*dst, *src);
+                }
+                Ok(())
+            })?;
+            return Ok(self);
+        }
+
+        // Broadcast path: must be broadcast-compatible AND `self`'s shape must
+        // already equal the broadcast shape (we cannot grow `self` in place).
+        use crate::broadcast::BroadcastOps;
+        let broadcast_shape =
+            BroadcastOps::compute_broadcast_shape(&self_dims_vec, &other_dims_vec)?;
+        if broadcast_shape != self_dims_vec {
             return Err(TorshError::ShapeMismatch {
-                expected: self.shape().to_vec(),
-                got: other.shape().to_vec(),
+                expected: self_dims_vec,
+                got: broadcast_shape,
             });
         }
 
-        let other_data = other.data()?;
-
-        for i in 0..other_data.len() {
-            let current = self.storage.get(i)?;
-            self.storage.set(i, current / other_data[i])?;
-        }
+        // `other` broadcasts into `self`'s shape — walk every output index,
+        // pull the (possibly repeated) value from `other`, write into `self`.
+        let total = self_dims_vec.iter().product::<usize>();
+        let self_dims = self_dims_vec.as_slice();
+        let other_dims = other_dims_vec.as_slice();
+        self.storage.with_slice_mut(|slice| {
+            for flat_idx in 0..total {
+                let multi_index = BroadcastOps::flat_to_multi_index(flat_idx, self_dims);
+                let other_idx =
+                    BroadcastOps::compute_broadcast_index(&multi_index, other_dims, self_dims)?;
+                slice[flat_idx] = op(slice[flat_idx], other_data[other_idx]);
+            }
+            Ok(())
+        })?;
 
         Ok(self)
     }
 
-    /// In-place scalar addition: self += scalar
-    ///
-    /// # PyTorch Compatibility
-    /// Equivalent to PyTorch's `tensor.add_(scalar)`
+    /// In-place scalar addition: `self += scalar`
     pub fn add_scalar_(&mut self, scalar: T) -> Result<&mut Self> {
-        if self.requires_grad {
-            return Err(TorshError::InvalidArgument(
-                "In-place operation on tensor that requires grad is not allowed".to_string(),
-            ));
-        }
-
-        let len = self.storage.len();
-        for i in 0..len {
-            let current = self.storage.get(i)?;
-            self.storage.set(i, current + scalar)?;
-        }
-
-        Ok(self)
+        self.inplace_scalar_op(scalar, "add_scalar_", |a, b| a + b)
     }
 
-    /// In-place scalar multiplication: self *= scalar
-    ///
-    /// # PyTorch Compatibility
-    /// Equivalent to PyTorch's `tensor.mul_(scalar)`
+    /// In-place scalar subtraction: `self -= scalar`
+    pub fn sub_scalar_(&mut self, scalar: T) -> Result<&mut Self> {
+        self.inplace_scalar_op(scalar, "sub_scalar_", |a, b| a - b)
+    }
+
+    /// In-place scalar multiplication: `self *= scalar`
     pub fn mul_scalar_(&mut self, scalar: T) -> Result<&mut Self> {
-        if self.requires_grad {
-            return Err(TorshError::InvalidArgument(
-                "In-place operation on tensor that requires grad is not allowed".to_string(),
-            ));
-        }
-
-        let len = self.storage.len();
-        for i in 0..len {
-            let current = self.storage.get(i)?;
-            self.storage.set(i, current * scalar)?;
-        }
-
-        Ok(self)
+        self.inplace_scalar_op(scalar, "mul_scalar_", |a, b| a * b)
     }
 
-    /// In-place scalar division: self /= scalar
-    ///
-    /// # PyTorch Compatibility
-    /// Equivalent to PyTorch's `tensor.div_(scalar)`
+    /// In-place scalar division: `self /= scalar`
     pub fn div_scalar_(&mut self, scalar: T) -> Result<&mut Self> {
+        self.inplace_scalar_op(scalar, "div_scalar_", |a, b| a / b)
+    }
+
+    /// Shared driver for scalar in-place ops; one lock acquisition for the whole pass.
+    fn inplace_scalar_op<F>(&mut self, scalar: T, op_name: &str, op: F) -> Result<&mut Self>
+    where
+        F: Fn(T, T) -> T,
+    {
         if self.requires_grad {
-            return Err(TorshError::InvalidArgument(
-                "In-place operation on tensor that requires grad is not allowed".to_string(),
-            ));
+            return Err(TorshError::InvalidArgument(format!(
+                "In-place operation `{op_name}` on tensor that requires grad is not allowed"
+            )));
         }
 
-        let len = self.storage.len();
-        for i in 0..len {
-            let current = self.storage.get(i)?;
-            self.storage.set(i, current / scalar)?;
-        }
+        self.storage.with_slice_mut(|slice| {
+            for dst in slice.iter_mut() {
+                *dst = op(*dst, scalar);
+            }
+            Ok(())
+        })?;
 
         Ok(self)
     }
@@ -1049,5 +1191,135 @@ mod tests {
 
         assert!(a.add_(&b).is_err());
         assert!(a.mul_(&b).is_err());
+    }
+
+    #[test]
+    fn test_sub_scalar_inplace() {
+        let mut tensor =
+            Tensor::from_data(vec![10.0f32, 20.0, 30.0], vec![3], DeviceType::Cpu)
+                .expect("tensor creation failed");
+
+        tensor
+            .sub_scalar_(5.0)
+            .expect("sub_scalar_ failed");
+        let result = tensor.data().expect("data retrieval failed");
+
+        assert_eq!(result, vec![5.0, 15.0, 25.0]);
+    }
+
+    #[test]
+    fn test_add_inplace_broadcast_row_into_matrix() {
+        // Broadcast a [3] vector into a [2, 3] matrix in place.
+        // After: each row of `mat` should be its original row + [10, 20, 30].
+        let mut mat = Tensor::from_data(
+            vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0],
+            vec![2, 3],
+            DeviceType::Cpu,
+        )
+        .expect("tensor creation failed");
+        let row = Tensor::from_data(vec![10.0f32, 20.0, 30.0], vec![3], DeviceType::Cpu)
+            .expect("tensor creation failed");
+
+        mat.add_(&row).expect("add_ broadcast failed");
+        let result = mat.data().expect("data retrieval failed");
+        assert_eq!(result, vec![11.0, 22.0, 33.0, 14.0, 25.0, 36.0]);
+    }
+
+    #[test]
+    fn test_mul_inplace_broadcast_column_into_matrix() {
+        // Broadcast a [2, 1] column into a [2, 3] matrix in place via mul_.
+        let mut mat = Tensor::from_data(
+            vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0],
+            vec![2, 3],
+            DeviceType::Cpu,
+        )
+        .expect("tensor creation failed");
+        let col = Tensor::from_data(vec![10.0f32, 100.0], vec![2, 1], DeviceType::Cpu)
+            .expect("tensor creation failed");
+
+        mat.mul_(&col).expect("mul_ broadcast failed");
+        let result = mat.data().expect("data retrieval failed");
+        // Row 0 scaled by 10, row 1 scaled by 100.
+        assert_eq!(result, vec![10.0, 20.0, 30.0, 400.0, 500.0, 600.0]);
+    }
+
+    #[test]
+    fn test_inplace_broadcast_self_would_grow_errors() {
+        // self=[3], other=[2, 3] — broadcast shape is [2, 3], which would force
+        // `self` to grow. The in-place op must refuse instead of allocating.
+        let mut small = Tensor::from_data(vec![1.0f32, 2.0, 3.0], vec![3], DeviceType::Cpu)
+            .expect("tensor creation failed");
+        let big = Tensor::from_data(
+            vec![1.0f32, 1.0, 1.0, 1.0, 1.0, 1.0],
+            vec![2, 3],
+            DeviceType::Cpu,
+        )
+        .expect("tensor creation failed");
+
+        assert!(small.add_(&big).is_err());
+        assert!(small.sub_(&big).is_err());
+    }
+
+    // --- Regression tests for issue #43: sub must propagate requires_grad ---
+
+    #[test]
+    fn test_issue_43_sub_propagates_requires_grad() {
+        // Both operands have requires_grad=true; result must too.
+        let a = Tensor::from_data(vec![3.0f32, 4.0], vec![2], DeviceType::Cpu)
+            .expect("tensor creation failed")
+            .requires_grad_(true);
+        let b = Tensor::from_data(vec![1.0f32, 1.0], vec![2], DeviceType::Cpu)
+            .expect("tensor creation failed")
+            .requires_grad_(true);
+
+        let result = a.sub(&b).expect("sub failed");
+        assert!(
+            result.requires_grad(),
+            "sub result must have requires_grad=true when either operand does"
+        );
+    }
+
+    #[test]
+    fn test_issue_43_sub_propagates_requires_grad_one_sided() {
+        // Only one operand has requires_grad; result must still have it.
+        let a = Tensor::from_data(vec![3.0f32, 4.0], vec![2], DeviceType::Cpu)
+            .expect("tensor creation failed")
+            .requires_grad_(true);
+        let b = Tensor::from_data(vec![1.0f32, 1.0], vec![2], DeviceType::Cpu)
+            .expect("tensor creation failed");
+
+        let result = a.sub(&b).expect("sub failed");
+        assert!(
+            result.requires_grad(),
+            "sub result must have requires_grad=true when lhs has it"
+        );
+    }
+
+    #[test]
+    fn test_issue_43_sub_backward() {
+        // Use scalar tensors (numel=1) so backward() can be called directly.
+        // d/dlhs (lhs - rhs) = +1;  d/drhs (lhs - rhs) = -1
+        let lhs = Tensor::from_data(vec![5.0f32], vec![1], DeviceType::Cpu)
+            .expect("tensor creation failed")
+            .requires_grad_(true);
+        let rhs = Tensor::from_data(vec![3.0f32], vec![1], DeviceType::Cpu)
+            .expect("tensor creation failed")
+            .requires_grad_(true);
+
+        let result = lhs.sub(&rhs).expect("sub failed");
+        assert!(result.requires_grad(), "sub result must track gradients");
+
+        result.backward().expect("backward failed");
+
+        let lhs_grad = lhs.grad().expect("lhs must have gradient after backward");
+        let rhs_grad = rhs.grad().expect("rhs must have gradient after backward");
+
+        let lhs_grad_data = lhs_grad.data().expect("lhs grad data");
+        let rhs_grad_data = rhs_grad.data().expect("rhs grad data");
+
+        // d(lhs - rhs)/dlhs = +1
+        assert_eq!(lhs_grad_data, vec![1.0f32], "lhs grad should be +1");
+        // d(lhs - rhs)/drhs = -1
+        assert_eq!(rhs_grad_data, vec![-1.0f32], "rhs grad should be -1");
     }
 }

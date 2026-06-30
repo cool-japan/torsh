@@ -786,43 +786,13 @@ mod mpi_backend {
                 ));
             }
 
-            // Enhanced MPI all-gather simulation
-            // In production, this would call MPI_Allgather
-            info!(
-                " MPI All-Gather: rank={}, world_size={}",
-                self.rank(),
-                self.world_size()
-            );
-
-            // Simulate MPI all-gather timing
-            let simulated_elements = 1000; // Mock tensor size per rank
-            let element_size = 4; // 4 bytes for f32
-            let message_size_per_rank = simulated_elements * element_size;
-            let total_message_size = message_size_per_rank * self.world_size() as usize;
-
-            // MPI all-gather typically uses ring or tree algorithms
-            let timing_us = if message_size_per_rank < 1024 {
-                // Small messages: use tree algorithm (latency-optimal)
-                let tree_depth = (self.world_size() as f32).log2().ceil() as u32;
-                tree_depth as u64 * 8 + message_size_per_rank as u64 / 500
-            } else {
-                // Large messages: use ring algorithm (bandwidth-optimal)
-                let bandwidth_gbps = 10.0; // 10 Gbps network
-                let ring_phases = self.world_size() - 1;
-                let transfer_time =
-                    (total_message_size as f64 * 8.0) / (bandwidth_gbps * 1e9) * 1e6;
-                let latency = ring_phases as u64 * 15; // Latency per phase
-                latency + transfer_time as u64
-            };
-
-            // Simulate the operation
-            tokio::time::sleep(tokio::time::Duration::from_micros(timing_us)).await;
-
-            info!("    MPI All-Gather completed in {}μs", timing_us);
-
-            // Return a mock gathered tensor (in practice, would be actual gathered data)
-            let mock_result = Box::new(vec![0u8; total_message_size]) as Box<dyn Any + Send>;
-            Ok(mock_result)
+            // MPI all-gather requires a real libmpi linked at build time.
+            // Enable the `mpi` feature and link against an MPI installation to
+            // get actual MPI_Allgather semantics.
+            Err(TorshDistributedError::backend_error(
+                "MPI",
+                "MPI backend not linked; enable 'mpi' feature with real libmpi",
+            ))
         }
 
         async fn broadcast(
@@ -933,27 +903,13 @@ mod mpi_backend {
                 ));
             }
 
-            // Enhanced MPI recv simulation (MPI_Recv)
-            info!(
-                "📥 MPI Recv: rank {} ← rank {}, tag={}",
-                self.rank(),
-                _src,
-                _tag
-            );
-
-            // Simulate waiting and receiving
-            let message_size = 1000 * 4; // Mock message size
-            let latency_us = 15;
-            let bandwidth_gbps = 25.0;
-            let transfer_time_us = (message_size as f64 * 8.0) / (bandwidth_gbps * 1e9) * 1e6;
-            let total_time_us = latency_us + transfer_time_us as u64;
-
-            tokio::time::sleep(tokio::time::Duration::from_micros(total_time_us)).await;
-            info!("    MPI Recv completed in {}μs", total_time_us);
-
-            // Return mock received data
-            let mock_data = Box::new(vec![0u8; message_size]) as Box<dyn Any + Send>;
-            Ok(mock_data)
+            // MPI point-to-point recv requires a real libmpi linked at build time.
+            // Enable the `mpi` feature and link against an MPI installation to
+            // get actual MPI_Recv semantics.
+            Err(TorshDistributedError::backend_error(
+                "MPI",
+                "MPI backend not linked; enable 'mpi' feature with real libmpi",
+            ))
         }
 
         fn as_any(&self) -> &dyn std::any::Any {
@@ -1282,27 +1238,19 @@ mod nccl_backend {
                 self.world_size()
             );
 
-            // Simulate barrier implementation using all-reduce of dummy data
-            info!("    Creating dummy data for barrier all-reduce");
-            let _dummy_data = [1.0f32]; // Single element for barrier
-
-            // Simulate all-reduce latency (barrier is typically slower than regular all-reduce)
+            // NCCL barrier is simulated by measuring simulated latency.
+            // Real NCCL barriers use ncclAllReduce on a single sentinel element
+            // followed by cudaStreamSynchronize; that path requires cudarc+nccl.
             let latency_ms = (self.world_size() as f64 * 2.0).max(5.0);
             std::thread::sleep(std::time::Duration::from_millis(latency_ms as u64));
 
-            // Simulate the all-reduce operation for barrier
-            info!(
-                "    Performing barrier all-reduce across {} ranks",
-                self.world_size()
-            );
-
-            // Simulate CUDA stream synchronization
-            info!("   ⏳ Synchronizing CUDA stream");
-            std::thread::sleep(std::time::Duration::from_millis(1));
-
             let duration = start_time.elapsed();
 
-            info!("    Barrier synchronization completed in {:?}", duration);
+            info!(
+                "    Mock NCCL barrier across {} ranks completed in {:?} (simulated latency only)",
+                self.world_size(),
+                duration
+            );
 
             Ok(())
         }

@@ -7,8 +7,7 @@ use crate::device::DeviceType;
 use crate::dtype::DType;
 use crate::error::{Result, TorshError};
 use crate::shape::Shape;
-use std::ffi::CString;
-use std::os::raw::{c_char, c_uchar};
+use std::os::raw::c_uchar;
 use std::ptr;
 use std::slice;
 
@@ -413,35 +412,15 @@ pub unsafe extern "C" fn torsh_shape_broadcast_compatible(
     }
 }
 
-/// Get last error message as C string
-///
-/// Note: This is a simplified error handling mechanism.
-/// In a real implementation, you'd want thread-local error storage.
-static mut LAST_ERROR: Option<CString> = None;
-
-#[no_mangle]
-pub extern "C" fn torsh_get_last_error() -> *const c_char {
-    unsafe {
-        match &raw const LAST_ERROR {
-            ptr if !ptr.is_null() => {
-                if let Some(error) = &(*ptr) {
-                    error.as_ptr()
-                } else {
-                    ptr::null()
-                }
-            }
-            _ => ptr::null(),
-        }
-    }
-}
-
-/// Set error message (internal use)
-#[allow(dead_code)]
-pub(crate) fn set_last_error(message: &str) {
-    unsafe {
-        LAST_ERROR = CString::new(message).ok();
-    }
-}
+// Note: the canonical C-ABI error-reporting symbols (`torsh_get_last_error`,
+// `torsh_clear_last_error`, `torsh_has_error`) live in the dedicated C-API crate
+// `torsh-ffi` (`crates/torsh-ffi/src/c_api/utils.rs`), which uses thread-safe
+// `Mutex`-guarded storage. This crate previously also exported a `#[no_mangle]`
+// `torsh_get_last_error` backed by a `static mut` — a duplicate that (a) was never
+// populated (its `set_last_error` setter had no callers, so it always returned
+// null) and (b) caused a multiple-definition link error when `torsh-ffi` (the
+// `rstorch` cdylib) linked this crate. It has been removed; use `torsh-ffi` for
+// C-side error reporting.
 
 #[cfg(test)]
 mod tests {

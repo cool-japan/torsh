@@ -812,6 +812,22 @@ impl Optimizer for ComposedOptimizer {
         }
     }
 
+    fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {
+        // If there is an active/current optimizer, return its parameters.
+        if let Some(current) = &self.current_optimizer {
+            if let Some(optimizer) = self.optimizers.get(current) {
+                return optimizer.parameters();
+            }
+        }
+
+        // Otherwise, collect parameters from all composed optimizers.
+        let mut all_params = Vec::new();
+        for optimizer in self.optimizers.values() {
+            all_params.extend(optimizer.parameters());
+        }
+        all_params
+    }
+
     fn state_dict(&self) -> OptimizerResult<OptimizerState> {
         // Combine state from all optimizers
         let mut combined_state = HashMap::new();

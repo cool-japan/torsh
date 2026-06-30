@@ -39,6 +39,9 @@ num_cpus = "1.17"
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 
+# Diagnostics / logging
+tracing = { workspace = true }
+
 # Serialization and compression
 serde = { workspace = true, features = ["derive"], optional = true }
 serde_json = { workspace = true, optional = true }

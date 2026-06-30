@@ -7,6 +7,153 @@ use crate::{state_space::kalman::KalmanFilter, TimeSeries};
 use torsh_core::error::{Result, TorshError};
 use torsh_tensor::Tensor;
 
+// ============================================================
+// Natural cubic spline interpolation (pure Rust, no deps)
+// ============================================================
+
+/// Natural (not-a-knot) cubic spline through a set of knot points.
+///
+/// For each interval [x_i, x_{i+1}] the polynomial is:
+///   S_i(x) = a_i + b_i*(x-x_i) + c_i*(x-x_i)^2 + d_i*(x-x_i)^3
+struct NaturalCubicSpline {
+    x: Vec<f64>,
+    a: Vec<f64>,
+    b: Vec<f64>,
+    c: Vec<f64>,
+    d: Vec<f64>,
+}
+
+impl NaturalCubicSpline {
+    /// Fit the spline to the knot points `(x, y)`.
+    ///
+    /// `x` must be strictly increasing.
+    fn fit(x: &[f64], y: &[f64]) -> Result<Self> {
+        let n = x.len();
+        if n < 2 {
+            return Err(TorshError::InvalidArgument(
+                "Need at least 2 knots for spline".to_string(),
+            ));
+        }
+        let m = n - 1; // number of intervals
+
+        // Step widths
+        let h: Vec<f64> = (0..m).map(|i| x[i + 1] - x[i]).collect();
+
+        // Build tridiagonal system for the second derivatives (c coefficients):
+        //   h[i-1]*c[i-1] + 2*(h[i-1]+h[i])*c[i] + h[i]*c[i+1] = 3*((y[i+1]-y[i])/h[i] - (y[i]-y[i-1])/h[i-1])
+        // Natural spline boundary: c[0] = 0, c[n-1] = 0
+        let size = n - 2;
+        if size == 0 {
+            // Linear – only 2 knots
+            let b0 = if h[0].abs() > 1e-15 {
+                (y[1] - y[0]) / h[0]
+            } else {
+                0.0
+            };
+            return Ok(Self {
+                x: x.to_vec(),
+                a: vec![y[0]],
+                b: vec![b0],
+                c: vec![0.0],
+                d: vec![0.0],
+            });
+        }
+
+        let mut diag = vec![0.0f64; size];
+        let mut upper = vec![0.0f64; size - 1];
+        let mut lower = vec![0.0f64; size - 1];
+        let mut rhs = vec![0.0f64; size];
+
+        for i in 0..size {
+            let idx = i + 1; // knot index (skip first and last)
+            diag[i] = 2.0 * (h[idx - 1] + h[idx]);
+            if i > 0 {
+                lower[i - 1] = h[idx - 1];
+            }
+            if i < size - 1 {
+                upper[i] = h[idx];
+            }
+            rhs[i] = 3.0 * ((y[idx + 1] - y[idx]) / h[idx] - (y[idx] - y[idx - 1]) / h[idx - 1]);
+        }
+
+        // Solve tridiagonal via Thomas algorithm
+        let c_inner = thomas_solve(&diag, &upper, &lower, &rhs)?;
+
+        // Full c vector with c[0]=0, c[n-1]=0
+        let mut c_full = vec![0.0f64; n];
+        for (i, &ci) in c_inner.iter().enumerate() {
+            c_full[i + 1] = ci;
+        }
+
+        // Compute a, b, d coefficients for each interval
+        let a: Vec<f64> = y[..m].to_vec();
+        let b: Vec<f64> = (0..m)
+            .map(|i| (y[i + 1] - y[i]) / h[i] - h[i] * (2.0 * c_full[i] + c_full[i + 1]) / 3.0)
+            .collect();
+        let d: Vec<f64> = (0..m)
+            .map(|i| (c_full[i + 1] - c_full[i]) / (3.0 * h[i]))
+            .collect();
+        let c: Vec<f64> = c_full[..m].to_vec();
+
+        Ok(Self {
+            x: x.to_vec(),
+            a,
+            b,
+            c,
+            d,
+        })
+    }
+
+    /// Evaluate the spline at point `xi`.  Clamps to the knot range.
+    fn evaluate(&self, xi: f64) -> f64 {
+        let m = self.a.len();
+        // Binary search for the right interval
+        let idx = match self.x[1..m].iter().position(|&xk| xi < xk) {
+            Some(pos) => pos,
+            None => m - 1, // xi >= x[m]
+        };
+        let t = xi - self.x[idx];
+        self.a[idx] + self.b[idx] * t + self.c[idx] * t * t + self.d[idx] * t * t * t
+    }
+}
+
+/// Solve a tridiagonal system via the Thomas (forward-elimination / back-substitution) algorithm.
+fn thomas_solve(diag: &[f64], upper: &[f64], lower: &[f64], rhs: &[f64]) -> Result<Vec<f64>> {
+    let n = diag.len();
+    let mut c_prime = vec![0.0f64; n];
+    let mut d_prime = vec![0.0f64; n];
+    let mut x = vec![0.0f64; n];
+
+    // Forward sweep
+    let denom = diag[0];
+    if denom.abs() < 1e-15 {
+        return Err(TorshError::InvalidArgument(
+            "Singular tridiagonal matrix in spline solve".to_string(),
+        ));
+    }
+    c_prime[0] = upper.first().copied().unwrap_or(0.0) / denom;
+    d_prime[0] = rhs[0] / denom;
+
+    for i in 1..n {
+        let lower_i = lower.get(i - 1).copied().unwrap_or(0.0);
+        let denom_i = diag[i] - lower_i * c_prime[i - 1];
+        if denom_i.abs() < 1e-15 {
+            return Err(TorshError::InvalidArgument(
+                "Singular tridiagonal matrix in spline solve".to_string(),
+            ));
+        }
+        c_prime[i] = upper.get(i).copied().unwrap_or(0.0) / denom_i;
+        d_prime[i] = (rhs[i] - lower_i * d_prime[i - 1]) / denom_i;
+    }
+
+    // Back substitution
+    x[n - 1] = d_prime[n - 1];
+    for i in (0..n - 1).rev() {
+        x[i] = d_prime[i] - c_prime[i] * x[i + 1];
+    }
+    Ok(x)
+}
+
 /// Imputation method enumeration
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ImputationMethod {
@@ -180,34 +327,51 @@ impl TimeSeriesImputer {
         Ok(TimeSeries::new(tensor))
     }
 
-    /// Cubic spline interpolation using scirs2-core
+    /// Natural cubic spline interpolation.
+    ///
+    /// Fits a not-a-knot natural cubic spline through the valid (non-NaN) knot points
+    /// and evaluates it at all integer positions.  Falls back to linear interpolation
+    /// when fewer than 4 valid points are available.
     fn spline_interpolation(&self, series: &TimeSeries) -> Result<TimeSeries> {
-        use scirs2_core::ndarray::Array1;
-
-        // Convert to array
         let data = series.values.to_vec()?;
-        let array = Array1::from_vec(data);
+        let n = data.len();
 
-        // Find valid points
-        let mut x_valid = Vec::new();
-        let mut y_valid = Vec::new();
-
-        for (i, &val) in array.iter().enumerate() {
+        // Collect valid (knot) points
+        let mut x_knots: Vec<f64> = Vec::new();
+        let mut y_knots: Vec<f64> = Vec::new();
+        for (i, &val) in data.iter().enumerate() {
             if !val.is_nan() {
-                x_valid.push(i as f64);
-                y_valid.push(val as f64);
+                x_knots.push(i as f64);
+                y_knots.push(val as f64);
             }
         }
 
-        if x_valid.len() < 4 {
-            // Fall back to linear interpolation for too few points
+        if x_knots.len() < 4 {
             return self.linear_interpolation(series);
         }
 
-        // TODO: Use scirs2-core spline interpolation when available
-        // For now, use linear interpolation as fallback
-        // Cubic spline implementation would require additional dependencies
-        self.linear_interpolation(series)
+        // Compute natural cubic spline coefficients (not-a-knot boundary)
+        let spline = NaturalCubicSpline::fit(&x_knots, &y_knots)?;
+
+        // Evaluate at each position
+        let mut imputed = Vec::with_capacity(n);
+        let x_min = x_knots[0];
+        let x_max = *x_knots.last().expect("knots non-empty");
+        for i in 0..n {
+            let val = data[i];
+            if val.is_nan() {
+                let xi = i as f64;
+                // Clamp to knot range for extrapolation safety
+                let xi_clamped = xi.max(x_min).min(x_max);
+                let interpolated = spline.evaluate(xi_clamped);
+                imputed.push(interpolated as f32);
+            } else {
+                imputed.push(val);
+            }
+        }
+
+        let tensor = Tensor::from_vec(imputed, &[n])?;
+        Ok(TimeSeries::new(tensor))
     }
 
     /// Mean imputation

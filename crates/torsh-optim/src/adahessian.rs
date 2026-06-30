@@ -284,6 +284,10 @@ impl Optimizer for AdaHessian {
         self.base.add_param_group(params, options);
     }
 
+    fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {
+        self.base.parameters()
+    }
+
     fn state_dict(&self) -> OptimizerResult<OptimizerState> {
         self.base.state_dict()
     }

@@ -624,26 +624,38 @@ pub trait CudaDeviceOccupancy {
 
 impl CudaDeviceOccupancy for CudaDevice {
     fn properties(&self) -> CudaResult<DeviceProperties> {
-        // This would query actual CUDA device properties
-        // For now, provide realistic defaults for common architectures
+        // Query the real device through `CudaDevice::properties`, which reads
+        // every field below from live `cust` device attributes. No values are
+        // invented — an absent/uncooperative device propagates as an error.
+        let props = CudaDevice::properties(self)?;
+        let major = props.compute_capability / 10;
+        let minor = props.compute_capability % 10;
+
         Ok(DeviceProperties {
-            multiprocessor_count: 108, // Example: RTX 4090
-            max_threads_per_multiprocessor: 2048,
-            max_threads_per_block: 1024,
-            max_blocks_per_multiprocessor: 16,
-            registers_per_multiprocessor: 65536,
-            shared_memory_per_multiprocessor: 102400, // 100KB
-            warp_size: 32,
-            compute_capability: (8, 9), // Ada Lovelace
+            multiprocessor_count: props.multiprocessor_count,
+            max_threads_per_multiprocessor: props.max_threads_per_multiprocessor,
+            max_threads_per_block: props.max_threads_per_block,
+            max_blocks_per_multiprocessor: props.max_blocks_per_multiprocessor,
+            registers_per_multiprocessor: props.registers_per_multiprocessor,
+            shared_memory_per_multiprocessor: props.shared_memory_per_multiprocessor as u32,
+            warp_size: props.warp_size,
+            compute_capability: (major, minor),
         })
     }
 
     fn compute_capability(&self) -> (u32, u32) {
-        (8, 9) // Example: Ada Lovelace
+        // Read the real compute capability; fall back to (0, 0) only when the
+        // device query genuinely fails, which signals "unknown" rather than a
+        // fabricated architecture.
+        match CudaDevice::properties(self) {
+            Ok(props) => (props.compute_capability / 10, props.compute_capability % 10),
+            Err(_) => (0, 0),
+        }
     }
 
     fn name(&self) -> CudaResult<String> {
-        Ok("NVIDIA RTX 4090".to_string()) // Example device name
+        // `CudaDevice::name` returns the real device name from `cust`.
+        Ok(CudaDevice::name(self))
     }
 }
 

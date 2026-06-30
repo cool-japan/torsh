@@ -573,6 +573,88 @@ fn test_conv2d_dilation_advanced() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn test_conv1d_channelwise_bias_broadcast() -> Result<()> {
+    // Two batch elements, one input channel, length 3. A 1x1 (kernel_size=1)
+    // weight of all-ones makes the conv output a verbatim copy of the input for
+    // every output channel, isolating the bias broadcast for verification.
+    let input = Tensor::from_data(
+        vec![1.0, 2.0, 3.0, 10.0, 20.0, 30.0],
+        vec![2, 1, 3],
+        DeviceType::Cpu,
+    )?;
+    // out_channels = 2, in_channels = 1, kernel_size = 1.
+    let weight = Tensor::from_data(vec![1.0, 1.0], vec![2, 1, 1], DeviceType::Cpu)?;
+    // Distinct, large per-channel biases so a missing/wrong broadcast (e.g. adding
+    // bias[0] everywhere, or skipping batch n=1) yields detectably wrong values.
+    let bias = Tensor::from_data(vec![100.0, 200.0], vec![2], DeviceType::Cpu)?;
+
+    let output = input.conv1d(&weight, Some(&bias), 1, 0, 1, 1)?;
+    assert_eq!(output.shape().dims(), &[2, 2, 3]);
+    let output_data = output.to_vec()?;
+
+    // Conv output (pre-bias) equals the input copied to each output channel.
+    let input_per_batch = [[1.0, 2.0, 3.0], [10.0, 20.0, 30.0]];
+    let bias_per_channel = [100.0, 200.0];
+    for n in 0..2 {
+        for c in 0..2 {
+            for l in 0..3 {
+                let idx = n * (2 * 3) + c * 3 + l;
+                let expected = input_per_batch[n][l] + bias_per_channel[c];
+                assert_relative_eq!(output_data[idx], expected, epsilon = 1e-6);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+#[test]
+fn test_conv2d_channelwise_bias_broadcast() -> Result<()> {
+    // Two batch elements, one input channel, 2x2 spatial. A 1x1 all-ones weight
+    // copies the input into each of the three output channels, so every element
+    // of channel c must end up as input + bias[c], identically across batches.
+    let input = Tensor::from_data(
+        vec![
+            1.0, 2.0, 3.0, 4.0, // batch 0
+            10.0, 20.0, 30.0, 40.0, // batch 1
+        ],
+        vec![2, 1, 2, 2],
+        DeviceType::Cpu,
+    )?;
+    // out_channels = 3, in_channels = 1, 1x1 kernel.
+    let weight = Tensor::from_data(vec![1.0, 1.0, 1.0], vec![3, 1, 1, 1], DeviceType::Cpu)?;
+    let bias = Tensor::from_data(vec![100.0, 200.0, 300.0], vec![3], DeviceType::Cpu)?;
+
+    let output = input.conv2d(&weight, Some(&bias), (1, 1), (0, 0), (1, 1), 1)?;
+    assert_eq!(output.shape().dims(), &[2, 3, 2, 2]);
+    let output_data = output.to_vec()?;
+
+    let input_per_batch = [[1.0, 2.0, 3.0, 4.0], [10.0, 20.0, 30.0, 40.0]];
+    let bias_per_channel = [100.0, 200.0, 300.0];
+    let spatial = 4; // 2x2
+    let channels = 3;
+    for n in 0..2 {
+        for c in 0..channels {
+            for s in 0..spatial {
+                let idx = n * channels * spatial + c * spatial + s;
+                let expected = input_per_batch[n][s] + bias_per_channel[c];
+                assert_relative_eq!(output_data[idx], expected, epsilon = 1e-6);
+            }
+        }
+    }
+
+    // Sanity: the same spatial position in different channels differs only by the
+    // channel bias gap (200 - 100 = 100), proving per-channel (not global) add.
+    assert_relative_eq!(
+        output_data[1 * spatial] - output_data[0],
+        100.0,
+        epsilon = 1e-6
+    );
+
+    Ok(())
+}
+
 // ==================== SIGNAL PROCESSING TESTS ====================
 
 #[test]

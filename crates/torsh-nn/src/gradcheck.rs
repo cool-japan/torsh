@@ -249,25 +249,46 @@ impl GradChecker {
         })
     }
 
-    /// Compute analytical gradient (placeholder - would use autograd)
+    /// Compute the analytical gradient of the loss with respect to a module
+    /// parameter via autograd backward.
+    ///
+    /// # Honest-failure contract
+    ///
+    /// Module-based gradient checking requires that the gradient checker be able
+    /// to (a) run the forward pass with autograd tracking enabled through the
+    /// module's parameters and (b) read the accumulated `.grad()` off the
+    /// specific [`Parameter`]. The current `Module` trait exposes only an
+    /// immutable `forward(&self, &Tensor)` and does not give the checker a way
+    /// to swap in autograd-tracked parameters or recover their gradients, so a
+    /// genuine analytical gradient cannot be produced here.
+    ///
+    /// Rather than returning a zero tensor — which would make every module
+    /// gradient check pass *trivially* (`0 ≈ 0` against a numerical gradient
+    /// that is likewise unable to perturb the live parameter), giving false
+    /// confidence that gradients are correct — this returns a loud
+    /// [`TorshError::NotImplemented`]. A gradient checker that always passes is
+    /// strictly worse than no checker.
+    ///
+    /// Use [`GradChecker::check_function`] / [`gradcheck_function`] for the
+    /// pure-function path, which performs a real autograd `backward()` and
+    /// compares it against a finite-difference gradient.
     fn compute_analytical_gradient<M: Module, F>(
         &self,
         _module: &M,
         _input: &Tensor<f32>,
-        parameter: &Parameter,
+        _parameter: &Parameter,
         _loss_fn: &F,
     ) -> Result<Tensor<f32>>
     where
         F: Fn(&Tensor<f32>) -> Result<Tensor<f32>>,
     {
-        // Placeholder: return zeros for now
-        // In a real implementation, this would:
-        // 1. Enable gradients for the parameter
-        // 2. Compute forward pass
-        // 3. Compute loss
-        // 4. Backpropagate to get gradients
-        let param_data = parameter.tensor().read().clone();
-        Ok(Tensor::zeros_like(&param_data)?)
+        Err(TorshError::NotImplemented(
+            "module-parameter analytical gradient requires autograd backward through \
+             the module's parameters; the Module trait does not yet expose autograd-tracked \
+             parameter access, so gradcheck cannot run on modules. Use gradcheck_function \
+             for the pure-function path."
+                .to_string(),
+        ))
     }
 
     /// Compute numerical gradient using finite differences
@@ -760,5 +781,46 @@ mod tests {
     fn test_convenience_functions() {
         // These would require working tensor operations, so we just test they exist
         assert!(true); // Placeholder for actual tests when tensor ops work
+    }
+
+    /// A module-based gradient check must NOT silently pass by returning a zero
+    /// analytical gradient. Until autograd-tracked parameter access is wired
+    /// into the `Module` trait, every module parameter must be reported as
+    /// *failed* with an honest, explanatory error — never as passed.
+    #[test]
+    fn test_module_gradcheck_fails_loudly_not_silently() {
+        let module = LinearModule::new(3, 2, true).expect("module creation should succeed");
+        let input = randn(&[1, 3]).expect("input creation should succeed");
+
+        let result = gradcheck(&module, &input, |output| output.sum());
+
+        // The check itself returns Ok (it aggregates per-parameter results),
+        // but EVERY parameter must be marked failed with an honest error —
+        // never silently passed via zero analytical gradients.
+        let result = result.expect("check_module aggregates results into Ok");
+        assert!(
+            !result.passed,
+            "module gradcheck must not pass while analytical gradients are unimplemented"
+        );
+        assert!(
+            !result.parameter_results.is_empty(),
+            "expected at least one parameter to be checked"
+        );
+        for param_result in &result.parameter_results {
+            assert!(
+                !param_result.passed,
+                "parameter '{}' was silently passed; a zero analytical gradient must never \
+                 trivially pass a gradient check",
+                param_result.name
+            );
+            let err = param_result
+                .error
+                .as_ref()
+                .expect("a failed module parameter must carry an explanatory error");
+            assert!(
+                err.contains("autograd") || err.contains("gradcheck_function"),
+                "error should explain why module gradcheck cannot run, got: {err}"
+            );
+        }
     }
 }

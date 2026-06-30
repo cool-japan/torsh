@@ -331,6 +331,10 @@ impl<T: Optimizer> Optimizer for Lookahead<T> {
         self.base_optimizer.add_param_group(params, options);
     }
 
+    fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {
+        self.base_optimizer.parameters()
+    }
+
     fn state_dict(&self) -> OptimizerResult<OptimizerState> {
         let mut base_state = self.base_optimizer.state_dict()?;
 

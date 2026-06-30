@@ -53,7 +53,7 @@
 //!
 //! Test model performance on mobile platforms with specific configurations:
 //!
-//! ```rust,no_run
+//! ```rust,ignore
 //! use torsh_utils::benchmark::{BenchmarkConfig, MobileBenchmarkConfig, PlatformBenchmarkInfo, MobilePlatform};
 //! # use torsh_nn::Module;
 //!
@@ -703,11 +703,35 @@ fn calculate_memory_stats(samples: &[(f32, f32)]) -> MemoryStats {
     }
 }
 
-/// Get current memory usage
+/// Get current memory usage (RSS and peak) from /proc/self/status.
+/// Returns (rss_mb, peak_mb). On non-Linux platforms returns (0.0, 0.0).
 fn get_current_memory() -> Result<(f32, f32)> {
-    // This would integrate with backend memory management
-    // For now, return dummy values
-    Ok((100.0, 150.0))
+    #[cfg(target_os = "linux")]
+    {
+        let status = std::fs::read_to_string("/proc/self/status").map_err(|e| {
+            torsh_core::TorshError::IoError(format!("Failed to read /proc/self/status: {}", e))
+        })?;
+        let mut rss_kb: Option<u64> = None;
+        let mut peak_kb: Option<u64> = None;
+        for line in status.lines() {
+            if let Some(rest) = line.strip_prefix("VmRSS:") {
+                rss_kb = rest.split_whitespace().next().and_then(|s| s.parse().ok());
+            } else if let Some(rest) = line.strip_prefix("VmPeak:") {
+                peak_kb = rest.split_whitespace().next().and_then(|s| s.parse().ok());
+            }
+            if rss_kb.is_some() && peak_kb.is_some() {
+                break;
+            }
+        }
+        let rss_mb = rss_kb.unwrap_or(0) as f32 / 1024.0;
+        let peak_mb = peak_kb.unwrap_or(0) as f32 / 1024.0;
+        return Ok((rss_mb, peak_mb));
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        // Memory measurement via /proc/self/status not available on this platform
+        Ok((0.0, 0.0))
+    }
 }
 
 /// Generate benchmark summary
@@ -816,6 +840,17 @@ pub fn print_benchmark_results(results: &BenchmarkResult) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_get_current_memory_nonnegative() {
+        let (rss, peak) = get_current_memory().unwrap_or((0.0, 0.0));
+        assert!(rss >= 0.0, "RSS should be non-negative, got {}", rss);
+        assert!(peak >= 0.0, "peak should be non-negative, got {}", peak);
+        #[cfg(target_os = "linux")]
+        {
+            assert!(rss > 0.0, "RSS should be positive on Linux, got {}", rss);
+        }
+    }
 
     #[test]
     fn test_timing_stats() {

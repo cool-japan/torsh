@@ -257,7 +257,7 @@ impl Transform<DynamicImage> for RandomRotation {
                 &rgb_image,
                 angle_rad,
                 imageproc::geometric_transformations::Interpolation::Bilinear,
-                image::Rgb([0u8, 0u8, 0u8]), // Black background
+                imageproc::geometric_transformations::Border::Constant(image::Rgb([0u8, 0u8, 0u8])), // Black background
             );
 
             Ok(DynamicImage::ImageRgb8(rotated))

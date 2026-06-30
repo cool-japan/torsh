@@ -88,8 +88,14 @@ pub mod cache_optimization;
 pub mod conv;
 pub mod convenience;
 pub mod creation;
+/// ToRSh-owned thin CUDA backend over oxicuda leaf crates (used by gpu_dispatch).
+#[cfg(feature = "cuda")]
+mod cuda_backend;
 pub mod custom_dtype;
 pub mod custom_ops;
+/// GPU compute dispatch backed by oxicuda's `ComputeBackend` (replaces scirs2-core GPU).
+#[cfg(feature = "gpu")]
+pub mod gpu_dispatch;
 pub mod indexing;
 pub mod lazy_loading;
 // pub mod lazy_ops; // Temporarily disabled due to complex trait bounds - using fluent API instead

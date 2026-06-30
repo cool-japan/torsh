@@ -19,8 +19,7 @@ use super::kernel_fusion_optimizer::{
     OperationType as FusionOperationType,
 };
 use super::memory::optimization::advanced_memory_optimizer::{
-    AdvancedMemoryConfig, AdvancedMemoryOptimizer, MemoryOptimizationReport,
-    MemoryOptimizationStatus,
+    AdvancedMemoryConfig, AdvancedMemoryOptimizer, MemoryOptimizationStatus,
 };
 
 /// Comprehensive CUDA performance optimization coordinator
@@ -331,8 +330,8 @@ impl CudaPerformanceOptimizationCoordinator {
             enable_memory_compaction: config.enable_memory_compaction,
             enable_cache_optimization: config.enable_cache_optimization,
             enable_pressure_monitoring: config.enable_pressure_monitoring,
-            optimization_aggressiveness: config.optimization_aggressiveness.into(),
-            memory_safety_level: config.memory_safety_level.into(),
+            optimization_aggressiveness: config.optimization_aggressiveness.clone().into(),
+            memory_safety_level: config.memory_safety_level.clone().into(),
         };
 
         let fusion_config = KernelFusionConfig {
@@ -381,7 +380,10 @@ impl CudaPerformanceOptimizationCoordinator {
     pub async fn initialize(&self) -> Result<(), CoordinationError> {
         // Initialize memory optimizer
         {
-            let memory_optimizer = self.memory_optimizer.lock().expect("lock should not be poisoned");
+            let memory_optimizer = self
+                .memory_optimizer
+                .lock()
+                .expect("lock should not be poisoned");
             memory_optimizer.initialize().map_err(|e| {
                 CoordinationError::InitializationError(format!("Memory optimizer: {:?}", e))
             })?;
@@ -389,7 +391,10 @@ impl CudaPerformanceOptimizationCoordinator {
 
         // Initialize fusion optimizer
         {
-            let fusion_optimizer = self.fusion_optimizer.lock().expect("lock should not be poisoned");
+            let fusion_optimizer = self
+                .fusion_optimizer
+                .lock()
+                .expect("lock should not be poisoned");
             fusion_optimizer.initialize().map_err(|e| {
                 CoordinationError::InitializationError(format!("Fusion optimizer: {:?}", e))
             })?;
@@ -397,7 +402,10 @@ impl CudaPerformanceOptimizationCoordinator {
 
         // Initialize task scheduler
         {
-            let task_scheduler = self.task_scheduler.lock().expect("lock should not be poisoned");
+            let task_scheduler = self
+                .task_scheduler
+                .lock()
+                .expect("lock should not be poisoned");
             task_scheduler.initialize().map_err(|e| {
                 CoordinationError::InitializationError(format!("Task scheduler: {:?}", e))
             })?;
@@ -405,19 +413,28 @@ impl CudaPerformanceOptimizationCoordinator {
 
         // Initialize metrics collection
         {
-            let mut metrics_collector = self.metrics_collector.lock().expect("lock should not be poisoned");
+            let mut metrics_collector = self
+                .metrics_collector
+                .lock()
+                .expect("lock should not be poisoned");
             metrics_collector.start_collection()?;
         }
 
         // Initialize workload analysis
         {
-            let mut workload_analyzer = self.workload_analyzer.lock().expect("lock should not be poisoned");
+            let mut workload_analyzer = self
+                .workload_analyzer
+                .lock()
+                .expect("lock should not be poisoned");
             workload_analyzer.initialize_analysis()?;
         }
 
         // Update coordination state
         {
-            let mut state = self.coordination_state.write().expect("lock should not be poisoned");
+            let mut state = self
+                .coordination_state
+                .write()
+                .expect("lock should not be poisoned");
             state.system_health = SystemHealthStatus::Good;
         }
 
@@ -433,13 +450,19 @@ impl CudaPerformanceOptimizationCoordinator {
 
         // 1. Analyze workload characteristics
         let workload_analysis = {
-            let mut analyzer = self.workload_analyzer.lock().expect("lock should not be poisoned");
+            let mut analyzer = self
+                .workload_analyzer
+                .lock()
+                .expect("lock should not be poisoned");
             analyzer.analyze_workload(&request)?
         };
 
         // 2. Create comprehensive optimization plan
         let optimization_plan = {
-            let mut decision_engine = self.decision_engine.lock().expect("lock should not be poisoned");
+            let mut decision_engine = self
+                .decision_engine
+                .lock()
+                .expect("lock should not be poisoned");
             decision_engine.create_optimization_plan(&request, &workload_analysis)?
         };
 
@@ -448,7 +471,10 @@ impl CudaPerformanceOptimizationCoordinator {
 
         // 4. Optimize memory allocation strategy
         let memory_optimization = if optimization_plan.memory_optimization_strategy.enabled {
-            let memory_optimizer = self.memory_optimizer.lock().expect("lock should not be poisoned");
+            let memory_optimizer = self
+                .memory_optimizer
+                .lock()
+                .expect("lock should not be poisoned");
             Some(
                 memory_optimizer
                     .perform_comprehensive_optimization()
@@ -461,7 +487,10 @@ impl CudaPerformanceOptimizationCoordinator {
         // 5. Optimize kernel fusion opportunities
         let fusion_optimization = if optimization_plan.fusion_optimization_strategy.enabled {
             let fusion_operations = self.convert_tasks_to_fusion_operations(&schedulable_tasks)?;
-            let fusion_optimizer = self.fusion_optimizer.lock().expect("lock should not be poisoned");
+            let fusion_optimizer = self
+                .fusion_optimizer
+                .lock()
+                .expect("lock should not be poisoned");
             Some(
                 fusion_optimizer
                     .optimize_kernel_fusion(&fusion_operations)
@@ -473,7 +502,10 @@ impl CudaPerformanceOptimizationCoordinator {
 
         // 6. Execute intelligent task scheduling
         let scheduling_results = {
-            let task_scheduler = self.task_scheduler.lock().expect("lock should not be poisoned");
+            let task_scheduler = self
+                .task_scheduler
+                .lock()
+                .expect("lock should not be poisoned");
             let mut task_results = Vec::new();
             for task in schedulable_tasks {
                 let result = task_scheduler
@@ -486,7 +518,10 @@ impl CudaPerformanceOptimizationCoordinator {
 
         // 7. Coordinate resource allocation
         let resource_allocation = {
-            let mut coordinator = self.resource_coordinator.lock().expect("lock should not be poisoned");
+            let mut coordinator = self
+                .resource_coordinator
+                .lock()
+                .expect("lock should not be poisoned");
             coordinator.coordinate_resources(&request, &optimization_plan)?
         };
 
@@ -497,13 +532,19 @@ impl CudaPerformanceOptimizationCoordinator {
 
         // 9. Collect performance feedback
         let performance_feedback = {
-            let mut feedback_system = self.feedback_system.lock().expect("lock should not be poisoned");
+            let mut feedback_system = self
+                .feedback_system
+                .lock()
+                .expect("lock should not be poisoned");
             feedback_system.collect_performance_feedback(&execution_result)?
         };
 
         // 10. Update optimization models based on results
         {
-            let mut decision_engine = self.decision_engine.lock().expect("lock should not be poisoned");
+            let mut decision_engine = self
+                .decision_engine
+                .lock()
+                .expect("lock should not be poisoned");
             decision_engine.update_models_from_feedback(&performance_feedback)?;
         }
 
@@ -531,7 +572,10 @@ impl CudaPerformanceOptimizationCoordinator {
 
         // Record coordination decision
         {
-            let mut history = self.optimization_history.lock().expect("lock should not be poisoned");
+            let mut history = self
+                .optimization_history
+                .lock()
+                .expect("lock should not be poisoned");
             let record = CoordinationRecord {
                 record_id: uuid::Uuid::new_v4().to_string(),
                 timestamp: SystemTime::now(),
@@ -566,20 +610,37 @@ impl CudaPerformanceOptimizationCoordinator {
 
     /// Get comprehensive performance status
     pub fn get_comprehensive_status(&self) -> ComprehensivePerformanceStatus {
-        let stats = self.statistics.lock().expect("lock should not be poisoned").clone();
+        let stats = self
+            .statistics
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone();
         let memory_status = {
-            let optimizer = self.memory_optimizer.lock().expect("lock should not be poisoned");
+            let optimizer = self
+                .memory_optimizer
+                .lock()
+                .expect("lock should not be poisoned");
             optimizer.get_optimization_status()
         };
         let fusion_status = {
-            let optimizer = self.fusion_optimizer.lock().expect("lock should not be poisoned");
+            let optimizer = self
+                .fusion_optimizer
+                .lock()
+                .expect("lock should not be poisoned");
             optimizer.get_optimization_status()
         };
         let scheduling_status = {
-            let scheduler = self.task_scheduler.lock().expect("lock should not be poisoned");
+            let scheduler = self
+                .task_scheduler
+                .lock()
+                .expect("lock should not be poisoned");
             scheduler.get_scheduling_status()
         };
-        let coordination_state = self.coordination_state.read().expect("lock should not be poisoned").clone();
+        let coordination_state = self
+            .coordination_state
+            .read()
+            .expect("lock should not be poisoned")
+            .clone();
 
         ComprehensivePerformanceStatus {
             overall_performance_score: self.calculate_overall_performance_score(&stats),
@@ -595,7 +656,7 @@ impl CudaPerformanceOptimizationCoordinator {
             task_scheduling_status: scheduling_status,
             coordination_state,
             active_optimizations: self.get_active_optimizations(),
-            system_recommendations: self.generate_system_recommendations()?,
+            system_recommendations: self.generate_system_recommendations().unwrap_or_default(),
         }
     }
 
@@ -661,9 +722,9 @@ impl CudaPerformanceOptimizationCoordinator {
 
     async fn execute_optimized_operation(
         &self,
-        request: &CudaOperationRequest,
-        plan: &ComprehensiveOptimizationPlan,
-        resources: ResourceAllocationResult,
+        _request: &CudaOperationRequest,
+        _plan: &ComprehensiveOptimizationPlan,
+        _resources: ResourceAllocationResult,
     ) -> Result<ExecutionResult, CoordinationError> {
         // Implementation would execute the actual CUDA operations
         Ok(ExecutionResult {
@@ -673,22 +734,23 @@ impl CudaPerformanceOptimizationCoordinator {
         })
     }
 
-    fn calculate_quality_score(&self, result: &ExecutionResult) -> Result<f64, CoordinationError> {
+    fn calculate_quality_score(&self, _result: &ExecutionResult) -> Result<f64, CoordinationError> {
         Ok(0.85) // Placeholder
     }
 
     fn calculate_performance_improvement(
         &self,
-        result: &CudaOperationResult,
+        _result: &CudaOperationResult,
     ) -> Result<f64, CoordinationError> {
         Ok(25.0) // Placeholder: 25% improvement
     }
 
     fn extract_lessons_learned(
         &self,
-        result: &CudaOperationResult,
+        _result: &CudaOperationResult,
     ) -> Result<Vec<OptimizationLesson>, CoordinationError> {
         Ok(vec![OptimizationLesson {
+            placeholder: false,
             lesson_type: LessonType::MemoryOptimization,
             description: "Memory coalescing improved performance by 15%".to_string(),
             confidence: 0.85,
@@ -716,6 +778,7 @@ impl CudaPerformanceOptimizationCoordinator {
         &self,
     ) -> Result<Vec<SystemRecommendation>, CoordinationError> {
         Ok(vec![SystemRecommendation {
+            placeholder: false,
             category: RecommendationCategory::Performance,
             priority: RecommendationPriority::High,
             description: "Increase memory pool size for better allocation performance".to_string(),
@@ -822,7 +885,13 @@ default_placeholder_type!(AllocationOptimizer);
 default_placeholder_type!(ResourceContentionResolver);
 default_placeholder_type!(MultiGpuCoordinator);
 default_placeholder_type!(ResourceCoordinationConfig);
-default_placeholder_type!(TensorOperation);
+/// Represents a tensor operation within a CUDA operation request
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct TensorOperation {
+    pub placeholder: bool,
+    /// The type of tensor operation to perform
+    pub operation_type: TensorOperationType,
+}
 default_placeholder_type!(ResourceRequirements);
 default_placeholder_type!(PerformanceRequirements);
 default_placeholder_type!(OptimizationHints);
@@ -853,7 +922,6 @@ pub struct FusionOptimizationStrategy {
 default_placeholder_type!(TaskSchedulingStrategy);
 default_placeholder_type!(ResourceAllocationStrategy);
 default_placeholder_type!(ExecutionTimeline);
-default_placeholder_type!(OptimizationLesson);
 default_placeholder_type!(ResourceAvailability);
 default_placeholder_type!(LearningProgress);
 default_placeholder_type!(WorkloadAnalysisResult);
@@ -880,52 +948,112 @@ impl std::hash::Hash for ExecutionResult {
 }
 
 default_placeholder_type!(PerformanceFeedback);
-default_placeholder_type!(SystemRecommendation);
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+/// An optimization lesson learned from execution results
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OptimizationLesson {
+    pub placeholder: bool,
+    /// The category/type of lesson learned
+    pub lesson_type: LessonType,
+    /// Human-readable description of the lesson
+    pub description: String,
+    /// Confidence level in this lesson (0.0–1.0)
+    pub confidence: f64,
+    /// Scope of applicability for this lesson
+    pub applicability: LessonApplicability,
+}
+
+impl Default for OptimizationLesson {
+    fn default() -> Self {
+        Self {
+            placeholder: false,
+            lesson_type: LessonType::MemoryOptimization,
+            description: String::new(),
+            confidence: 0.0,
+            applicability: LessonApplicability::General,
+        }
+    }
+}
+
+/// A system-level recommendation for performance improvement
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemRecommendation {
+    pub placeholder: bool,
+    /// Category of the recommendation
+    pub category: RecommendationCategory,
+    /// Priority of the recommendation
+    pub priority: RecommendationPriority,
+    /// Human-readable description
+    pub description: String,
+    /// Expected improvement percentage (0.0–100.0)
+    pub expected_improvement: f64,
+    /// Level of effort required to implement
+    pub implementation_effort: ImplementationEffort,
+}
+
+impl Default for SystemRecommendation {
+    fn default() -> Self {
+        Self {
+            placeholder: false,
+            category: RecommendationCategory::Performance,
+            priority: RecommendationPriority::Medium,
+            description: String::new(),
+            expected_improvement: 0.0,
+            implementation_effort: ImplementationEffort::Medium,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum TensorOperationType {
     MatrixMultiplication,
     Convolution,
+    #[default]
     ElementWise,
     Reduction,
     Reshape,
     Transpose,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum LessonType {
+    #[default]
     MemoryOptimization,
     KernelFusion,
     TaskScheduling,
     ResourceAllocation,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum LessonApplicability {
     Specific,
+    #[default]
     General,
     Universal,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum RecommendationCategory {
+    #[default]
     Performance,
     Memory,
     Compute,
     Configuration,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum RecommendationPriority {
     Critical,
     High,
+    #[default]
     Medium,
     Low,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum ImplementationEffort {
     Low,
+    #[default]
     Medium,
     High,
     VeryHigh,
@@ -939,9 +1067,73 @@ pub enum MemorySafetyLevel {
     Unsafe,
 }
 
+// === Default implementations for complex structs ===
+
+impl Default for PerformanceMetricsCollector {
+    fn default() -> Self {
+        Self {
+            realtime_metrics: PerformanceMetrics::default(),
+            historical_metrics: MetricsDatabase::default(),
+            aggregation_engine: MetricsAggregationEngine::default(),
+            trend_analyzer: PerformanceTrendAnalyzer::default(),
+            benchmark_comparator: BenchmarkComparator::default(),
+            config: MetricsCollectionConfig::default(),
+        }
+    }
+}
+
+impl Default for OptimizationDecisionEngine {
+    fn default() -> Self {
+        Self {
+            ml_models: None,
+            rule_based_system: RuleBasedDecisionSystem::default(),
+            cost_benefit_analyzer: CostBenefitAnalyzer::default(),
+            validation_system: DecisionValidationSystem::default(),
+            decision_history: DecisionHistory::default(),
+            config: DecisionEngineConfig::default(),
+        }
+    }
+}
+
+impl Default for PerformanceFeedbackSystem {
+    fn default() -> Self {
+        Self {
+            collection_engine: FeedbackCollectionEngine::default(),
+            analysis_system: FeedbackAnalysisSystem::default(),
+            learning_engine: AdaptiveLearningEngine::default(),
+            optimization_adapter: FeedbackDrivenOptimizer::default(),
+            config: FeedbackSystemConfig::default(),
+        }
+    }
+}
+
+impl Default for WorkloadAnalyzer {
+    fn default() -> Self {
+        Self {
+            characterizer: WorkloadCharacterizer::default(),
+            pattern_recognition: WorkloadPatternRecognition::default(),
+            performance_predictor: WorkloadPerformancePredictor::default(),
+            recommendation_engine: WorkloadOptimizationRecommender::default(),
+            config: WorkloadAnalysisConfig::default(),
+        }
+    }
+}
+
+impl Default for ResourceAllocationCoordinator {
+    fn default() -> Self {
+        Self {
+            pool_manager: ResourcePoolManager::default(),
+            allocation_optimizer: AllocationOptimizer::default(),
+            contention_resolver: ResourceContentionResolver::default(),
+            multi_gpu_coordinator: MultiGpuCoordinator::default(),
+            config: ResourceCoordinationConfig::default(),
+        }
+    }
+}
+
 // Implementation stubs for the main components
 impl PerformanceMetricsCollector {
-    fn new(config: &PerformanceCoordinatorConfig) -> Self {
+    fn new(_config: &PerformanceCoordinatorConfig) -> Self {
         Self::default()
     }
 
@@ -951,41 +1143,41 @@ impl PerformanceMetricsCollector {
 }
 
 impl OptimizationDecisionEngine {
-    fn new(config: &PerformanceCoordinatorConfig) -> Self {
+    fn new(_config: &PerformanceCoordinatorConfig) -> Self {
         Self::default()
     }
 
     fn create_optimization_plan(
         &mut self,
-        request: &CudaOperationRequest,
-        analysis: &WorkloadAnalysisResult,
+        _request: &CudaOperationRequest,
+        _analysis: &WorkloadAnalysisResult,
     ) -> Result<ComprehensiveOptimizationPlan, CoordinationError> {
         Ok(ComprehensiveOptimizationPlan::default())
     }
 
     fn update_models_from_feedback(
         &mut self,
-        feedback: &PerformanceFeedback,
+        _feedback: &PerformanceFeedback,
     ) -> Result<(), CoordinationError> {
         Ok(())
     }
 }
 
 impl PerformanceFeedbackSystem {
-    fn new(config: &PerformanceCoordinatorConfig) -> Self {
+    fn new(_config: &PerformanceCoordinatorConfig) -> Self {
         Self::default()
     }
 
     fn collect_performance_feedback(
         &mut self,
-        result: &ExecutionResult,
+        _result: &ExecutionResult,
     ) -> Result<PerformanceFeedback, CoordinationError> {
         Ok(PerformanceFeedback::default())
     }
 }
 
 impl WorkloadAnalyzer {
-    fn new(config: &PerformanceCoordinatorConfig) -> Self {
+    fn new(_config: &PerformanceCoordinatorConfig) -> Self {
         Self::default()
     }
 
@@ -995,21 +1187,21 @@ impl WorkloadAnalyzer {
 
     fn analyze_workload(
         &mut self,
-        request: &CudaOperationRequest,
+        _request: &CudaOperationRequest,
     ) -> Result<WorkloadAnalysisResult, CoordinationError> {
         Ok(WorkloadAnalysisResult::default())
     }
 }
 
 impl ResourceAllocationCoordinator {
-    fn new(config: &PerformanceCoordinatorConfig) -> Self {
+    fn new(_config: &PerformanceCoordinatorConfig) -> Self {
         Self::default()
     }
 
     fn coordinate_resources(
         &mut self,
-        request: &CudaOperationRequest,
-        plan: &ComprehensiveOptimizationPlan,
+        _request: &CudaOperationRequest,
+        _plan: &ComprehensiveOptimizationPlan,
     ) -> Result<ResourceAllocationResult, CoordinationError> {
         Ok(ResourceAllocationResult::default())
     }

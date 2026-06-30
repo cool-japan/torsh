@@ -94,6 +94,32 @@ impl CpuRnnOps {
         Ok(())
     }
 
+    /// Allocate a new CPU [`Buffer`] and populate it with `data`.
+    ///
+    /// The buffer is sized to hold exactly `data.len()` `f32` values. This is
+    /// used to return the genuinely computed RNN/LSTM/GRU outputs instead of
+    /// discarding them.
+    fn create_buffer_from_f32(&self, device: &Device, data: &[f32]) -> BackendResult<Buffer> {
+        use crate::buffer::{BufferDescriptor, BufferUsage, MemoryLocation};
+        use crate::cpu::buffer::CpuBuffer;
+
+        let size_bytes = std::mem::size_of_val(data);
+        let descriptor = BufferDescriptor {
+            size: size_bytes,
+            usage: BufferUsage::STORAGE_READ_WRITE,
+            location: MemoryLocation::Host,
+            dtype: Some(torsh_core::dtype::DType::F32),
+            shape: None,
+            initial_data: None,
+            alignment: None,
+            zero_init: false,
+        };
+
+        let buffer = CpuBuffer::new_buffer(device.clone(), &descriptor)?;
+        self.write_buffer_data_f32(&buffer, data)?;
+        Ok(buffer)
+    }
+
     /// Execute LSTM sequence processing
     fn execute_lstm_sequence(
         &self,
@@ -319,7 +345,7 @@ impl CpuRnnOps {
 impl RnnOps for CpuRnnOps {
     async fn rnn_forward(
         &self,
-        _device: &Device,
+        device: &Device,
         input: &Buffer,
         weights: &Buffer,
         bias: Option<&Buffer>,
@@ -348,7 +374,7 @@ impl RnnOps for CpuRnnOps {
         };
 
         // Simple RNN implementation (similar to GRU but simpler)
-        let (_output_seq, _final_hidden) = self.execute_gru_sequence(
+        let (output_seq, final_hidden) = self.execute_gru_sequence(
             &input_data,
             &weights_data,
             bias_data.as_deref(),
@@ -356,19 +382,15 @@ impl RnnOps for CpuRnnOps {
             config,
         )?;
 
-        // Create output buffers
+        // Pack the genuinely computed results into output buffers.
         let sequences_buffer = if config.return_sequences {
-            // Create buffer and write data
-            // For now, return None as we need proper buffer creation
-            None
+            Some(self.create_buffer_from_f32(device, &output_seq)?)
         } else {
             None
         };
 
         let hidden_state_buffer = if config.return_state {
-            // Create buffer and write data
-            // For now, return None as we need proper buffer creation
-            None
+            Some(self.create_buffer_from_f32(device, &final_hidden)?)
         } else {
             None
         };
@@ -382,7 +404,7 @@ impl RnnOps for CpuRnnOps {
 
     async fn lstm_forward(
         &self,
-        _device: &Device,
+        device: &Device,
         input: &Buffer,
         weights: &Buffer,
         bias: Option<&Buffer>,
@@ -414,7 +436,7 @@ impl RnnOps for CpuRnnOps {
             None
         };
 
-        let (_output_seq, _final_hidden, _final_cell) = self.execute_lstm_sequence(
+        let (output_seq, final_hidden, final_cell) = self.execute_lstm_sequence(
             &input_data,
             &weights_data,
             bias_data.as_deref(),
@@ -423,17 +445,21 @@ impl RnnOps for CpuRnnOps {
             config,
         )?;
 
-        // For now, return empty output (need proper buffer creation)
+        // Pack the genuinely computed sequence and states into output buffers.
+        let sequences_buffer = Some(self.create_buffer_from_f32(device, &output_seq)?);
+        let hidden_state_buffer = Some(self.create_buffer_from_f32(device, &final_hidden)?);
+        let cell_state_buffer = Some(self.create_buffer_from_f32(device, &final_cell)?);
+
         Ok(RnnOutput {
-            sequences: None,
-            hidden_state: None,
-            cell_state: None,
+            sequences: sequences_buffer,
+            hidden_state: hidden_state_buffer,
+            cell_state: cell_state_buffer,
         })
     }
 
     async fn gru_forward(
         &self,
-        _device: &Device,
+        device: &Device,
         input: &Buffer,
         weights: &Buffer,
         bias: Option<&Buffer>,
@@ -459,7 +485,7 @@ impl RnnOps for CpuRnnOps {
             None
         };
 
-        let (_output_seq, _final_hidden) = self.execute_gru_sequence(
+        let (output_seq, final_hidden) = self.execute_gru_sequence(
             &input_data,
             &weights_data,
             bias_data.as_deref(),
@@ -467,10 +493,14 @@ impl RnnOps for CpuRnnOps {
             config,
         )?;
 
-        // For now, return empty output (need proper buffer creation)
+        // Pack the genuinely computed sequence and final hidden state.
+        // GRU has no cell state, so `cell_state` is `None`.
+        let sequences_buffer = Some(self.create_buffer_from_f32(device, &output_seq)?);
+        let hidden_state_buffer = Some(self.create_buffer_from_f32(device, &final_hidden)?);
+
         Ok(RnnOutput {
-            sequences: None,
-            hidden_state: None,
+            sequences: sequences_buffer,
+            hidden_state: hidden_state_buffer,
             cell_state: None,
         })
     }
@@ -608,7 +638,50 @@ impl RnnOps for CpuRnnOps {
 #[cfg(test)]
 mod tests {
     use super::*;
-    // use crate::rnn::RnnConfig; // Currently unused
+    use crate::buffer::{BufferDescriptor, BufferUsage, MemoryLocation};
+    use crate::cpu::buffer::CpuBuffer;
+
+    /// Build a CPU [`Buffer`] from `f32` data for use in RNN tests.
+    fn f32_buffer(device: &Device, data: &[f32]) -> Buffer {
+        let mut bytes = Vec::with_capacity(std::mem::size_of_val(data));
+        for &value in data {
+            bytes.extend_from_slice(&value.to_le_bytes());
+        }
+
+        let descriptor = BufferDescriptor {
+            size: bytes.len(),
+            usage: BufferUsage::STORAGE_READ_WRITE,
+            location: MemoryLocation::Host,
+            dtype: Some(torsh_core::dtype::DType::F32),
+            shape: None,
+            initial_data: None,
+            alignment: None,
+            zero_init: false,
+        };
+
+        let buffer = CpuBuffer::new_buffer(device.clone(), &descriptor)
+            .expect("failed to allocate CPU f32 buffer");
+        buffer
+            .as_cpu_buffer()
+            .expect("generic handle should expose a CpuBuffer")
+            .write_bytes(&bytes, 0)
+            .expect("failed to write f32 data into buffer");
+        buffer
+    }
+
+    /// Read an f32 CPU [`Buffer`] back into a `Vec<f32>`.
+    fn read_f32(buffer: &Buffer) -> Vec<f32> {
+        let count = buffer.size / std::mem::size_of::<f32>();
+        let ptr = buffer.as_cpu_ptr().expect("buffer should be CPU-backed");
+        // SAFETY: buffer holds `count` `f32` values.
+        unsafe { std::slice::from_raw_parts(ptr as *const f32, count).to_vec() }
+    }
+
+    fn test_device() -> Device {
+        crate::cpu::device::CpuDevice::new(0, 1)
+            .expect("CPU device creation should succeed")
+            .to_device()
+    }
 
     #[test]
     fn test_cpu_rnn_ops_creation() {
@@ -616,6 +689,114 @@ mod tests {
         assert!(rnn_ops.supports_rnn());
         assert!(!rnn_ops.supported_cell_types().is_empty());
         assert!(!rnn_ops.supported_activations().is_empty());
+    }
+
+    /// The LSTM forward pass must return the genuinely computed sequences and
+    /// states, not a discarded-result empty `RnnOutput`.
+    #[tokio::test]
+    async fn test_lstm_forward_returns_outputs() {
+        let rnn_ops = CpuRnnOps::new(Some(1));
+        let device = test_device();
+
+        let input_size = 3;
+        let hidden_size = 4;
+        let batch_size = 2;
+        let sequence_length = 5;
+        let config = RnnConfig::lstm(input_size, hidden_size, 1, batch_size, sequence_length);
+
+        let input = f32_buffer(
+            &device,
+            &vec![0.1f32; batch_size * sequence_length * input_size],
+        );
+        // LSTM: 4 gates of input-to-hidden and hidden-to-hidden weights.
+        let weights_len = (input_size * hidden_size + hidden_size * hidden_size) * 4;
+        let weights = f32_buffer(&device, &vec![0.05f32; weights_len]);
+
+        let output = rnn_ops
+            .lstm_forward(&device, &input, &weights, None, None, None, &config)
+            .await
+            .expect("LSTM forward should succeed");
+
+        let sequences = output
+            .sequences
+            .expect("LSTM must return Some(sequences), not None");
+        let hidden = output
+            .hidden_state
+            .expect("LSTM must return Some(hidden_state)");
+        let cell = output
+            .cell_state
+            .expect("LSTM must return Some(cell_state)");
+
+        // Sequence buffer must hold batch * seq * hidden elements.
+        assert_eq!(
+            sequences.size / std::mem::size_of::<f32>(),
+            batch_size * sequence_length * hidden_size
+        );
+        assert_eq!(
+            hidden.size / std::mem::size_of::<f32>(),
+            batch_size * hidden_size
+        );
+        assert_eq!(
+            cell.size / std::mem::size_of::<f32>(),
+            batch_size * hidden_size
+        );
+
+        // With non-zero inputs and weights the LSTM produces non-zero state.
+        let hidden_vals = read_f32(&hidden);
+        assert!(
+            hidden_vals.iter().any(|&v| v.abs() > 1e-6),
+            "LSTM hidden state should not be all zeros"
+        );
+    }
+
+    /// The GRU forward pass must return the genuinely computed sequences and
+    /// final hidden state; cell state is `None` for GRU.
+    #[tokio::test]
+    async fn test_gru_forward_returns_outputs() {
+        let rnn_ops = CpuRnnOps::new(Some(1));
+        let device = test_device();
+
+        let input_size = 3;
+        let hidden_size = 4;
+        let batch_size = 2;
+        let sequence_length = 5;
+        let config = RnnConfig::gru(input_size, hidden_size, 1, batch_size, sequence_length);
+
+        let input = f32_buffer(
+            &device,
+            &vec![0.2f32; batch_size * sequence_length * input_size],
+        );
+        // GRU: 3 gates of input-to-hidden and hidden-to-hidden weights.
+        let weights_len = (input_size * hidden_size + hidden_size * hidden_size) * 3;
+        let weights = f32_buffer(&device, &vec![0.05f32; weights_len]);
+
+        let output = rnn_ops
+            .gru_forward(&device, &input, &weights, None, None, &config)
+            .await
+            .expect("GRU forward should succeed");
+
+        let sequences = output
+            .sequences
+            .expect("GRU must return Some(sequences), not None");
+        let hidden = output
+            .hidden_state
+            .expect("GRU must return Some(hidden_state)");
+        assert!(output.cell_state.is_none(), "GRU has no cell state");
+
+        assert_eq!(
+            sequences.size / std::mem::size_of::<f32>(),
+            batch_size * sequence_length * hidden_size
+        );
+        assert_eq!(
+            hidden.size / std::mem::size_of::<f32>(),
+            batch_size * hidden_size
+        );
+
+        let hidden_vals = read_f32(&hidden);
+        assert!(
+            hidden_vals.iter().any(|&v| v.abs() > 1e-6),
+            "GRU hidden state should not be all zeros"
+        );
     }
 
     #[test]

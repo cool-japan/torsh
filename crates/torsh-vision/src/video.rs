@@ -503,12 +503,61 @@ impl VideoModel {
         let out_h = (height + 2 * pad_h - kernel_h) / stride_h + 1;
         let out_w = (width + 2 * pad_w - kernel_w) / stride_w + 1;
 
+        let in_channels = input_shape.dims()[1];
+
         let output = Tensor::zeros(
             &[batch_size, out_channels, out_t, out_h, out_w],
             input.device(),
         )?;
 
-        // For now, return zeros as full 3D convolution is complex
+        for b in 0..batch_size {
+            for oc in 0..out_channels {
+                for ot in 0..out_t {
+                    for oh in 0..out_h {
+                        for ow in 0..out_w {
+                            let mut sum = 0.0f32;
+                            for ic in 0..in_channels {
+                                for kt in 0..kernel_t {
+                                    let it_shifted = ot * stride_t + kt;
+                                    if it_shifted < pad_t {
+                                        continue;
+                                    }
+                                    let it = it_shifted - pad_t;
+                                    if it >= time_steps {
+                                        continue;
+                                    }
+                                    for kh in 0..kernel_h {
+                                        let ih_shifted = oh * stride_h + kh;
+                                        if ih_shifted < pad_h {
+                                            continue;
+                                        }
+                                        let ih = ih_shifted - pad_h;
+                                        if ih >= height {
+                                            continue;
+                                        }
+                                        for kw in 0..kernel_w {
+                                            let iw_shifted = ow * stride_w + kw;
+                                            if iw_shifted < pad_w {
+                                                continue;
+                                            }
+                                            let iw = iw_shifted - pad_w;
+                                            if iw >= width {
+                                                continue;
+                                            }
+                                            let inp = input.get(&[b, ic, it, ih, iw])?;
+                                            let ker = kernel.get(&[oc, ic, kt, kh, kw])?;
+                                            sum += inp * ker;
+                                        }
+                                    }
+                                }
+                            }
+                            output.set(&[b, oc, ot, oh, ow], sum)?;
+                        }
+                    }
+                }
+            }
+        }
+
         Ok(output)
     }
 
@@ -757,5 +806,58 @@ mod tests {
         let augmented = augmentation.apply_to_sequence(&frames).unwrap();
         assert_eq!(augmented.len(), 3);
         assert_eq!(augmented[0].data.shape().dims(), &[3, 64, 64]);
+    }
+
+    #[test]
+    fn test_conv3d_zero_kernel_gives_zero_output() {
+        use torsh_tensor::creation::ones;
+        let context = crate::hardware::HardwareContext::auto_detect().unwrap();
+        let model = VideoModel::new(context);
+        // Input: [1, 1, 4, 4, 4], kernel: [1, 1, 3, 3, 3] of zeros
+        let input = ones(&[1usize, 1, 4, 4, 4]).unwrap();
+        let kernel = zeros(&[1usize, 1, 3, 3, 3]).unwrap();
+        let output = model.conv3d(&input, &kernel, (1, 1, 1), (0, 0, 0)).unwrap();
+        let shape = output.shape();
+        assert_eq!(shape.dims(), &[1, 1, 2, 2, 2]);
+        for b in 0..1usize {
+            for oc in 0..1usize {
+                for ot in 0..2usize {
+                    for oh in 0..2usize {
+                        for ow in 0..2usize {
+                            let val = output.get(&[b, oc, ot, oh, ow]).unwrap();
+                            assert_eq!(val, 0.0f32, "zero kernel must give zero output");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_conv3d_identity_like_kernel() {
+        use torsh_tensor::creation::ones;
+        let context = crate::hardware::HardwareContext::auto_detect().unwrap();
+        let model = VideoModel::new(context);
+        // [1,1,3,3,3] input all ones, kernel [1,1,1,1,1] all ones → output [1,1,3,3,3] all ones (stride=1, pad=0, k=1)
+        let input = ones(&[1usize, 1, 3, 3, 3]).unwrap();
+        let kernel = ones(&[1usize, 1, 1, 1, 1]).unwrap();
+        let output = model.conv3d(&input, &kernel, (1, 1, 1), (0, 0, 0)).unwrap();
+        let shape = output.shape();
+        assert_eq!(shape.dims(), &[1, 1, 3, 3, 3]);
+        for b in 0..1usize {
+            for oc in 0..1usize {
+                for ot in 0..3usize {
+                    for oh in 0..3usize {
+                        for ow in 0..3usize {
+                            let val = output.get(&[b, oc, ot, oh, ow]).unwrap();
+                            assert!(
+                                (val - 1.0f32).abs() < 1e-5,
+                                "1x1x1 kernel of ones gives sum = 1.0"
+                            );
+                        }
+                    }
+                }
+            }
+        }
     }
 }

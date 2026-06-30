@@ -288,7 +288,7 @@ impl EdgeInferenceEngine {
 
     /// Start the edge inference engine
     pub fn start(&mut self) -> Result<()> {
-        *self.is_running.lock().unwrap() = true;
+        *self.is_running.lock().unwrap_or_else(|e| e.into_inner()) = true;
         
         // Start background processors
         self.start_batch_processor()?;
@@ -319,7 +319,7 @@ impl EdgeInferenceEngine {
         
         // Add to queue with priority ordering
         {
-            let mut queue = self.request_queue.lock().unwrap();
+            let mut queue = self.request_queue.lock().unwrap_or_else(|e| e.into_inner());
             
             // Insert based on priority (higher priority first)
             let insert_pos = queue.iter().position(|req| req.priority < request.priority)
@@ -361,10 +361,10 @@ impl EdgeInferenceEngine {
             let mut batch_buffer = Vec::new();
             let mut latency_samples = VecDeque::new();
             
-            while *is_running.lock().unwrap() {
+            while *is_running.lock().unwrap_or_else(|e| e.into_inner()) {
                 // Collect batch from queue
                 {
-                    let mut queue = request_queue.lock().unwrap();
+                    let mut queue = request_queue.lock().unwrap_or_else(|e| e.into_inner());
                     let now = Instant::now();
                     
                     // Remove expired requests
@@ -534,7 +534,7 @@ impl EdgeInferenceEngine {
 
     /// Get current performance metrics
     pub fn get_metrics(&self) -> PerformanceMetrics {
-        self.performance_monitor.lock().unwrap().clone()
+        self.performance_monitor.lock().unwrap_or_else(|e| e.into_inner()).clone()
     }
 
     /// Update model with new version

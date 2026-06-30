@@ -617,20 +617,33 @@ impl ProfileGuidedOptimizer {
         };
 
         if !node_name.is_empty() {
-            // Check if function is suitable for inlining (small, frequently called)
-            // Simplified inlining check - look for nodes with this name
-            if let Some(_node) = graph.nodes().find(|(_, node)| node.name == node_name) {
-                // Simplified inlining - just mark as inlined for now
-                // In a real implementation, this would actually inline the function body
-                // For now, we'll just assume the function can be inlined
-                let instruction_count = 10; // Placeholder - would get actual count from function body
+            // Locate the callee by name in the graph so we can measure its actual size.
+            // `call_node_id` is the call-site node; the callee's body nodes have matching names.
+            let callee_instruction_count = graph
+                .nodes()
+                .filter(|(id, n)| *id != node_id && n.name == node_name)
+                .count();
 
-                // Only inline small functions (< 50 instructions)
-                if instruction_count < 50 {
-                    // Simplified inlining - in reality this would inline the actual function body
-                    // For now just return success
-                    return Ok(true);
-                }
+            // Only inline functions whose body is non-empty (we found it) and small enough
+            // to be profitable (< 50 nodes).  An empty count means we cannot locate the
+            // callee in the current graph — conservatively decline rather than falsely claim
+            // success.
+            if callee_instruction_count == 0 {
+                // Callee not found in this graph — cannot inline.
+                return Ok(false);
+            }
+
+            if callee_instruction_count < 50 {
+                // Build a synthetic instruction list from the callee's node names so that
+                // `inline_function_body` can wire the actual nodes into the call-site.
+                let callee_instructions: Vec<String> = graph
+                    .nodes()
+                    .filter(|(id, n)| *id != node_id && n.name == node_name)
+                    .map(|(_, n)| n.name.clone())
+                    .collect();
+
+                self.inline_function_body(graph, node_id, &callee_instructions)?;
+                return Ok(true);
             }
         }
 

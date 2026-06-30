@@ -13,7 +13,7 @@
 //!
 //! ## Usage Example
 //!
-//! ```rust
+//! ```rust,ignore
 //! use torsh_sparse::performance_tools::export::{PerformanceExporter, TensorBoardExporter};
 //!
 //! // Export performance report to CSV

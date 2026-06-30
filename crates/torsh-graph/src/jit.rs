@@ -292,7 +292,10 @@ impl GraphJITCompiler {
         operation: &GraphOperation,
         _input_shapes: &[Vec<usize>],
     ) -> Result<Vec<u8>, JITError> {
-        // Generate optimized CPU assembly or C code
+        // Generate optimized CPU C source for the operations we have kernels
+        // for. Operations without a real kernel return an honest
+        // `UnsupportedOperation` error rather than emitting a placeholder
+        // comment string that pretends to be a compiled kernel.
         let code = match operation {
             GraphOperation::MessagePassing => {
                 // Optimized message passing kernel
@@ -340,7 +343,9 @@ impl GraphJITCompiler {
                 }
                 "
             }
-            _ => "// Generic optimized kernel placeholder",
+            other => {
+                return Err(JITError::UnsupportedOperation(other.clone()));
+            }
         };
 
         Ok(code.as_bytes().to_vec())
@@ -351,7 +356,9 @@ impl GraphJITCompiler {
         operation: &GraphOperation,
         _input_shapes: &[Vec<usize>],
     ) -> Result<Vec<u8>, JITError> {
-        // Generate LLVM IR for the operation
+        // Generate LLVM IR for operations we have a real lowering for.
+        // Anything else returns an honest `UnsupportedOperation` error instead
+        // of a placeholder IR comment.
         let llvm_ir = match operation {
             GraphOperation::AttentionComputation => {
                 r#"
@@ -388,7 +395,9 @@ impl GraphJITCompiler {
                 declare float @apply_attention(float, float*, i32)
                 "#
             }
-            _ => "; Generic LLVM IR placeholder",
+            other => {
+                return Err(JITError::UnsupportedOperation(other.clone()));
+            }
         };
 
         Ok(llvm_ir.as_bytes().to_vec())
@@ -399,7 +408,9 @@ impl GraphJITCompiler {
         operation: &GraphOperation,
         _input_shapes: &[Vec<usize>],
     ) -> Result<Vec<u8>, JITError> {
-        // Generate CUDA kernel code
+        // Generate CUDA kernel source for operations we have a real kernel for.
+        // Anything else returns an honest `UnsupportedOperation` error instead
+        // of a placeholder comment string.
         let cuda_code = match operation {
             GraphOperation::MessagePassing => {
                 "
@@ -435,7 +446,9 @@ impl GraphJITCompiler {
                 }
                 "
             }
-            _ => "// Generic CUDA kernel placeholder",
+            other => {
+                return Err(JITError::UnsupportedOperation(other.clone()));
+            }
         };
 
         Ok(cuda_code.as_bytes().to_vec())
@@ -443,12 +456,14 @@ impl GraphJITCompiler {
 
     fn generate_wasm_code(
         &self,
-        _operation: &GraphOperation,
+        operation: &GraphOperation,
         _input_shapes: &[Vec<usize>],
     ) -> Result<Vec<u8>, JITError> {
-        // Generate WebAssembly code (simplified)
-        let wasm_code = "(module (func (export \"graph_operation\") (result i32) i32.const 42))";
-        Ok(wasm_code.as_bytes().to_vec())
+        // No real WebAssembly lowering exists for any graph operation yet. The
+        // previous implementation emitted a trivial module that returned the
+        // constant 42 for *every* operation, which is a fabricated kernel.
+        // Return an honest error instead so callers do not run nonsense code.
+        Err(JITError::UnsupportedOperation(operation.clone()))
     }
 
     fn create_input_signature(&self, input_shapes: &[Vec<usize>]) -> Vec<TensorSignature> {
@@ -530,38 +545,53 @@ impl GraphJITCompiler {
 
     fn execute_cpu_kernel(
         &self,
-        _kernel: &CompiledKernel,
-        inputs: &[Tensor],
+        kernel: &CompiledKernel,
+        _inputs: &[Tensor],
     ) -> Result<Vec<Tensor>, JITError> {
-        // Execute CPU kernel (simplified)
-        Ok(inputs.to_vec()) // Placeholder
+        // The CPU backend currently generates kernel *source* but does not yet
+        // compile and run it (no in-process C/JIT compiler is wired). Returning
+        // the inputs unchanged would silently masquerade as a real computation,
+        // so report an honest execution error instead.
+        Err(JITError::ExecutionFailed(format!(
+            "CPU kernel '{}' was generated but no runtime compiler is wired to execute it",
+            kernel.id
+        )))
     }
 
     fn execute_llvm_kernel(
         &self,
-        _kernel: &CompiledKernel,
-        inputs: &[Tensor],
+        kernel: &CompiledKernel,
+        _inputs: &[Tensor],
     ) -> Result<Vec<Tensor>, JITError> {
-        // Execute LLVM compiled kernel (simplified)
-        Ok(inputs.to_vec()) // Placeholder
+        // LLVM IR is generated but no LLVM execution engine is linked in yet.
+        Err(JITError::ExecutionFailed(format!(
+            "LLVM kernel '{}' was generated but no LLVM execution engine is wired to run it",
+            kernel.id
+        )))
     }
 
     fn execute_cuda_kernel(
         &self,
-        _kernel: &CompiledKernel,
-        inputs: &[Tensor],
+        kernel: &CompiledKernel,
+        _inputs: &[Tensor],
     ) -> Result<Vec<Tensor>, JITError> {
-        // Execute CUDA kernel (simplified)
-        Ok(inputs.to_vec()) // Placeholder
+        // CUDA source is generated but no NVRTC/driver launch path is wired.
+        Err(JITError::ExecutionFailed(format!(
+            "CUDA kernel '{}' was generated but no CUDA launch path is wired to run it",
+            kernel.id
+        )))
     }
 
     fn execute_wasm_kernel(
         &self,
-        _kernel: &CompiledKernel,
-        inputs: &[Tensor],
+        kernel: &CompiledKernel,
+        _inputs: &[Tensor],
     ) -> Result<Vec<Tensor>, JITError> {
-        // Execute WebAssembly kernel (simplified)
-        Ok(inputs.to_vec()) // Placeholder
+        // No WebAssembly runtime is wired to execute generated modules.
+        Err(JITError::ExecutionFailed(format!(
+            "WASM kernel '{}' cannot be executed: no WebAssembly runtime is wired",
+            kernel.id
+        )))
     }
 
     fn analyze_fusion_opportunities(

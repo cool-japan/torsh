@@ -212,6 +212,10 @@ impl Optimizer for NAdam {
         self.param_groups.push(param_group);
     }
 
+    fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {
+        crate::optimizer::collect_parameters(&self.param_groups)
+    }
+
     fn state_dict(&self) -> OptimizerResult<OptimizerState> {
         let param_groups = self
             .param_groups

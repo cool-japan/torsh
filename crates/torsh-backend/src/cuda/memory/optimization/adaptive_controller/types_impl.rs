@@ -6,25 +6,25 @@
 #[derive(Debug)]
 pub struct AdaptiveOptimizationController {
     /// Available adaptation strategies
-    adaptation_strategies: HashMap<String, AdaptationStrategy>,
+    pub adaptation_strategies: HashMap<String, AdaptationStrategy>,
     /// System state monitoring and analysis
-    state_monitor: SystemStateMonitor,
+    pub state_monitor: SystemStateMonitor,
     /// Historical adaptation events
-    adaptation_history: VecDeque<AdaptationEvent>,
+    pub adaptation_history: VecDeque<AdaptationEvent>,
     /// Machine learning mechanism for continuous learning
-    learning_mechanism: AdaptiveLearningMechanism,
+    pub learning_mechanism: AdaptiveLearningMechanism,
     /// Control parameters and thresholds
-    control_params: AdaptiveControlParams,
+    pub control_params: AdaptiveControlParams,
     /// Current controller state
-    controller_state: ControllerState,
+    pub controller_state: ControllerState,
     /// Performance metrics and statistics
-    performance_metrics: AdaptationPerformanceMetrics,
+    pub performance_metrics: AdaptationPerformanceMetrics,
     /// Environmental context awareness
-    environment_context: EnvironmentContext,
+    pub environment_context: EnvironmentContext,
     /// Decision tree for automated reasoning
-    decision_tree: AdaptiveDecisionTree,
+    pub decision_tree: AdaptiveDecisionTree,
     /// Meta-learning capabilities
-    meta_learning: MetaLearningSystem,
+    pub meta_learning: MetaLearningSystem,
 }
 impl AdaptiveOptimizationController {
     /// Create a new adaptive optimization controller
@@ -139,8 +139,11 @@ impl AdaptiveOptimizationController {
                     "resource_metrics".to_string(), "allocation_stats".to_string(),
                 ],
             },
+            // Applicability only gates on spare CPU head-room needed to perform the
+            // reallocation; the high-memory pressure condition itself is detected by
+            // the `ResourcePressure` trigger above (memory usage above the threshold),
+            // so it must NOT be re-gated here by a low-memory applicability check.
             applicability_conditions: vec![
-                ApplicabilityCondition::MemoryPressure { threshold : 0.7 },
                 ApplicabilityCondition::ResourceAvailability { resource : "cpu"
                 .to_string(), min_available : 0.2, },
             ],
@@ -173,21 +176,27 @@ impl AdaptiveOptimizationController {
         self.adaptation_strategies
             .insert("resource_pressure_response".to_string(), resource_strategy);
     }
-    /// Get adaptation recommendations based on current system state
-    pub fn get_recommendations(&self) -> Vec<OptimizationRecommendation> {
+    /// Get adaptation recommendations based on the provided system state
+    ///
+    /// Evaluates every registered strategy against `state` and returns one
+    /// recommendation per strategy whose applicability conditions hold and whose
+    /// triggers fire, sorted by descending priority (ties broken by confidence).
+    pub fn get_recommendations(
+        &self,
+        state: &SystemState,
+    ) -> Vec<OptimizationRecommendation> {
         let mut recommendations = Vec::new();
-        let current_state = &self.state_monitor.current_state;
         for (strategy_name, strategy) in &self.adaptation_strategies {
-            if self.should_trigger_strategy(strategy, current_state) {
+            if self.should_trigger_strategy(strategy, state) {
                 let recommendation = OptimizationRecommendation {
                     id: format!("adapt_{}", strategy_name),
                     strategy_name: strategy_name.clone(),
                     description: format!(
                         "Adaptive recommendation: {}", strategy.description
                     ),
-                    priority: self.calculate_priority(strategy, current_state),
+                    priority: self.calculate_priority(strategy, state),
                     expected_improvement: strategy.effectiveness,
-                    confidence: self.calculate_confidence(strategy, current_state),
+                    confidence: self.calculate_confidence(strategy, state),
                     resource_requirements: strategy.resource_requirements.cpu_cost,
                     estimated_duration: strategy.resource_requirements.execution_time,
                     risk_assessment: self.assess_risk(strategy),
@@ -228,7 +237,7 @@ impl AdaptiveOptimizationController {
         false
     }
     /// Check if an applicability condition is met
-    fn check_applicability_condition(
+    pub fn check_applicability_condition(
         &self,
         condition: &ApplicabilityCondition,
         state: &SystemState,
@@ -259,7 +268,7 @@ impl AdaptiveOptimizationController {
         }
     }
     /// Check if a trigger condition is met
-    fn check_trigger(&self, trigger: &AdaptationTrigger, state: &SystemState) -> bool {
+    pub fn check_trigger(&self, trigger: &AdaptationTrigger, state: &SystemState) -> bool {
         match trigger {
             AdaptationTrigger::PerformanceDegradation {
                 threshold,
@@ -314,7 +323,7 @@ impl AdaptiveOptimizationController {
         }
     }
     /// Calculate priority for a recommendation
-    fn calculate_priority(
+    pub fn calculate_priority(
         &self,
         strategy: &AdaptationStrategy,
         _state: &SystemState,
@@ -335,7 +344,7 @@ impl AdaptiveOptimizationController {
             + risk_weight * risk_score
     }
     /// Calculate confidence in a strategy recommendation
-    fn calculate_confidence(
+    pub fn calculate_confidence(
         &self,
         strategy: &AdaptationStrategy,
         _state: &SystemState,
@@ -347,7 +356,7 @@ impl AdaptiveOptimizationController {
         success_weight * success_score + usage_weight * usage_score
     }
     /// Assess risk for a strategy
-    fn assess_risk(&self, strategy: &AdaptationStrategy) -> f32 {
+    pub fn assess_risk(&self, strategy: &AdaptationStrategy) -> f32 {
         let complexity_risk = match strategy.complexity {
             StrategyComplexity::Simple => 0.1,
             StrategyComplexity::Moderate => 0.3,
@@ -438,7 +447,7 @@ impl AdaptiveOptimizationController {
         Ok(event)
     }
     /// Execute a single adaptation action
-    fn execute_action(&self, action: &AdaptationAction) -> Result<String, String> {
+    pub fn execute_action(&self, action: &AdaptationAction) -> Result<String, String> {
         match action {
             AdaptationAction::ParameterAdjustment { parameter, adjustment, bounds } => {
                 let description = match adjustment {
@@ -538,7 +547,7 @@ impl AdaptiveOptimizationController {
         self.extract_rules_from_experience(&experience);
     }
     /// Update learning performance metrics
-    fn update_learning_performance(&mut self, experience: &AdaptiveExperience) {
+    pub fn update_learning_performance(&mut self, experience: &AdaptiveExperience) {
         let performance = &mut self.learning_mechanism.performance;
         let success_score = if experience.result.success { 1.0 } else { 0.0 };
         performance.accuracy = performance.accuracy * 0.9 + success_score * 0.1;

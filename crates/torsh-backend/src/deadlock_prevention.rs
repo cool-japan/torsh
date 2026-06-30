@@ -285,17 +285,34 @@ mod tests {
 
     #[test]
     fn test_safe_lock_contention() {
+        use std::sync::mpsc;
+
         let mutex = Arc::new(Mutex::new(0));
         let mutex_clone = Arc::clone(&mutex);
 
-        // Hold lock in another thread
+        // Deterministic hand-off (no sleep races): the holder thread signals once
+        // it actually owns the lock, then keeps holding it until the main thread
+        // has finished its timed-out acquisition attempt. This guarantees the lock
+        // is held for the *entire* duration of `acquire_blocking`, regardless of
+        // scheduler jitter under heavy parallel test load.
+        let (acquired_tx, acquired_rx) = mpsc::channel::<()>();
+        let (release_tx, release_rx) = mpsc::channel::<()>();
+
         let handle = thread::spawn(move || {
             let _guard = mutex_clone.lock().expect("lock should not be poisoned");
-            thread::sleep(Duration::from_millis(100));
+            // Announce that the lock is now held.
+            acquired_tx
+                .send(())
+                .expect("main thread should be waiting for the acquire signal");
+            // Hold the lock until the main thread permits release.
+            let _ = release_rx.recv();
+            // `_guard` is dropped here, releasing the lock.
         });
 
-        // Try to acquire with short timeout
-        thread::sleep(Duration::from_millis(10)); // Let other thread acquire lock first
+        // Block until the holder genuinely owns the lock before we contend for it.
+        acquired_rx
+            .recv()
+            .expect("holder thread should acquire the lock");
 
         let timeout = LockTimeout {
             max_wait: Duration::from_millis(50),
@@ -303,9 +320,17 @@ mod tests {
             max_retries: 10,
         };
 
+        // The lock is provably held for the whole attempt, so this must time out.
         let result = SafeLock::acquire_blocking(&mutex, Some(timeout), "test_contention");
-        assert!(result.is_err()); // Should timeout
+        assert!(
+            result.is_err(),
+            "acquire_blocking must time out while the lock is held by another thread"
+        );
 
+        // Allow the holder to release and finish.
+        release_tx
+            .send(())
+            .expect("holder thread should be waiting for the release signal");
         handle.join().unwrap();
     }
 

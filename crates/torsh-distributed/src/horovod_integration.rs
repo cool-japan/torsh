@@ -482,6 +482,7 @@ impl HorovodIntegration {
                     .discovery_server
                     .clone()
                     .unwrap_or_else(|| "localhost:2379".to_string()),
+                heartbeat_timeout: Duration::from_secs(60),
             };
 
             Ok(Some(config))

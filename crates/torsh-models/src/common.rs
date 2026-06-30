@@ -262,11 +262,60 @@ impl RMSNorm {
         }
     }
 
-    /// Forward pass through RMS normalization
+    /// Forward pass through RMS normalization.
+    ///
+    /// Computes: `output = x / rms(x) * weight`
+    /// where `rms(x) = sqrt(mean(x^2) + eps)`.
+    ///
+    /// Normalization is performed over the last dimension (the normalised shape).
     pub fn forward(&self, x: &Tensor) -> Result<Tensor> {
-        // Simplified implementation for testing
-        // In practice, this would compute RMS normalization properly
-        Ok(x.clone()) // Placeholder: just return input unchanged
+        let x_shape = x.shape();
+        let x_dims = x_shape.dims();
+
+        // Determine which dimensions to reduce over (the normalised_shape axes).
+        // normalised_shape matches the trailing dimensions of x.
+        let norm_ndim = self.normalized_shape.len();
+        if x_dims.len() < norm_ndim {
+            return Err(TorshError::InvalidOperation(format!(
+                "RMSNorm: input has {} dims but normalized_shape has {} dims",
+                x_dims.len(),
+                norm_ndim
+            )));
+        }
+
+        let reduce_start_dim = (x_dims.len() - norm_ndim) as i32;
+
+        // x^2
+        let x_sq = x.square()?;
+
+        // mean(x^2) over the normalised dimensions, keeping dims for broadcasting
+        let reduce_dims: Vec<i32> = (reduce_start_dim..x_dims.len() as i32).collect();
+        let mean_sq = x_sq.sum_dim(&reduce_dims, /*keepdim=*/ true)?;
+        let norm_numel: usize = self.normalized_shape.iter().product();
+        let mean_sq = mean_sq.div_scalar(norm_numel as f32)?;
+
+        // rms = sqrt(mean_sq + eps)
+        let rms = mean_sq.add_scalar(self.eps)?.sqrt()?;
+
+        // normalised = x / rms  (broadcast rms over reduced dims)
+        let normed = x.div(&rms.expand(x_dims)?)?;
+
+        // Apply scale weight: weight has shape = normalized_shape.
+        // Expand weight to match x's full shape for element-wise mul.
+        let weight_tensor = self.weight.tensor().read().clone();
+        // Reshape weight into [1, ..., 1, *normalized_shape] for broadcasting
+        let mut broadcast_weight_shape = vec![1usize; x_dims.len() - norm_ndim];
+        broadcast_weight_shape.extend_from_slice(&self.normalized_shape);
+        let weight_expanded = weight_tensor
+            .view(
+                &broadcast_weight_shape
+                    .iter()
+                    .map(|&d| d as i32)
+                    .collect::<Vec<_>>(),
+            )?
+            .expand(x_dims)?;
+
+        normed.mul(&weight_expanded)
     }
 }
 
@@ -316,6 +365,7 @@ pub struct GroupNorm {
     num_groups: usize,
     num_channels: usize,
     eps: f32,
+    affine: bool,
     weight: Parameter,
     bias: Parameter,
 }
@@ -354,16 +404,114 @@ impl GroupNorm {
             num_groups,
             num_channels,
             eps,
+            affine,
             weight: Parameter::new(weight_tensor),
             bias: Parameter::new(bias_tensor),
         }
     }
 
-    /// Forward pass through group normalization
+    /// Forward pass through group normalization.
+    ///
+    /// Accepts input of shape `[N, C, *]` where `C == num_channels`.
+    /// Reshapes to `[N, G, C/G, *]`, computes mean and variance within each
+    /// `(N, G)` group, normalizes, then applies the per-channel affine
+    /// parameters (weight, bias) when they were initialised with `affine=true`.
     pub fn forward(&self, x: &Tensor) -> Result<Tensor> {
-        // Simplified implementation for testing
-        // In practice, this would perform proper group normalization
-        Ok(x.clone()) // Placeholder: just return input unchanged
+        let x_shape = x.shape();
+        let x_dims = x_shape.dims();
+
+        if x_dims.len() < 2 {
+            return Err(TorshError::InvalidOperation(
+                "GroupNorm: input must be at least 2-dimensional [N, C, ...]".to_string(),
+            ));
+        }
+
+        let batch_size = x_dims[0];
+        let channels = x_dims[1];
+
+        if channels != self.num_channels {
+            return Err(TorshError::InvalidOperation(format!(
+                "GroupNorm: expected {} channels but got {}",
+                self.num_channels, channels
+            )));
+        }
+
+        if channels % self.num_groups != 0 {
+            return Err(TorshError::InvalidOperation(format!(
+                "GroupNorm: num_channels ({}) must be divisible by num_groups ({})",
+                channels, self.num_groups
+            )));
+        }
+
+        let channels_per_group = channels / self.num_groups;
+        // Spatial size: product of all trailing dims beyond the channel dim
+        let spatial: usize = x_dims[2..].iter().product::<usize>().max(1);
+        // Each group spans (channels_per_group * spatial) elements
+        let group_size = channels_per_group * spatial;
+        let total = batch_size * self.num_groups * group_size;
+
+        // Reshape to [N, G, C/G * spatial] to allow reduction over group elements.
+        // We work in flat data form so we don't need a real arbitrary reshape.
+        let data = x.to_vec()?;
+        if data.len() != total {
+            return Err(TorshError::InvalidOperation(format!(
+                "GroupNorm: data length {} does not match expected {} (shape {:?})",
+                data.len(),
+                total,
+                x_dims,
+            )));
+        }
+
+        let mut result_data = vec![0.0f32; total];
+
+        for n in 0..batch_size {
+            for g in 0..self.num_groups {
+                let base = n * channels * spatial + g * group_size;
+
+                // Compute mean over the group
+                let mut mean = 0.0f32;
+                for i in 0..group_size {
+                    mean += data[base + i];
+                }
+                mean /= group_size as f32;
+
+                // Compute variance over the group
+                let mut var = 0.0f32;
+                for i in 0..group_size {
+                    let diff = data[base + i] - mean;
+                    var += diff * diff;
+                }
+                var /= group_size as f32;
+
+                let inv_std = 1.0 / (var + self.eps).sqrt();
+
+                // Normalize
+                for i in 0..group_size {
+                    result_data[base + i] = (data[base + i] - mean) * inv_std;
+                }
+            }
+        }
+
+        // Apply affine parameters: weight (gamma) and bias (beta), shape [C]
+        let has_affine = self.affine;
+        if has_affine {
+            let weight_data = self.weight.tensor().read().to_vec()?;
+            let bias_data = self.bias.tensor().read().to_vec()?;
+
+            // Broadcast weight/bias over [N, C, *spatial]
+            for n in 0..batch_size {
+                for c in 0..channels {
+                    let spatial_start = n * channels * spatial + c * spatial;
+                    let w = weight_data[c];
+                    let b = bias_data[c];
+                    for s in 0..spatial {
+                        result_data[spatial_start + s] = result_data[spatial_start + s] * w + b;
+                    }
+                }
+            }
+        }
+
+        Tensor::from_data(result_data, x_dims.to_vec(), x.device())
     }
 }
 
@@ -374,7 +522,7 @@ impl Module for GroupNorm {
 
     fn parameters(&self) -> HashMap<String, Parameter> {
         let mut params = HashMap::new();
-        if self.weight.requires_grad() {
+        if self.affine {
             params.insert("weight".to_string(), self.weight.clone());
             params.insert("bias".to_string(), self.bias.clone());
         }
@@ -398,7 +546,7 @@ impl Module for GroupNorm {
     }
 
     fn to_device(&mut self, device: DeviceType) -> Result<()> {
-        if self.weight.requires_grad() {
+        if self.affine {
             {
                 let weight_tensor = self.weight.tensor();
                 let mut weight_data = weight_tensor.write();
@@ -444,17 +592,90 @@ mod tests {
     fn test_rms_norm() {
         let norm = RMSNorm::new(vec![128], 1e-6);
         let data: Vec<f32> = (0..4 * 128).map(|i| (i as f32) * 0.01).collect();
-        let x = Tensor::from_vec(data, &[4, 128]).unwrap();
+        let x = Tensor::from_vec(data.clone(), &[4, 128]).unwrap();
         let normalized = norm.forward(&x).unwrap();
         assert_eq!(normalized.shape(), x.shape());
+
+        // The output must differ from the input: RMSNorm is not the identity.
+        let out_data = normalized.to_vec().unwrap();
+        assert_ne!(
+            out_data, data,
+            "RMSNorm::forward must not return the input unchanged"
+        );
+    }
+
+    #[test]
+    fn test_rms_norm_unit_rms() {
+        // When weight is all-ones, RMS of each output row should be ~1.
+        let d = 32usize;
+        let norm = RMSNorm::new(vec![d], 1e-6);
+        // Build a batch of 3 rows with known data
+        let data: Vec<f32> = (0..(3 * d)).map(|i| (i as f32 + 1.0) * 0.5).collect();
+        let x = Tensor::from_vec(data, &[3, d]).unwrap();
+        let out = norm.forward(&x).unwrap();
+        let out_data = out.to_vec().unwrap();
+        for row in 0..3 {
+            // Compute RMS of the output row
+            let sq_sum: f32 = (0..d).map(|j| out_data[row * d + j].powi(2)).sum::<f32>();
+            let rms = (sq_sum / d as f32).sqrt();
+            assert!(
+                (rms - 1.0).abs() < 1e-4,
+                "Row {row}: expected output RMS ≈ 1.0, got {rms}"
+            );
+        }
     }
 
     #[test]
     fn test_group_norm() {
         let norm = GroupNorm::new(8, 64, 1e-5, true);
         let data: Vec<f32> = (0..2 * 64 * 32 * 32).map(|i| (i as f32) * 0.001).collect();
-        let x = Tensor::from_vec(data, &[2, 64, 32, 32]).unwrap();
+        let x = Tensor::from_vec(data.clone(), &[2, 64, 32, 32]).unwrap();
         let normalized = norm.forward(&x).unwrap();
         assert_eq!(normalized.shape(), x.shape());
+
+        // The output must differ from the input: GroupNorm is not the identity.
+        let out_data = normalized.to_vec().unwrap();
+        assert_ne!(
+            out_data, data,
+            "GroupNorm::forward must not return the input unchanged"
+        );
+    }
+
+    #[test]
+    fn test_group_norm_zero_mean() {
+        // GroupNorm with affine=false: each group should have mean ≈ 0 and var ≈ 1.
+        let n = 2usize;
+        let c = 4usize;
+        let g = 2usize;
+        let spatial = 8usize;
+        let norm = GroupNorm::new(g, c, 1e-5, false);
+        // Non-trivial data so normalization actually changes the values
+        let data: Vec<f32> = (0..(n * c * spatial))
+            .map(|i| (i as f32) * 0.3 + 1.0)
+            .collect();
+        let x = Tensor::from_vec(data, &[n, c, spatial]).unwrap();
+        let out = norm.forward(&x).unwrap();
+        let out_data = out.to_vec().unwrap();
+
+        let channels_per_group = c / g;
+        let group_size = channels_per_group * spatial;
+
+        for ni in 0..n {
+            for gi in 0..g {
+                let base = ni * c * spatial + gi * group_size;
+                let group_data: Vec<f32> = (0..group_size).map(|i| out_data[base + i]).collect();
+                let mean = group_data.iter().sum::<f32>() / group_size as f32;
+                let var =
+                    group_data.iter().map(|&v| (v - mean).powi(2)).sum::<f32>() / group_size as f32;
+                assert!(
+                    mean.abs() < 1e-4,
+                    "Group ({ni},{gi}): expected mean ≈ 0, got {mean}"
+                );
+                assert!(
+                    (var - 1.0).abs() < 1e-3,
+                    "Group ({ni},{gi}): expected var ≈ 1, got {var}"
+                );
+            }
+        }
     }
 }

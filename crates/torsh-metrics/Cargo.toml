@@ -36,6 +36,8 @@ criterion = { workspace = true }
 
 [features]
 default = []
-gpu = ["scirs2-core/gpu"]
+# GPU metrics compute is CPU-backed today; no scirs2 GPU dependency after the
+# oxicuda migration. The flag still gates the (CPU) compute_gpu code path.
+gpu = []
 parallel = ["scirs2-core/parallel"]
 full = ["gpu", "parallel"]

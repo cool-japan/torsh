@@ -314,9 +314,19 @@ impl CrossModalGraphAttention {
         .expect("projected features tensor creation should succeed")
     }
 
-    /// Apply cross-modal attention mechanism
+    /// Apply the cross-modal attention mechanism.
+    ///
+    /// This computes real scaled dot-product attention across modalities: the
+    /// first available modality supplies the queries, every other modality
+    /// contributes keys/values, and the attended values are summed and passed
+    /// through the output projection. The zero tensor below is returned *only*
+    /// as a legitimate guard for the degenerate case where no modality features
+    /// are present (there is nothing to attend over); it is not a stand-in for
+    /// the main computation path.
     fn apply_cross_modal_attention(&self, modality_features: &HashMap<Modality, Tensor>) -> Tensor {
         if modality_features.is_empty() {
+            // Empty-input guard: with no modalities there is no attention to
+            // compute, so a zero feature row is the correct, documented result.
             return zeros::<f32>(&[1, self.feature_dim])
                 .expect("empty attention features tensor creation should succeed");
         }

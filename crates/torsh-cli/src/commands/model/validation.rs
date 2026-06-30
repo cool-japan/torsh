@@ -13,8 +13,7 @@ use anyhow::Result;
 use tracing::{debug, info, warn};
 
 // ✅ SciRS2 POLICY COMPLIANT: Use scirs2-core unified access patterns
-use scirs2_core::ndarray::Array1;
-use scirs2_core::random::{thread_rng, Distribution, Normal, Uniform};
+use scirs2_core::random::{thread_rng, Distribution, Uniform};
 
 // ToRSh integration
 use torsh::core::device::DeviceType;
@@ -77,8 +76,9 @@ pub struct StabilityAnalysis {
     pub has_large_values: bool,
     /// Very small values (<1e-6)
     pub has_tiny_values: bool,
-    /// Gradient magnitude statistics
-    pub gradient_magnitude: GradientStatistics,
+    /// Gradient magnitude statistics. `None` when they cannot be computed —
+    /// a metadata-only model has no autograd graph to derive gradients from.
+    pub gradient_magnitude: Option<GradientStatistics>,
     /// Activation statistics
     pub activation_stats: ActivationStatistics,
 }
@@ -154,18 +154,20 @@ pub async fn validate_model(
         errors.push("Model contains Inf values".to_string());
     }
 
-    if stability.gradient_magnitude.vanishing_percentage > 50.0 {
-        warnings.push(format!(
-            "High vanishing gradient rate: {:.1}%",
-            stability.gradient_magnitude.vanishing_percentage
-        ));
-    }
+    if let Some(gradient_magnitude) = &stability.gradient_magnitude {
+        if gradient_magnitude.vanishing_percentage > 50.0 {
+            warnings.push(format!(
+                "High vanishing gradient rate: {:.1}%",
+                gradient_magnitude.vanishing_percentage
+            ));
+        }
 
-    if stability.gradient_magnitude.exploding_percentage > 10.0 {
-        warnings.push(format!(
-            "High exploding gradient rate: {:.1}%",
-            stability.gradient_magnitude.exploding_percentage
-        ));
+        if gradient_magnitude.exploding_percentage > 10.0 {
+            warnings.push(format!(
+                "High exploding gradient rate: {:.1}%",
+                gradient_magnitude.exploding_percentage
+            ));
+        }
     }
 
     let passed = errors.is_empty() && successful > 0;
@@ -272,9 +274,6 @@ async fn run_inference_tests(
                 warn!("Inference {} failed: {}", i, e);
             }
         }
-
-        // Small delay to simulate realistic timing
-        tokio::time::sleep(std::time::Duration::from_millis(1)).await;
     }
 
     let avg_time = if successful > 0 {
@@ -299,29 +298,14 @@ fn create_random_input(shape: &[usize]) -> Result<Tensor<f32>> {
     Ok(Tensor::from_data(data, shape.to_vec(), DeviceType::Cpu)?)
 }
 
-/// Perform forward pass through the model
-async fn perform_forward_pass(model: &TorshModel, _input: &Tensor<f32>) -> Result<Tensor<f32>> {
+/// Perform a real forward pass through the model.
+///
+/// Delegates to [`super::tensor_integration::forward_pass`], which threads the
+/// input through each layer with real `matmul`/activation tensor kernels. This
+/// is a genuine computation — not a zero-filled placeholder.
+async fn perform_forward_pass(model: &TorshModel, input: &Tensor<f32>) -> Result<Tensor<f32>> {
     debug!("Performing forward pass");
-
-    // For now, use a simplified forward pass simulation
-    // In real implementation, this would iterate through layers and apply operations
-
-    let output_shape = model
-        .layers
-        .last()
-        .map(|l| l.output_shape.clone())
-        .unwrap_or_else(|| vec![10]);
-
-    // Simulate computation based on model complexity
-    let total_flops: u64 = model.layers.iter().map(|l| estimate_layer_flops(l)).sum();
-
-    let compute_time_us = (total_flops as f64 / 1_000_000.0) as u64;
-    tokio::time::sleep(std::time::Duration::from_micros(compute_time_us.min(10000))).await;
-
-    // Create output tensor (simplified)
-    let output = Tensor::zeros(output_shape.as_slice(), DeviceType::Cpu)?;
-
-    Ok(output)
+    super::tensor_integration::forward_pass(model, input)
 }
 
 /// Estimate FLOPs for a layer
@@ -363,252 +347,126 @@ fn estimate_inference_memory(model: &TorshModel, _output: &Tensor<f32>) -> f64 {
     (param_memory + activation_memory) as f64 / (1024.0 * 1024.0)
 }
 
-/// Perform gradient checking using finite differences
+/// Attempt gradient checking.
+///
+/// A meaningful gradient check compares finite-difference (numerical) gradients
+/// with analytical (autograd) gradients for the same parameters. A
+/// [`TorshModel`] carries only tensor metadata — it has no autograd-tracked
+/// parameters or live computation graph — so analytical gradients cannot be
+/// obtained. Rather than compare fabricated random vectors (which would always
+/// "pass"), this delegates to the honest primitive in
+/// [`super::tensor_integration::gradient_check`], which returns an error
+/// describing what is required to gradient-check a model.
 async fn perform_gradient_check(model: &TorshModel) -> Result<GradientCheckResult> {
     info!("Performing gradient check");
-
-    let epsilon = 1e-5;
-    let tolerance = 1e-3;
 
     let input_shape = model
         .layers
         .first()
         .map(|l| l.input_shape.clone())
         .unwrap_or_else(|| vec![784]);
-
     let input = create_random_input(&input_shape)?;
 
-    // Check gradients for a subset of parameters
-    let num_checks = 10.min(model.weights.len());
-    let mut max_error = 0.0f64;
-    let mut total_error = 0.0f64;
-    let mut failed_locations = Vec::new();
-
-    for (i, (name, _weight_info)) in model.weights.iter().take(num_checks).enumerate() {
-        debug!("Checking gradient for: {}", name);
-
-        // Numerical gradient (finite difference)
-        let numerical_grad = compute_numerical_gradient(model, &input, name, epsilon).await?;
-
-        // Analytical gradient (from autograd - simulated for now)
-        let analytical_grad = compute_analytical_gradient(model, &input, name).await?;
-
-        // Compute relative error
-        let relative_error = compute_relative_error(&numerical_grad, &analytical_grad);
-
-        total_error += relative_error;
-        max_error = max_error.max(relative_error);
-
-        if relative_error > tolerance {
-            failed_locations.push(format!("{} (error: {:.6})", name, relative_error));
-            warn!(
-                "Gradient check failed for {}: relative error {:.6}",
-                name, relative_error
-            );
-        }
-
-        debug!("Gradient check {}: relative error {:.6}", i, relative_error);
-    }
-
-    let avg_error = total_error / num_checks as f64;
-    let passed = failed_locations.is_empty();
+    // Errors for metadata-only models; yields a real verdict once
+    // autograd-tracked models are supported.
+    let passed = super::tensor_integration::gradient_check(model, &input, 1e-5)?;
 
     Ok(GradientCheckResult {
         passed,
-        max_relative_error: max_error,
-        avg_relative_error: avg_error,
-        num_gradients_checked: num_checks,
-        failed_locations,
+        max_relative_error: 0.0,
+        avg_relative_error: 0.0,
+        num_gradients_checked: model.weights.len(),
+        failed_locations: Vec::new(),
     })
 }
 
-/// Compute numerical gradient using finite differences
-async fn compute_numerical_gradient(
-    _model: &TorshModel,
-    _input: &Tensor<f32>,
-    _param_name: &str,
-    epsilon: f64,
-) -> Result<Array1<f64>> {
-    // Simplified numerical gradient computation
-    // In real implementation, this would:
-    // 1. Compute loss with param[i] + epsilon
-    // 2. Compute loss with param[i] - epsilon
-    // 3. gradient[i] = (loss_plus - loss_minus) / (2 * epsilon)
-
-    // For now, generate a small random gradient vector
-    let mut rng = thread_rng();
-    let normal = Normal::new(0.0, epsilon)?;
-
-    let size = 100; // Simplified
-    let grad: Vec<f64> = (0..size).map(|_| normal.sample(&mut rng)).collect();
-
-    Ok(Array1::from_vec(grad))
-}
-
-/// Compute analytical gradient using autograd
-async fn compute_analytical_gradient(
-    _model: &TorshModel,
-    _input: &Tensor<f32>,
-    _param_name: &str,
-) -> Result<Array1<f64>> {
-    // In real implementation, this would use torsh-autograd
-    // For now, generate a similar gradient vector
-
-    let mut rng = thread_rng();
-    let normal = Normal::new(0.0, 1e-5)?;
-
-    let size = 100; // Simplified
-    let grad: Vec<f64> = (0..size).map(|_| normal.sample(&mut rng)).collect();
-
-    Ok(Array1::from_vec(grad))
-}
-
-/// Compute relative error between two gradient vectors
-fn compute_relative_error(numerical: &Array1<f64>, analytical: &Array1<f64>) -> f64 {
-    let diff_norm = (numerical - analytical)
-        .iter()
-        .map(|x| x * x)
-        .sum::<f64>()
-        .sqrt();
-
-    let sum_norm = (numerical.iter().map(|x| x * x).sum::<f64>().sqrt()
-        + analytical.iter().map(|x| x * x).sum::<f64>().sqrt())
-        / 2.0;
-
-    if sum_norm < 1e-7 {
-        diff_norm
-    } else {
-        diff_norm / sum_norm
-    }
-}
-
-/// Analyze numerical stability of model
+/// Analyze numerical stability of the model from a real forward pass.
+///
+/// A [`TorshModel`] holds only tensor metadata (shapes/dtypes) — it has no
+/// trained weight values to inspect — so stability is assessed from the
+/// activations of a genuinely-computed forward pass rather than from fabricated
+/// samples. Gradient-magnitude statistics require an autograd graph that a
+/// metadata-only model does not provide, so they are honestly reported as
+/// absent (`None`).
 async fn analyze_numerical_stability(model: &TorshModel) -> Result<StabilityAnalysis> {
     info!("Analyzing numerical stability");
+
+    let input_shape = model
+        .layers
+        .first()
+        .map(|l| l.input_shape.clone())
+        .unwrap_or_else(|| vec![784]);
+    let input = create_random_input(&input_shape)?;
+    let output = super::tensor_integration::forward_pass(model, &input)?;
+    let values: Vec<f32> = output.to_vec()?;
 
     let mut has_nan = false;
     let mut has_inf = false;
     let mut has_large_values = false;
     let mut has_tiny_values = false;
-
-    // Check weight values
-    for (name, _weight_info) in &model.weights {
-        // In real implementation, would check actual tensor values
-        // For now, simulate checks
-        debug!("Checking stability for: {}", name);
-
-        // Simulate random weight distribution check
-        let mut rng = thread_rng();
-        let normal = Normal::new(0.0, 0.1)?;
-
-        let sample_size = 100;
-        let samples: Vec<f64> = (0..sample_size).map(|_| normal.sample(&mut rng)).collect();
-
-        for &val in &samples {
-            if val.is_nan() {
-                has_nan = true;
-            }
-            if val.is_infinite() {
-                has_inf = true;
-            }
-            if val.abs() > 1e6 {
-                has_large_values = true;
-            }
-            if val.abs() < 1e-6 && val != 0.0 {
-                has_tiny_values = true;
-            }
+    for &val in &values {
+        if val.is_nan() {
+            has_nan = true;
+        }
+        if val.is_infinite() {
+            has_inf = true;
+        }
+        if val.abs() > 1e6 {
+            has_large_values = true;
+        }
+        if val != 0.0 && val.abs() < 1e-6 {
+            has_tiny_values = true;
         }
     }
 
-    // Compute gradient statistics (simulated)
-    let gradient_magnitude = compute_gradient_statistics(model)?;
-
-    // Compute activation statistics (simulated)
-    let activation_stats = compute_activation_statistics(model)?;
+    let activation_stats = compute_activation_statistics(&values);
 
     Ok(StabilityAnalysis {
         has_nan,
         has_inf,
         has_large_values,
         has_tiny_values,
-        gradient_magnitude,
+        gradient_magnitude: None,
         activation_stats,
     })
 }
 
-/// Compute gradient magnitude statistics
-fn compute_gradient_statistics(_model: &TorshModel) -> Result<GradientStatistics> {
-    // Simulate gradient statistics
-    let mut rng = thread_rng();
-    let normal = Normal::new(0.0, 0.1)?;
+/// Compute activation statistics from real activation values.
+fn compute_activation_statistics(activations: &[f32]) -> ActivationStatistics {
+    if activations.is_empty() {
+        return ActivationStatistics {
+            mean: 0.0,
+            std: 0.0,
+            min: 0.0,
+            max: 0.0,
+            dead_neurons_percentage: 0.0,
+        };
+    }
 
-    let num_samples = 1000;
-    let gradients: Vec<f64> = (0..num_samples).map(|_| normal.sample(&mut rng)).collect();
-
-    let mean = gradients.iter().sum::<f64>() / num_samples as f64;
-
-    let variance = gradients.iter().map(|&x| (x - mean).powi(2)).sum::<f64>() / num_samples as f64;
+    let count = activations.len() as f64;
+    let mean = activations.iter().map(|&x| x as f64).sum::<f64>() / count;
+    let variance = activations
+        .iter()
+        .map(|&x| (x as f64 - mean).powi(2))
+        .sum::<f64>()
+        / count;
     let std = variance.sqrt();
-
-    let min = gradients.iter().copied().fold(f64::INFINITY, f64::min);
-    let max = gradients.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-
-    let vanishing_count = gradients.iter().filter(|&&x| x.abs() < 1e-7).count();
-    let exploding_count = gradients.iter().filter(|&&x| x.abs() > 10.0).count();
-
-    let vanishing_percentage = (vanishing_count as f64 / num_samples as f64) * 100.0;
-    let exploding_percentage = (exploding_count as f64 / num_samples as f64) * 100.0;
-
-    Ok(GradientStatistics {
-        mean,
-        std,
-        min,
-        max,
-        vanishing_percentage,
-        exploding_percentage,
-    })
-}
-
-/// Compute activation statistics
-fn compute_activation_statistics(_model: &TorshModel) -> Result<ActivationStatistics> {
-    // Simulate activation statistics
-    let mut rng = thread_rng();
-    let normal = Normal::new(0.0, 1.0)?;
-
-    let num_activations = 1000;
-    let activations: Vec<f64> = (0..num_activations)
-        .map(|_| {
-            let val = normal.sample(&mut rng);
-            if val > 0.0f64 {
-                val
-            } else {
-                0.0f64
-            }
-        })
-        .collect(); // ReLU-like
-
-    let mean = activations.iter().sum::<f64>() / num_activations as f64;
-
-    let variance =
-        activations.iter().map(|&x| (x - mean).powi(2)).sum::<f64>() / num_activations as f64;
-    let std = variance.sqrt();
-
-    let min = activations.iter().copied().fold(f64::INFINITY, f64::min);
+    let min = activations.iter().copied().fold(f32::INFINITY, f32::min) as f64;
     let max = activations
         .iter()
         .copied()
-        .fold(f64::NEG_INFINITY, f64::max);
+        .fold(f32::NEG_INFINITY, f32::max) as f64;
 
     let dead_count = activations.iter().filter(|&&x| x == 0.0).count();
-    let dead_neurons_percentage = (dead_count as f64 / num_activations as f64) * 100.0;
+    let dead_neurons_percentage = (dead_count as f64 / count) * 100.0;
 
-    Ok(ActivationStatistics {
+    ActivationStatistics {
         mean,
         std,
         min,
         max,
         dead_neurons_percentage,
-    })
+    }
 }
 
 /// Calculate overall stability score (0-1)
@@ -631,12 +489,14 @@ fn calculate_stability_score(analysis: &StabilityAnalysis) -> f64 {
         score -= 0.05;
     }
 
-    // Penalize for gradient issues
-    if analysis.gradient_magnitude.vanishing_percentage > 50.0 {
-        score -= 0.2;
-    }
-    if analysis.gradient_magnitude.exploding_percentage > 10.0 {
-        score -= 0.2;
+    // Penalize for gradient issues (only when gradient statistics are available)
+    if let Some(gradient_magnitude) = &analysis.gradient_magnitude {
+        if gradient_magnitude.vanishing_percentage > 50.0 {
+            score -= 0.2;
+        }
+        if gradient_magnitude.exploding_percentage > 10.0 {
+            score -= 0.2;
+        }
     }
 
     // Penalize for dead neurons
@@ -769,15 +629,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_gradient_check() {
+    async fn test_gradient_check_is_honest_error() {
         let model = create_real_model("test", 2, DeviceType::Cpu)
             .expect("create real model should succeed");
-        let result = perform_gradient_check(&model)
-            .await
-            .expect("operation should succeed");
-
-        assert!(result.num_gradients_checked > 0);
-        assert!(result.max_relative_error >= 0.0);
+        // A metadata-only model has no autograd graph, so gradient checking
+        // must return an honest error rather than fabricate a passing result.
+        assert!(perform_gradient_check(&model).await.is_err());
     }
 
     #[tokio::test]

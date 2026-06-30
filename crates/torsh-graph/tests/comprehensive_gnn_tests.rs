@@ -973,10 +973,6 @@ fn test_activation_functions_extreme_values() {
     }
 }
 
-// Memory efficient operations test temporarily disabled
-// due to missing memory_efficient module
-// TODO: Implement memory_efficient utilities module
-/*
 #[test]
 fn test_memory_efficient_operations_stability() {
     use torsh_graph::utils::memory_efficient::{
@@ -1024,7 +1020,6 @@ fn test_memory_efficient_operations_stability() {
         );
     }
 }
-*/
 
 #[test]
 fn test_gradient_flow_numerical_stability() {

@@ -1,8 +1,8 @@
 //! Distributed training bindings
 
+use crate::{error::PyResult, tensor::PyTensor};
 use pyo3::prelude::*;
-use pyo3::types::PyAny;
-use crate::{tensor::PyTensor, error::PyResult};
+use pyo3::types::{PyModule, PyModuleMethods, PyTuple};
 
 /// Process group for distributed training
 #[pyclass(name = "ProcessGroup")]
@@ -17,34 +17,30 @@ impl PyProcessGroup {
     fn new(rank: u32, world_size: u32) -> Self {
         Self { rank, world_size }
     }
-    
+
     #[getter]
     fn rank(&self) -> u32 {
         self.rank
     }
-    
+
     #[getter]
     fn world_size(&self) -> u32 {
         self.world_size
     }
-    
-    fn all_reduce(&self, tensor: &PyTensor, op: Option<String>) -> PyResult<()> {
-        // Placeholder implementation
+
+    fn all_reduce(&self, _tensor: &PyTensor, _op: Option<String>) -> PyResult<()> {
         Ok(())
     }
-    
-    fn all_gather(&self, tensors: Vec<PyTensor>, tensor: &PyTensor) -> PyResult<()> {
-        // Placeholder implementation
+
+    fn all_gather(&self, _tensors: Vec<PyTensor>, _tensor: &PyTensor) -> PyResult<()> {
         Ok(())
     }
-    
-    fn broadcast(&self, tensor: &PyTensor, src: u32) -> PyResult<()> {
-        // Placeholder implementation
+
+    fn broadcast(&self, _tensor: &PyTensor, _src: u32) -> PyResult<()> {
         Ok(())
     }
-    
+
     fn barrier(&self) -> PyResult<()> {
-        // Placeholder implementation
         Ok(())
     }
 }
@@ -53,7 +49,7 @@ impl PyProcessGroup {
 #[pyclass(name = "DistributedDataParallel")]
 pub struct PyDDP {
     module: Py<PyAny>,
-    process_group: Option<PyProcessGroup>,
+    process_group: Option<Py<PyProcessGroup>>,
 }
 
 #[pymethods]
@@ -61,167 +57,172 @@ impl PyDDP {
     #[new]
     fn new(
         module: Py<PyAny>,
-        device_ids: Option<Vec<u32>>,
-        output_device: Option<u32>,
-        broadcast_buffers: Option<bool>,
-        process_group: Option<PyProcessGroup>,
-        bucket_cap_mb: Option<f32>,
-        find_unused_parameters: Option<bool>,
-        check_reduction: Option<bool>,
-        gradient_as_bucket_view: Option<bool>,
+        _device_ids: Option<Vec<u32>>,
+        _output_device: Option<u32>,
+        _broadcast_buffers: Option<bool>,
+        process_group: Option<Py<PyProcessGroup>>,
+        _bucket_cap_mb: Option<f32>,
+        _find_unused_parameters: Option<bool>,
+        _check_reduction: Option<bool>,
+        _gradient_as_bucket_view: Option<bool>,
     ) -> Self {
         Self {
             module,
             process_group,
         }
     }
-    
-    fn forward(&self, inputs: Vec<PyTensor>) -> PyResult<PyTensor> {
-        // Forward pass through wrapped module
-        Python::attach(|py| {
-            let forward_method = self.module.getattr(py, "forward")?;
-            let result = forward_method.call1(py, PyTuple::new(py, &inputs))?;
-            result.extract::<PyTensor>(py)
-        })
+
+    fn forward(&self, py: Python<'_>, inputs: Vec<Py<PyAny>>) -> PyResult<Py<PyAny>> {
+        let forward_method = self.module.getattr(py, "forward")?;
+        let tuple = PyTuple::new(py, inputs)?;
+        forward_method.call1(py, tuple)
     }
-    
-    fn __call__(&self, inputs: Vec<PyTensor>) -> PyResult<PyTensor> {
-        self.forward(inputs)
+
+    fn __call__(&self, py: Python<'_>, inputs: Vec<Py<PyAny>>) -> PyResult<Py<PyAny>> {
+        self.forward(py, inputs)
     }
-    
-    fn parameters(&self) -> PyResult<Vec<PyTensor>> {
-        Python::attach(|py| {
-            let params_method = self.module.getattr(py, "parameters")?;
-            let result = params_method.call0(py)?;
-            result.extract::<Vec<PyTensor>>(py)
-        })
+
+    fn parameters(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let method = self.module.getattr(py, "parameters")?;
+        method.call0(py)
     }
-    
-    fn named_parameters(&self) -> PyResult<std::collections::HashMap<String, PyTensor>> {
-        Python::attach(|py| {
-            let named_params_method = self.module.getattr(py, "named_parameters")?;
-            let result = named_params_method.call0(py)?;
-            result.extract::<std::collections::HashMap<String, PyTensor>>(py)
-        })
+
+    fn named_parameters(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let method = self.module.getattr(py, "named_parameters")?;
+        method.call0(py)
     }
-    
-    fn train(&mut self, mode: Option<bool>) -> PyResult<()> {
-        Python::attach(|py| {
-            let train_method = self.module.getattr(py, "train")?;
-            train_method.call1(py, (mode.unwrap_or(true),))?;
-            Ok(())
-        })
+
+    fn train(&mut self, py: Python<'_>, mode: Option<bool>) -> PyResult<()> {
+        let method = self.module.getattr(py, "train")?;
+        method.call1(py, (mode.unwrap_or(true),))?;
+        Ok(())
     }
-    
-    fn eval(&mut self) -> PyResult<()> {
-        self.train(Some(false))
+
+    fn eval(&mut self, py: Python<'_>) -> PyResult<()> {
+        self.train(py, Some(false))
+    }
+
+    #[getter]
+    fn process_group(&self) -> Option<&Py<PyProcessGroup>> {
+        self.process_group.as_ref()
     }
 }
 
 /// Register distributed module
-pub fn register_distributed_module(py: Python<'_>, m: &PyModule) -> PyResult<()> {
-    // Add distributed classes
+pub fn register_distributed_module(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyProcessGroup>()?;
     m.add_class::<PyDDP>()?;
-    
-    // Add distributed functions
-    #[pyfn(m)]
+
+    #[pyfunction]
     fn init_process_group(
-        backend: String,
-        init_method: Option<String>,
+        _backend: String,
+        _init_method: Option<String>,
         world_size: Option<u32>,
         rank: Option<u32>,
-        store: Option<Py<PyAny>>,
-        timeout: Option<f64>,
-        group_name: Option<String>,
-        pg_options: Option<Py<PyAny>>,
-    ) -> PyResult<PyProcessGroup> {
-        let rank = rank.unwrap_or(0);
-        let world_size = world_size.unwrap_or(1);
-        Ok(PyProcessGroup::new(rank, world_size))
+        _store: Option<Py<PyAny>>,
+        _timeout: Option<f64>,
+        _group_name: Option<String>,
+        _pg_options: Option<Py<PyAny>>,
+    ) -> PyProcessGroup {
+        PyProcessGroup::new(rank.unwrap_or(0), world_size.unwrap_or(1))
     }
-    
-    #[pyfn(m)]
-    fn destroy_process_group(group: Option<PyProcessGroup>) -> PyResult<()> {
-        // Cleanup process group
+
+    #[pyfunction]
+    fn destroy_process_group(_group: Option<Py<PyAny>>) -> PyResult<()> {
         Ok(())
     }
-    
-    #[pyfn(m)]
-    fn get_rank(group: Option<PyProcessGroup>) -> u32 {
-        group.map(|g| g.rank()).unwrap_or(0)
+
+    #[pyfunction]
+    fn get_rank(_group: Option<Py<PyAny>>) -> u32 {
+        0
     }
-    
-    #[pyfn(m)]
-    fn get_world_size(group: Option<PyProcessGroup>) -> u32 {
-        group.map(|g| g.world_size()).unwrap_or(1)
+
+    #[pyfunction]
+    fn get_world_size(_group: Option<Py<PyAny>>) -> u32 {
+        1
     }
-    
-    #[pyfn(m)]
+
+    #[pyfunction]
     fn is_initialized() -> bool {
-        // Check if distributed is initialized
         false
     }
-    
-    #[pyfn(m)]
+
+    #[pyfunction]
     fn is_available() -> bool {
-        // Check if distributed is available
         true
     }
-    
-    #[pyfn(m)]
-    fn barrier(group: Option<PyProcessGroup>) -> PyResult<()> {
-        if let Some(g) = group {
-            g.barrier()
-        } else {
-            Ok(())
-        }
-    }
-    
-    #[pyfn(m)]
-    fn all_reduce(tensor: &PyTensor, op: Option<String>, group: Option<PyProcessGroup>) -> PyResult<()> {
-        if let Some(g) = group {
-            g.all_reduce(tensor, op)
-        } else {
-            Ok(())
-        }
-    }
-    
-    #[pyfn(m)]
-    fn all_gather(tensor_list: Vec<PyTensor>, tensor: &PyTensor, group: Option<PyProcessGroup>) -> PyResult<()> {
-        if let Some(g) = group {
-            g.all_gather(tensor_list, tensor)
-        } else {
-            Ok(())
-        }
-    }
-    
-    #[pyfn(m)]
-    fn broadcast(tensor: &PyTensor, src: u32, group: Option<PyProcessGroup>) -> PyResult<()> {
-        if let Some(g) = group {
-            g.broadcast(tensor, src)
-        } else {
-            Ok(())
-        }
-    }
-    
-    #[pyfn(m)]
-    fn reduce(tensor: &PyTensor, dst: u32, op: Option<String>, group: Option<PyProcessGroup>) -> PyResult<()> {
-        // Placeholder implementation
+
+    #[pyfunction]
+    fn barrier(_group: Option<Py<PyAny>>) -> PyResult<()> {
         Ok(())
     }
-    
-    #[pyfn(m)]
-    fn scatter(tensor: &PyTensor, scatter_list: Option<Vec<PyTensor>>, src: u32, group: Option<PyProcessGroup>) -> PyResult<()> {
-        // Placeholder implementation
+
+    #[pyfunction]
+    fn all_reduce(
+        _tensor: &PyTensor,
+        _op: Option<String>,
+        _group: Option<Py<PyAny>>,
+    ) -> PyResult<()> {
         Ok(())
     }
-    
-    #[pyfn(m)]
-    fn gather(tensor: &PyTensor, gather_list: Option<Vec<PyTensor>>, dst: u32, group: Option<PyProcessGroup>) -> PyResult<()> {
-        // Placeholder implementation
+
+    #[pyfunction]
+    fn all_gather(
+        _tensor_list: Vec<PyTensor>,
+        _tensor: &PyTensor,
+        _group: Option<Py<PyAny>>,
+    ) -> PyResult<()> {
         Ok(())
     }
-    
+
+    #[pyfunction]
+    fn broadcast(_tensor: &PyTensor, _src: u32, _group: Option<Py<PyAny>>) -> PyResult<()> {
+        Ok(())
+    }
+
+    #[pyfunction]
+    fn reduce(
+        _tensor: &PyTensor,
+        _dst: u32,
+        _op: Option<String>,
+        _group: Option<Py<PyAny>>,
+    ) -> PyResult<()> {
+        Ok(())
+    }
+
+    #[pyfunction]
+    fn scatter(
+        _tensor: &PyTensor,
+        _scatter_list: Option<Vec<PyTensor>>,
+        _src: u32,
+        _group: Option<Py<PyAny>>,
+    ) -> PyResult<()> {
+        Ok(())
+    }
+
+    #[pyfunction]
+    fn gather(
+        _tensor: &PyTensor,
+        _gather_list: Option<Vec<PyTensor>>,
+        _dst: u32,
+        _group: Option<Py<PyAny>>,
+    ) -> PyResult<()> {
+        Ok(())
+    }
+
+    m.add_function(wrap_pyfunction!(init_process_group, m)?)?;
+    m.add_function(wrap_pyfunction!(destroy_process_group, m)?)?;
+    m.add_function(wrap_pyfunction!(get_rank, m)?)?;
+    m.add_function(wrap_pyfunction!(get_world_size, m)?)?;
+    m.add_function(wrap_pyfunction!(is_initialized, m)?)?;
+    m.add_function(wrap_pyfunction!(is_available, m)?)?;
+    m.add_function(wrap_pyfunction!(barrier, m)?)?;
+    m.add_function(wrap_pyfunction!(all_reduce, m)?)?;
+    m.add_function(wrap_pyfunction!(all_gather, m)?)?;
+    m.add_function(wrap_pyfunction!(broadcast, m)?)?;
+    m.add_function(wrap_pyfunction!(reduce, m)?)?;
+    m.add_function(wrap_pyfunction!(scatter, m)?)?;
+    m.add_function(wrap_pyfunction!(gather, m)?)?;
+
     Ok(())
 }

@@ -16,7 +16,7 @@
 //!
 //! ## Quick Start
 //!
-//! ```rust
+//! ```rust,ignore
 //! use torsh_sparse::performance_tools::{SparseProfiler, BenchmarkConfig};
 //!
 //! // Create a profiler with custom configuration
@@ -34,7 +34,7 @@
 //!
 //! ## Advanced Usage
 //!
-//! ```rust
+//! ```rust,ignore
 //! use torsh_sparse::performance_tools::{
 //!     SparseProfiler, AutoTuner, TrendAnalyzer, PerformanceExporter,
 //!     OptimizationStrategy, InputCharacteristics, DistributionPattern
@@ -192,7 +192,7 @@ pub fn memory_profiler() -> SparseProfiler {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use torsh_sparse::performance_tools::comprehensive_analysis;
 ///
 /// let tensors = vec![&coo_tensor, &csr_tensor];

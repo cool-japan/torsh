@@ -381,6 +381,10 @@ impl Optimizer for ScheduleFreeAdamW {
         self.param_groups.push(group);
     }
 
+    fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {
+        crate::optimizer::collect_parameters(&self.param_groups)
+    }
+
     fn state_dict(&self) -> OptimizerResult<OptimizerState> {
         let param_group_states = self
             .param_groups

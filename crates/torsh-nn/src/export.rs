@@ -135,33 +135,44 @@ impl ModelExporter {
         }
     }
 
-    /// Export model to ONNX format
-    fn export_onnx<M: Module>(&self, model: &M, path: &Path) -> Result<()> {
-        // ONNX export implementation
-        // This would require integration with onnx crate or custom implementation
-
-        // For now, we'll create a placeholder implementation
-        let onnx_graph = self.build_onnx_graph(model)?;
-
-        // Write to file
-        std::fs::write(path, format!("ONNX Graph: {:?}", onnx_graph))
-            .map_err(|e| TorshError::IoError(e.to_string()))?;
-
-        Ok(())
+    /// Export model to ONNX format.
+    ///
+    /// # Honest-failure contract
+    ///
+    /// A real ONNX export requires tracing the model's computation graph into
+    /// ONNX operator nodes and serializing them as a protobuf `ModelProto`.
+    /// ToRSh's `Module` trait does not yet expose a traceable graph, and this
+    /// crate does not depend on an ONNX serializer, so a genuine `.onnx` file
+    /// cannot be produced. Rather than writing a human-readable placeholder
+    /// string to `path` — which would masquerade as a successfully exported
+    /// model and fail downstream only when an ONNX runtime tries to parse it —
+    /// this returns a loud [`TorshError::NotImplemented`].
+    fn export_onnx<M: Module>(&self, _model: &M, _path: &Path) -> Result<()> {
+        Err(TorshError::NotImplemented(
+            "ONNX export not yet implemented: it requires tracing the module into ONNX \
+             operator nodes and serializing a protobuf ModelProto, which the Module trait \
+             does not yet support. Refusing to write a placeholder that would masquerade \
+             as a valid .onnx model."
+                .to_string(),
+        ))
     }
 
-    /// Export model to TorchScript compatible format
-    fn export_torchscript<M: Module>(&self, model: &M, path: &Path) -> Result<()> {
-        // TorchScript export implementation
-        // This would require integration with PyTorch JIT or custom implementation
-
-        let script_module = self.build_torchscript_module(model)?;
-
-        // Write to file
-        std::fs::write(path, format!("TorchScript Module: {:?}", script_module))
-            .map_err(|e| TorshError::IoError(e.to_string()))?;
-
-        Ok(())
+    /// Export model to TorchScript compatible format.
+    ///
+    /// # Honest-failure contract
+    ///
+    /// A real TorchScript export requires serializing a scripted/traced module
+    /// into PyTorch's TorchScript archive format. That facility does not exist
+    /// here, so rather than writing a descriptive placeholder string that would
+    /// appear to be a successful export, this returns a loud
+    /// [`TorshError::NotImplemented`].
+    fn export_torchscript<M: Module>(&self, _model: &M, _path: &Path) -> Result<()> {
+        Err(TorshError::NotImplemented(
+            "TorchScript export not yet implemented: it requires serializing a traced module \
+             into PyTorch's TorchScript archive format. Refusing to write a placeholder that \
+             would masquerade as a valid TorchScript module."
+                .to_string(),
+        ))
     }
 
     /// Export model to custom binary format optimized for Torsh
@@ -183,17 +194,22 @@ impl ModelExporter {
         Ok(())
     }
 
-    /// Export model to bytes without writing to file (for benchmarking)
+    /// Export model to bytes without writing to file (for benchmarking).
+    ///
+    /// ONNX and TorchScript currently return a loud
+    /// [`TorshError::NotImplemented`] rather than fabricating placeholder bytes;
+    /// see [`Self::export_onnx`] and [`Self::export_torchscript`].
     pub fn export_to_bytes<M: Module>(&self, model: &M) -> Result<Vec<u8>> {
         match self.config.format {
-            ExportFormat::Onnx => {
-                let onnx_graph = self.build_onnx_graph(model)?;
-                Ok(onnx_graph.into_bytes())
-            }
-            ExportFormat::TorchScript => {
-                let script_module = self.build_torchscript_module(model)?;
-                Ok(script_module.into_bytes())
-            }
+            ExportFormat::Onnx => Err(TorshError::NotImplemented(
+                "ONNX export not yet implemented; cannot serialize model to ONNX bytes."
+                    .to_string(),
+            )),
+            ExportFormat::TorchScript => Err(TorshError::NotImplemented(
+                "TorchScript export not yet implemented; cannot serialize model to \
+                 TorchScript bytes."
+                    .to_string(),
+            )),
             ExportFormat::TorshBinary => self.serialize_to_binary(model),
             ExportFormat::Json => {
                 let json_data = self.serialize_to_json(model)?;
@@ -202,55 +218,53 @@ impl ModelExporter {
         }
     }
 
-    /// Build ONNX graph representation (placeholder)
-    fn build_onnx_graph<M: Module>(&self, model: &M) -> Result<String> {
-        // This would build an actual ONNX graph
-        // For now, return a placeholder
-        Ok(format!(
-            "ONNX graph for model with {} parameters",
-            model.parameters().len()
-        ))
-    }
-
-    /// Build TorchScript module representation (placeholder)
-    fn build_torchscript_module<M: Module>(&self, model: &M) -> Result<String> {
-        // This would build an actual TorchScript module
-        // For now, return a placeholder
-        Ok(format!(
-            "TorchScript module for model with {} parameters",
-            model.parameters().len()
-        ))
-    }
-
-    /// Serialize model to binary format
+    /// Serialize the model to ToRSh's custom binary format.
+    ///
+    /// Layout (all integers little-endian):
+    /// `b"TORSH_V1"` | `param_count: u32` | then for each parameter, sorted by
+    /// name for determinism: `name_len: u32` | `name_utf8` | `ndim: u32` |
+    /// `dims: [u32; ndim]` | `elem_count: u32` | `data: [f32; elem_count]`.
+    ///
+    /// The actual `f32` tensor values are written — never zero placeholders —
+    /// so the produced bytes faithfully represent the model weights.
     fn serialize_to_binary<M: Module>(&self, model: &M) -> Result<Vec<u8>> {
-        // Custom binary serialization
-        // This would use a format like Protocol Buffers, FlatBuffers, or custom format
-
         let mut data = Vec::new();
 
         // Write magic number
         data.extend_from_slice(b"TORSH_V1");
 
-        // Write parameters
+        // Collect and sort parameters by name so the serialization is
+        // deterministic (HashMap iteration order is not stable).
         let params = model.parameters();
-        data.extend_from_slice(&(params.len() as u32).to_le_bytes());
+        let mut sorted_params: Vec<_> = params.into_iter().collect();
+        sorted_params.sort_by(|(a, _), (b, _)| a.cmp(b));
 
-        for (_name, param) in params {
+        data.extend_from_slice(&(sorted_params.len() as u32).to_le_bytes());
+
+        for (name, param) in sorted_params {
             let tensor_arc = param.tensor();
             let tensor = tensor_arc.read();
             let tensor_shape = tensor.shape();
-            let shape = tensor_shape.dims();
+            let shape = tensor_shape.dims().to_vec();
+
+            // Write parameter name (length-prefixed UTF-8) so the archive is
+            // self-describing and round-trippable.
+            let name_bytes = name.as_bytes();
+            data.extend_from_slice(&(name_bytes.len() as u32).to_le_bytes());
+            data.extend_from_slice(name_bytes);
 
             // Write shape
             data.extend_from_slice(&(shape.len() as u32).to_le_bytes());
-            for &dim in shape {
+            for &dim in &shape {
                 data.extend_from_slice(&(dim as u32).to_le_bytes());
             }
 
-            // Write data (placeholder - would need actual tensor data serialization)
-            let dummy_data = vec![0u8; shape.iter().product::<usize>() * 4]; // Assuming f32
-            data.extend_from_slice(&dummy_data);
+            // Write the real tensor data as little-endian f32 values.
+            let values = tensor.to_vec()?;
+            data.extend_from_slice(&(values.len() as u32).to_le_bytes());
+            for value in &values {
+                data.extend_from_slice(&value.to_le_bytes());
+            }
         }
 
         Ok(data)
@@ -403,9 +417,12 @@ pub struct OptimizedModel {
 
 impl OptimizedModel {
     fn new<M: Module>(_model: &M, target_device: TargetDevice) -> Self {
+        // No graph-level optimization passes are implemented yet, so the list
+        // of applied optimizations is genuinely empty rather than carrying a
+        // fabricated "placeholder" entry.
         Self {
             target_device,
-            optimizations_applied: vec!["placeholder".to_string()],
+            optimizations_applied: Vec::new(),
         }
     }
 

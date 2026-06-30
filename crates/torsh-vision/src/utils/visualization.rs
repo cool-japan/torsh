@@ -26,15 +26,15 @@ use super::text_rendering::draw_simple_text;
 /// A single tensor representing the image grid with shape (C, grid_height, grid_width)
 ///
 /// # Example
-/// ```
+/// ```rust
 /// use torsh_vision::utils::visualization::make_grid;
-/// use torsh_tensor::creation;
+/// use torsh_tensor::creation::zeros_mut;
 ///
 /// // Create sample tensors (3 channels, 64x64 each)
-/// let tensors: Vec<_> = (0..8).map(|_| creation::rand(&[3, 64, 64]).unwrap()).collect();
+/// let tensors: Vec<_> = (0..8).map(|_| zeros_mut::<f32>(&[3, 64, 64])).collect();
 ///
 /// // Create a 3×3 grid with 2 pixels padding
-/// let grid = make_grid(&tensors, 3, 2)?;
+/// let grid = make_grid(&tensors, 3, 2).unwrap();
 /// println!("Grid shape: {:?}", grid.shape().dims());
 /// ```
 ///
@@ -129,17 +129,26 @@ pub fn make_grid(tensors: &[Tensor<f32>], nrow: usize, padding: usize) -> Result
 /// - Coordinates are in image pixel space
 ///
 /// # Example
-/// ```
+/// ```rust
 /// use torsh_vision::utils::visualization::draw_bounding_boxes;
-/// use torsh_tensor::creation;
+/// use torsh_tensor::creation::zeros_mut;
 /// use image::DynamicImage;
 ///
-/// let mut image: DynamicImage = load_test_image();
-/// let boxes = creation::tensor_from_vec(vec![10.0, 10.0, 100.0, 100.0], &[1, 4]).unwrap();
-/// let labels = vec!["object".to_string()];
-/// let colors = vec![(255, 0, 0)]; // Red box
+/// // Create a simple white RGB image for testing
+/// let rgb_buf = image::RgbImage::new(200, 200);
+/// let mut img = DynamicImage::ImageRgb8(rgb_buf);
 ///
-/// draw_bounding_boxes(&mut image, &boxes, Some(&labels), None, Some(&colors))?;
+/// // Create a boxes tensor with shape [1, 4]
+/// let mut boxes = zeros_mut::<f32>(&[1, 4]);
+/// boxes.set(&[0, 0], 10.0).unwrap();
+/// boxes.set(&[0, 1], 10.0).unwrap();
+/// boxes.set(&[0, 2], 100.0).unwrap();
+/// boxes.set(&[0, 3], 100.0).unwrap();
+///
+/// let labels = vec!["object".to_string()];
+/// let colors = vec![(255u8, 0u8, 0u8)]; // Red box
+///
+/// draw_bounding_boxes(&mut img, &boxes, Some(&labels), None, Some(&colors)).unwrap();
 /// ```
 ///
 /// # Errors

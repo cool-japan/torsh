@@ -207,6 +207,29 @@ pub trait Optimizer {
     /// Add a parameter group
     fn add_param_group(&mut self, params: Vec<Arc<RwLock<Tensor>>>, options: HashMap<String, f32>);
 
+    /// Get the parameter tensors managed by this optimizer.
+    ///
+    /// Returns clones of the `Arc<RwLock<Tensor>>` handles. Because they are
+    /// reference-counted, the returned handles point at the *same* underlying
+    /// tensors the optimizer updates, so callers can both read parameters and
+    /// access their gradients via [`Tensor::grad`].
+    ///
+    /// Meta-optimizers such as [`crate::lookahead::Lookahead`] and the gradient
+    /// accumulation wrappers in [`crate::grad_accumulation`] rely on this to
+    /// inspect and update the wrapped optimizer's parameters.
+    ///
+    /// # Default Implementation
+    ///
+    /// The default returns an empty vector. Concrete optimizers that own
+    /// parameter groups override this to expose their parameters, and wrapper
+    /// optimizers delegate to the optimizer they wrap. An empty result therefore
+    /// means "this optimizer does not expose parameters", *not* "this optimizer
+    /// has no parameters"; callers that require parameters must treat an empty
+    /// result as an error rather than silently doing nothing.
+    fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {
+        Vec::new()
+    }
+
     /// Get state dict for serialization
     fn state_dict(&self) -> OptimizerResult<OptimizerState>;
 

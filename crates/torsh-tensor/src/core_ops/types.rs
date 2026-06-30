@@ -1542,6 +1542,95 @@ impl<T: TensorElement + Copy> Tensor<T> {
                     rhs.backward_impl(grad_output)?;
                 }
             }
+            Operation::Sub { lhs, rhs } => {
+                // d/dlhs (lhs - rhs) = +grad
+                if lhs.requires_grad {
+                    lhs.backward_impl(grad_output)?;
+                }
+                // d/drhs (lhs - rhs) = -grad
+                if rhs.requires_grad {
+                    let neg_one = T::from_f64(-1.0).expect("T must support -1.0");
+                    let neg_grad = grad_output.mul_scalar(neg_one)?;
+                    rhs.backward_impl(&neg_grad)?;
+                }
+            }
+            Operation::Mean { input, count } => {
+                // d/dinput mean(input) = grad / count  (broadcast to input shape)
+                if input.requires_grad {
+                    let scale = T::from_f64(1.0 / count).expect("T must support scalar division");
+                    let scaled_grad = grad_output.mul_scalar(scale)?;
+                    // Broadcast scalar-shaped grad to input shape
+                    let input_numel = input.numel();
+                    let grad_data = vec![
+                        scaled_grad.to_vec()?.into_iter().next().unwrap_or_else(
+                            || T::from_f64(0.0).expect("T must support 0.0")
+                        );
+                        input_numel
+                    ];
+                    let input_grad =
+                        Self::from_data(grad_data, input.shape().dims().to_vec(), input.device)?;
+                    input.backward_impl(&input_grad)?;
+                }
+            }
+            Operation::Sum { input } => {
+                // d/dinput sum(input) = grad broadcast to input shape (coefficient 1 each).
+                // sum() always reduces to a scalar, so grad_output has numel == 1.
+                if input.requires_grad {
+                    let grad_scalar = grad_output
+                        .to_vec()?
+                        .into_iter()
+                        .next()
+                        .unwrap_or_else(|| T::from_f64(0.0).expect("T must support 0.0"));
+                    let grad_data = vec![grad_scalar; input.numel()];
+                    let input_grad =
+                        Self::from_data(grad_data, input.shape().dims().to_vec(), input.device)?;
+                    input.backward_impl(&input_grad)?;
+                }
+            }
+            Operation::MatMul { lhs, rhs } => {
+                // C = lhs @ rhs (2-D, row-major).
+                //   dL/dlhs = grad @ rhsᵀ   (shape [m,k])
+                //   dL/drhs = lhsᵀ @ grad   (shape [k,n])
+                // Computed with explicit loops so no extra autograd graph is built
+                // during the backward pass and no `Sum` trait bound is required.
+                let lhs_dims = lhs.shape().dims().to_vec();
+                let rhs_dims = rhs.shape().dims().to_vec();
+                if lhs_dims.len() == 2 && rhs_dims.len() == 2 {
+                    let (m, k, n) = (lhs_dims[0], lhs_dims[1], rhs_dims[1]);
+                    let zero = T::from_f64(0.0).expect("T must support 0.0");
+                    let grad_c = grad_output.to_vec()?; // [m, n]
+                    if lhs.requires_grad {
+                        let rhs_data = rhs.to_vec()?; // [k, n]
+                        let mut grad_lhs = vec![zero; m * k];
+                        for i in 0..m {
+                            for p in 0..k {
+                                let mut acc = zero;
+                                for j in 0..n {
+                                    acc = acc + grad_c[i * n + j] * rhs_data[p * n + j];
+                                }
+                                grad_lhs[i * k + p] = acc;
+                            }
+                        }
+                        let lhs_grad = Self::from_data(grad_lhs, lhs_dims.clone(), lhs.device)?;
+                        lhs.backward_impl(&lhs_grad)?;
+                    }
+                    if rhs.requires_grad {
+                        let lhs_data = lhs.to_vec()?; // [m, k]
+                        let mut grad_rhs = vec![zero; k * n];
+                        for p in 0..k {
+                            for j in 0..n {
+                                let mut acc = zero;
+                                for i in 0..m {
+                                    acc = acc + lhs_data[i * k + p] * grad_c[i * n + j];
+                                }
+                                grad_rhs[p * n + j] = acc;
+                            }
+                        }
+                        let rhs_grad = Self::from_data(grad_rhs, rhs_dims.clone(), rhs.device)?;
+                        rhs.backward_impl(&rhs_grad)?;
+                    }
+                }
+            }
             Operation::Mul { lhs, rhs } => {
                 if lhs.requires_grad {
                     let lhs_grad = (**rhs).mul_op(grad_output)?;
@@ -1568,282 +1657,6 @@ impl<T: TensorElement + Copy> Tensor<T> {
         Ok(())
     }
 }
-/// Comparison operations for tensors
-impl<T: TensorElement + PartialOrd + Copy> Tensor<T> {
-    /// Element-wise greater than comparison
-    pub fn gt(&self, other: &Self) -> Result<Tensor<bool>> {
-        if self.shape != other.shape {
-            return Err(TorshError::ShapeMismatch {
-                expected: self.shape.dims().to_vec(),
-                got: other.shape.dims().to_vec(),
-            });
-        }
-        let self_data = self.to_vec()?;
-        let other_data = other.to_vec()?;
-        let result_data: Vec<bool> = self_data
-            .iter()
-            .zip(other_data.iter())
-            .map(|(&a, &b)| a > b)
-            .collect();
-        Tensor::from_data(result_data, self.shape.dims().to_vec(), self.device)
-    }
-    /// Element-wise less than comparison
-    pub fn lt(&self, other: &Self) -> Result<Tensor<bool>> {
-        if self.shape != other.shape {
-            return Err(TorshError::ShapeMismatch {
-                expected: self.shape.dims().to_vec(),
-                got: other.shape.dims().to_vec(),
-            });
-        }
-        let self_data = self.to_vec()?;
-        let other_data = other.to_vec()?;
-        let result_data: Vec<bool> = self_data
-            .iter()
-            .zip(other_data.iter())
-            .map(|(&a, &b)| a < b)
-            .collect();
-        Tensor::from_data(result_data, self.shape.dims().to_vec(), self.device)
-    }
-    /// Element-wise greater than or equal comparison
-    pub fn ge(&self, other: &Self) -> Result<Tensor<bool>> {
-        if self.shape != other.shape {
-            return Err(TorshError::ShapeMismatch {
-                expected: self.shape.dims().to_vec(),
-                got: other.shape.dims().to_vec(),
-            });
-        }
-        let self_data = self.to_vec()?;
-        let other_data = other.to_vec()?;
-        let result_data: Vec<bool> = self_data
-            .iter()
-            .zip(other_data.iter())
-            .map(|(&a, &b)| a >= b)
-            .collect();
-        Tensor::from_data(result_data, self.shape.dims().to_vec(), self.device)
-    }
-    /// Element-wise less than or equal comparison
-    pub fn le(&self, other: &Self) -> Result<Tensor<bool>> {
-        if self.shape != other.shape {
-            return Err(TorshError::ShapeMismatch {
-                expected: self.shape.dims().to_vec(),
-                got: other.shape.dims().to_vec(),
-            });
-        }
-        let self_data = self.to_vec()?;
-        let other_data = other.to_vec()?;
-        let result_data: Vec<bool> = self_data
-            .iter()
-            .zip(other_data.iter())
-            .map(|(&a, &b)| a <= b)
-            .collect();
-        Tensor::from_data(result_data, self.shape.dims().to_vec(), self.device)
-    }
-    /// Element-wise equality comparison
-    pub fn eq(&self, other: &Self) -> Result<Tensor<bool>> {
-        if self.shape != other.shape {
-            return Err(TorshError::ShapeMismatch {
-                expected: self.shape.dims().to_vec(),
-                got: other.shape.dims().to_vec(),
-            });
-        }
-        let self_data = self.to_vec()?;
-        let other_data = other.to_vec()?;
-        let result_data: Vec<bool> = self_data
-            .iter()
-            .zip(other_data.iter())
-            .map(|(&a, &b)| a == b)
-            .collect();
-        Tensor::from_data(result_data, self.shape.dims().to_vec(), self.device)
-    }
-    /// Element-wise inequality comparison
-    pub fn ne(&self, other: &Self) -> Result<Tensor<bool>> {
-        if self.shape != other.shape {
-            return Err(TorshError::ShapeMismatch {
-                expected: self.shape.dims().to_vec(),
-                got: other.shape.dims().to_vec(),
-            });
-        }
-        let self_data = self.to_vec()?;
-        let other_data = other.to_vec()?;
-        let result_data: Vec<bool> = self_data
-            .iter()
-            .zip(other_data.iter())
-            .map(|(&a, &b)| a != b)
-            .collect();
-        Tensor::from_data(result_data, self.shape.dims().to_vec(), self.device)
-    }
-    /// Scalar comparison methods
-    /// Element-wise equality comparison with scalar
-    pub fn eq_scalar(&self, value: T) -> Result<Tensor<bool>>
-    where
-        T: PartialEq + Copy,
-    {
-        let self_data = self.to_vec()?;
-        let result_data: Vec<bool> = self_data.iter().map(|&a| a == value).collect();
-        Tensor::from_data(result_data, self.shape.dims().to_vec(), self.device)
-    }
-    /// Element-wise inequality comparison with scalar
-    pub fn ne_scalar(&self, value: T) -> Result<Tensor<bool>>
-    where
-        T: PartialEq + Copy,
-    {
-        let self_data = self.to_vec()?;
-        let result_data: Vec<bool> = self_data.iter().map(|&a| a != value).collect();
-        Tensor::from_data(result_data, self.shape.dims().to_vec(), self.device)
-    }
-    /// Element-wise greater than comparison with scalar
-    pub fn gt_scalar(&self, value: T) -> Result<Tensor<bool>>
-    where
-        T: PartialOrd + Copy,
-    {
-        let self_data = self.to_vec()?;
-        let result_data: Vec<bool> = self_data.iter().map(|&a| a > value).collect();
-        Tensor::from_data(result_data, self.shape.dims().to_vec(), self.device)
-    }
-    /// Element-wise less than comparison with scalar
-    pub fn lt_scalar(&self, value: T) -> Result<Tensor<bool>>
-    where
-        T: PartialOrd + Copy,
-    {
-        let self_data = self.to_vec()?;
-        let result_data: Vec<bool> = self_data.iter().map(|&a| a < value).collect();
-        Tensor::from_data(result_data, self.shape.dims().to_vec(), self.device)
-    }
-    /// Element-wise less than or equal comparison with scalar
-    pub fn le_scalar(&self, value: T) -> Result<Tensor<bool>>
-    where
-        T: PartialOrd + Copy,
-    {
-        let self_data = self.to_vec()?;
-        let result_data: Vec<bool> = self_data.iter().map(|&a| a <= value).collect();
-        Tensor::from_data(result_data, self.shape.dims().to_vec(), self.device)
-    }
-    /// Element-wise greater than or equal comparison with scalar
-    pub fn ge_scalar(&self, value: T) -> Result<Tensor<bool>>
-    where
-        T: PartialOrd + Copy,
-    {
-        let self_data = self.to_vec()?;
-        let result_data: Vec<bool> = self_data.iter().map(|&a| a >= value).collect();
-        Tensor::from_data(result_data, self.shape.dims().to_vec(), self.device)
-    }
-}
-/// Shape manipulation operations for tensors
-impl<T: TensorElement> Tensor<T> {
-    /// Flatten tensor to 1D
-    pub fn flatten(&self) -> Result<Self> {
-        let total_elements = self.numel();
-        self.view(&[total_elements as i32])
-    }
-    /// Conditional tensor selection - where condition is true, select from self, otherwise from other
-    pub fn where_tensor(&self, condition: &Tensor<bool>, other: &Self) -> Result<Self> {
-        if self.shape != condition.shape || self.shape != other.shape {
-            return Err(TorshError::ShapeMismatch {
-                expected: self.shape.dims().to_vec(),
-                got: condition.shape.dims().to_vec(),
-            });
-        }
-        let self_data = self.to_vec()?;
-        let condition_data = condition.to_vec()?;
-        let other_data = other.to_vec()?;
-        let result_data: Vec<T> = self_data
-            .iter()
-            .zip(condition_data.iter())
-            .zip(other_data.iter())
-            .map(
-                |((&self_val, &cond), &other_val)| {
-                    if cond {
-                        self_val
-                    } else {
-                        other_val
-                    }
-                },
-            )
-            .collect();
-        Tensor::from_data(result_data, self.shape.dims().to_vec(), self.device)
-    }
-    /// Add bias vector to tensor (element-wise addition)
-    pub fn add_bias(&self, bias: &Self) -> Result<Self>
-    where
-        T: std::ops::Add<Output = T>,
-    {
-        self.add(bias)
-    }
-}
-/// Logical operations for boolean tensors
-impl Tensor<bool> {
-    /// Element-wise logical AND operation
-    pub fn logical_and(&self, other: &Self) -> Result<Self> {
-        if self.shape != other.shape {
-            return Err(TorshError::ShapeMismatch {
-                expected: self.shape.dims().to_vec(),
-                got: other.shape.dims().to_vec(),
-            });
-        }
-        let self_data = self.to_vec()?;
-        let other_data = other.to_vec()?;
-        let result_data: Vec<bool> = self_data
-            .iter()
-            .zip(other_data.iter())
-            .map(|(&a, &b)| a && b)
-            .collect();
-        Tensor::from_data(result_data, self.shape.dims().to_vec(), self.device)
-    }
-    /// Element-wise logical OR operation
-    pub fn logical_or(&self, other: &Self) -> Result<Self> {
-        if self.shape != other.shape {
-            return Err(TorshError::ShapeMismatch {
-                expected: self.shape.dims().to_vec(),
-                got: other.shape.dims().to_vec(),
-            });
-        }
-        let self_data = self.to_vec()?;
-        let other_data = other.to_vec()?;
-        let result_data: Vec<bool> = self_data
-            .iter()
-            .zip(other_data.iter())
-            .map(|(&a, &b)| a || b)
-            .collect();
-        Tensor::from_data(result_data, self.shape.dims().to_vec(), self.device)
-    }
-    /// Element-wise logical XOR operation
-    pub fn logical_xor(&self, other: &Self) -> Result<Self> {
-        if self.shape != other.shape {
-            return Err(TorshError::ShapeMismatch {
-                expected: self.shape.dims().to_vec(),
-                got: other.shape.dims().to_vec(),
-            });
-        }
-        let self_data = self.to_vec()?;
-        let other_data = other.to_vec()?;
-        let result_data: Vec<bool> = self_data
-            .iter()
-            .zip(other_data.iter())
-            .map(|(&a, &b)| a ^ b)
-            .collect();
-        Tensor::from_data(result_data, self.shape.dims().to_vec(), self.device)
-    }
-}
-/// Operation type for gradient computation
-#[derive(Debug, Clone)]
-pub enum Operation<T: TensorElement> {
-    /// Leaf node (no operation)
-    Leaf,
-    /// Power operation: x^n
-    Power {
-        input: Arc<Tensor<T>>,
-        exponent: f32,
-    },
-    /// Addition operation: a + b
-    Add {
-        lhs: Arc<Tensor<T>>,
-        rhs: Arc<Tensor<T>>,
-    },
-    /// Multiplication operation: a * b
-    Mul {
-        lhs: Arc<Tensor<T>>,
-        rhs: Arc<Tensor<T>>,
-    },
-    /// Custom operation with name and inputs
-    Custom(String, Vec<Weak<Tensor<T>>>),
-}
+#[path = "types_advanced.rs"]
+mod types_advanced;
+pub use types_advanced::Operation;

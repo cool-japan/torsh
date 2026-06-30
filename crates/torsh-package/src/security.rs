@@ -9,13 +9,24 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
+use aes_gcm::aead::{Aead, KeyInit};
+use aes_gcm::{Aes256Gcm, Nonce as AesGcmNonce};
+use chacha20poly1305::{ChaCha20Poly1305, Nonce as ChaChaNonce};
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
-use ring::aead;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use torsh_core::error::{Result, TorshError};
 
 use crate::package::Package;
+
+/// PBKDF2-HMAC-SHA256 iteration count (preserved from the prior ring impl).
+const PBKDF2_ITERATIONS: u32 = 100_000;
+
+/// AES-256-GCM nonce length in bytes (96-bit nonce).
+const AES_GCM_NONCE_LEN: usize = 12;
+
+/// ChaCha20-Poly1305 nonce length in bytes (96-bit nonce).
+const CHACHA20_NONCE_LEN: usize = 12;
 
 /// Package signature information
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -97,13 +108,19 @@ pub enum SecurityError {
 
 impl PackageSigner {
     /// Create a new package signer with generated key pair
+    ///
+    /// # Panics
+    ///
+    /// Panics if the operating system CSPRNG is unavailable. Generating a
+    /// signing key from non-random bytes would be a critical security defect,
+    /// so failure to obtain entropy is treated as unrecoverable.
     pub fn new() -> Self {
-        // Generate random bytes for the signing key
-        use ring::rand::{SecureRandom, SystemRandom};
-        let rng = SystemRandom::new();
+        // Generate cryptographically secure random bytes for the signing key
+        // using the OS CSPRNG (getrandom — Pure Rust, replaces ring::rand).
         let mut secret_bytes = [0u8; 32];
-        rng.fill(&mut secret_bytes)
-            .expect("Failed to generate random key");
+        if let Err(err) = getrandom::fill(&mut secret_bytes) {
+            panic!("Failed to obtain entropy for signing key generation: {err}");
+        }
 
         let signing_key = SigningKey::from_bytes(&secret_bytes);
 
@@ -293,7 +310,7 @@ impl PackageEncryptor {
             .map_err(|e| TorshError::SerializationError(e.to_string()))?;
 
         // Derive key from password using PBKDF2
-        let salt = self.generate_salt();
+        let salt = self.generate_salt()?;
         let key = self.derive_key_from_password(password, &salt)?;
 
         // Encrypt data
@@ -361,118 +378,103 @@ impl PackageEncryptor {
     }
 
     /// Encrypt with AES-256-GCM
+    ///
+    /// Produces `ciphertext || 16-byte authentication tag` with empty AAD,
+    /// matching the byte layout previously produced via ring's
+    /// `seal_in_place_append_tag`. The 96-bit nonce is returned separately.
     fn encrypt_aes_gcm(&self, data: &[u8], key: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
-        let unbound_key = aead::UnboundKey::new(&aead::AES_256_GCM, key)
+        let cipher = Aes256Gcm::new_from_slice(key)
             .map_err(|_| TorshError::InvalidArgument("Invalid key for AES-256-GCM".to_string()))?;
 
-        let nonce_bytes = self.generate_nonce(aead::NONCE_LEN);
-        let nonce = aead::Nonce::try_assume_unique_for_key(&nonce_bytes)
+        let nonce_bytes = self.generate_nonce(AES_GCM_NONCE_LEN)?;
+        let nonce = AesGcmNonce::try_from(nonce_bytes.as_slice())
             .map_err(|_| TorshError::InvalidArgument("Invalid nonce".to_string()))?;
 
-        let sealing_key = aead::LessSafeKey::new(unbound_key);
-
-        let mut in_out = data.to_vec();
-        sealing_key
-            .seal_in_place_append_tag(nonce, aead::Aad::empty(), &mut in_out)
+        let ciphertext = cipher
+            .encrypt(&nonce, data)
             .map_err(|_| TorshError::InvalidArgument("Encryption failed".to_string()))?;
 
-        Ok((in_out, nonce_bytes))
+        Ok((ciphertext, nonce_bytes))
     }
 
     /// Decrypt with AES-256-GCM
     fn decrypt_aes_gcm(&self, encrypted: &[u8], nonce: &[u8], key: &[u8]) -> Result<Vec<u8>> {
-        let unbound_key = aead::UnboundKey::new(&aead::AES_256_GCM, key)
+        let cipher = Aes256Gcm::new_from_slice(key)
             .map_err(|_| TorshError::InvalidArgument("Invalid key for AES-256-GCM".to_string()))?;
 
-        let nonce = aead::Nonce::try_assume_unique_for_key(nonce)
+        let nonce = AesGcmNonce::try_from(nonce)
             .map_err(|_| TorshError::InvalidArgument("Invalid nonce".to_string()))?;
 
-        let opening_key = aead::LessSafeKey::new(unbound_key);
-
-        let mut in_out = encrypted.to_vec();
-        let decrypted = opening_key
-            .open_in_place(nonce, aead::Aad::empty(), &mut in_out)
-            .map_err(|_| TorshError::InvalidArgument("Decryption failed".to_string()))?;
-
-        Ok(decrypted.to_vec())
+        cipher
+            .decrypt(&nonce, encrypted)
+            .map_err(|_| TorshError::InvalidArgument("Decryption failed".to_string()))
     }
 
     /// Encrypt with ChaCha20-Poly1305
+    ///
+    /// Produces `ciphertext || 16-byte authentication tag` with empty AAD,
+    /// matching the byte layout previously produced via ring's
+    /// `seal_in_place_append_tag`. The 96-bit nonce is returned separately.
     fn encrypt_chacha20(&self, data: &[u8], key: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
-        let unbound_key = aead::UnboundKey::new(&aead::CHACHA20_POLY1305, key).map_err(|_| {
+        let cipher = ChaCha20Poly1305::new_from_slice(key).map_err(|_| {
             TorshError::InvalidArgument("Invalid key for ChaCha20-Poly1305".to_string())
         })?;
 
-        let nonce_bytes = self.generate_nonce(aead::NONCE_LEN);
-        let nonce = aead::Nonce::try_assume_unique_for_key(&nonce_bytes)
+        let nonce_bytes = self.generate_nonce(CHACHA20_NONCE_LEN)?;
+        let nonce = ChaChaNonce::try_from(nonce_bytes.as_slice())
             .map_err(|_| TorshError::InvalidArgument("Invalid nonce".to_string()))?;
 
-        let sealing_key = aead::LessSafeKey::new(unbound_key);
-
-        let mut in_out = data.to_vec();
-        sealing_key
-            .seal_in_place_append_tag(nonce, aead::Aad::empty(), &mut in_out)
+        let ciphertext = cipher
+            .encrypt(&nonce, data)
             .map_err(|_| TorshError::InvalidArgument("Encryption failed".to_string()))?;
 
-        Ok((in_out, nonce_bytes))
+        Ok((ciphertext, nonce_bytes))
     }
 
     /// Decrypt with ChaCha20-Poly1305
     fn decrypt_chacha20(&self, encrypted: &[u8], nonce: &[u8], key: &[u8]) -> Result<Vec<u8>> {
-        let unbound_key = aead::UnboundKey::new(&aead::CHACHA20_POLY1305, key).map_err(|_| {
+        let cipher = ChaCha20Poly1305::new_from_slice(key).map_err(|_| {
             TorshError::InvalidArgument("Invalid key for ChaCha20-Poly1305".to_string())
         })?;
 
-        let nonce = aead::Nonce::try_assume_unique_for_key(nonce)
+        let nonce = ChaChaNonce::try_from(nonce)
             .map_err(|_| TorshError::InvalidArgument("Invalid nonce".to_string()))?;
 
-        let opening_key = aead::LessSafeKey::new(unbound_key);
-
-        let mut in_out = encrypted.to_vec();
-        let decrypted = opening_key
-            .open_in_place(nonce, aead::Aad::empty(), &mut in_out)
-            .map_err(|_| TorshError::InvalidArgument("Decryption failed".to_string()))?;
-
-        Ok(decrypted.to_vec())
+        cipher
+            .decrypt(&nonce, encrypted)
+            .map_err(|_| TorshError::InvalidArgument("Decryption failed".to_string()))
     }
 
-    /// Derive encryption key from password using PBKDF2
+    /// Derive encryption key from password using PBKDF2-HMAC-SHA256
+    ///
+    /// Uses 100_000 iterations and produces a 256-bit (32-byte) key. These
+    /// parameters are preserved exactly from the prior `ring::pbkdf2`
+    /// implementation so previously encrypted packages still decrypt.
     fn derive_key_from_password(&self, password: &str, salt: &[u8]) -> Result<Vec<u8>> {
-        use ring::pbkdf2;
+        use pbkdf2::pbkdf2_hmac;
 
-        let iterations =
-            std::num::NonZeroU32::new(100_000).expect("100_000 is a valid non-zero u32");
         let mut key = vec![0u8; 32]; // 256-bit key
 
-        pbkdf2::derive(
-            pbkdf2::PBKDF2_HMAC_SHA256,
-            iterations,
-            salt,
-            password.as_bytes(),
-            &mut key,
-        );
+        // `Sha256` is imported at module scope (also used for package digests).
+        pbkdf2_hmac::<Sha256>(password.as_bytes(), salt, PBKDF2_ITERATIONS, &mut key);
 
         Ok(key)
     }
 
-    /// Generate random salt
-    fn generate_salt(&self) -> Vec<u8> {
-        use ring::rand::{SecureRandom, SystemRandom};
-
-        let rng = SystemRandom::new();
+    /// Generate a cryptographically secure random salt (32 bytes)
+    fn generate_salt(&self) -> Result<Vec<u8>> {
         let mut salt = vec![0u8; 32];
-        rng.fill(&mut salt).expect("Failed to generate salt");
-        salt
+        getrandom::fill(&mut salt)
+            .map_err(|e| TorshError::InvalidArgument(format!("Failed to generate salt: {e}")))?;
+        Ok(salt)
     }
 
-    /// Generate random nonce
-    fn generate_nonce(&self, len: usize) -> Vec<u8> {
-        use ring::rand::{SecureRandom, SystemRandom};
-
-        let rng = SystemRandom::new();
+    /// Generate a cryptographically secure random nonce of `len` bytes
+    fn generate_nonce(&self, len: usize) -> Result<Vec<u8>> {
         let mut nonce = vec![0u8; len];
-        rng.fill(&mut nonce).expect("Failed to generate nonce");
-        nonce
+        getrandom::fill(&mut nonce)
+            .map_err(|e| TorshError::InvalidArgument(format!("Failed to generate nonce: {e}")))?;
+        Ok(nonce)
     }
 
     /// Save encrypted package to file
@@ -613,5 +615,89 @@ mod tests {
 
         let is_valid = verifier.verify_package(&package, &signature).unwrap();
         assert!(!is_valid);
+    }
+
+    #[test]
+    fn test_aes_gcm_roundtrip_and_format() {
+        let enc = PackageEncryptor::new(EncryptionAlgorithm::Aes256Gcm);
+        let key = [0x11u8; 32];
+        let plaintext = b"torsh aes-256-gcm payload";
+
+        let (ciphertext, nonce) = enc.encrypt_aes_gcm(plaintext, &key).unwrap();
+        // ring's seal_in_place_append_tag produced ciphertext || 16-byte tag;
+        // RustCrypto preserves the same layout.
+        assert_eq!(nonce.len(), AES_GCM_NONCE_LEN);
+        assert_eq!(ciphertext.len(), plaintext.len() + 16);
+
+        let decrypted = enc.decrypt_aes_gcm(&ciphertext, &nonce, &key).unwrap();
+        assert_eq!(decrypted, plaintext);
+    }
+
+    #[test]
+    fn test_chacha20_roundtrip_and_format() {
+        let enc = PackageEncryptor::new(EncryptionAlgorithm::ChaCha20Poly1305);
+        let key = [0x22u8; 32];
+        let plaintext = b"torsh chacha20-poly1305 payload";
+
+        let (ciphertext, nonce) = enc.encrypt_chacha20(plaintext, &key).unwrap();
+        assert_eq!(nonce.len(), CHACHA20_NONCE_LEN);
+        assert_eq!(ciphertext.len(), plaintext.len() + 16);
+
+        let decrypted = enc.decrypt_chacha20(&ciphertext, &nonce, &key).unwrap();
+        assert_eq!(decrypted, plaintext);
+    }
+
+    #[test]
+    fn test_aes_gcm_tamper_is_rejected() {
+        let enc = PackageEncryptor::new(EncryptionAlgorithm::Aes256Gcm);
+        let key = [0x33u8; 32];
+        let plaintext = b"authenticate me";
+
+        let (mut ciphertext, nonce) = enc.encrypt_aes_gcm(plaintext, &key).unwrap();
+        // Flip a single bit in the ciphertext: authentication MUST fail.
+        ciphertext[0] ^= 0x01;
+        assert!(enc.decrypt_aes_gcm(&ciphertext, &nonce, &key).is_err());
+    }
+
+    #[test]
+    fn test_chacha20_tamper_is_rejected() {
+        let enc = PackageEncryptor::new(EncryptionAlgorithm::ChaCha20Poly1305);
+        let key = [0x44u8; 32];
+        let plaintext = b"authenticate me too";
+
+        let (mut ciphertext, nonce) = enc.encrypt_chacha20(plaintext, &key).unwrap();
+        // Flip a single bit in the tag region: authentication MUST fail.
+        let last = ciphertext.len() - 1;
+        ciphertext[last] ^= 0x80;
+        assert!(enc.decrypt_chacha20(&ciphertext, &nonce, &key).is_err());
+    }
+
+    #[test]
+    fn test_pbkdf2_known_derivation_is_stable() {
+        let enc = PackageEncryptor::new(EncryptionAlgorithm::Aes256Gcm);
+
+        // PBKDF2-HMAC-SHA256 known-answer vectors (P="password", S="salt"),
+        // truncated to the 32-byte key length torsh derives. These pin the
+        // algorithm, PRF, and output length; the 100_000-iteration production
+        // path is exercised by the encrypt/decrypt round-trip tests.
+        let derive = |salt: &[u8]| enc.derive_key_from_password("password", salt).unwrap();
+
+        // c is fixed at PBKDF2_ITERATIONS internally, so we validate stability
+        // (same inputs -> same output) plus the documented length + a vector at
+        // the production iteration count computed once and pinned here.
+        let k1 = derive(b"salt");
+        let k2 = derive(b"salt");
+        assert_eq!(k1, k2, "PBKDF2 must be deterministic for identical inputs");
+        assert_eq!(k1.len(), 32, "derived key must be 256-bit");
+        assert_ne!(derive(b"other-salt"), k1, "salt must affect derivation");
+
+        // Pinned known-answer for PBKDF2-HMAC-SHA256(password, salt, 100000, 32),
+        // cross-verified against ring's PBKDF2_HMAC_SHA256.
+        let expected = "0394a2ede332c9a13eb82e9b24631604c31df978b4e2f0fbd2c549944f9d79a5";
+        assert_eq!(
+            hex::encode(&k1),
+            expected,
+            "PBKDF2 production-iteration KAT"
+        );
     }
 }

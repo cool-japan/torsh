@@ -329,6 +329,10 @@ impl Optimizer for STDPOptimizer {
         }
     }
 
+    fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {
+        self.param_groups.clone()
+    }
+
     fn state_dict(&self) -> OptimizerResult<OptimizerState> {
         // Create basic state
         let mut state = OptimizerState {
@@ -572,6 +576,10 @@ impl Optimizer for EventDrivenOptimizer {
         }
     }
 
+    fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {
+        self.param_groups.clone()
+    }
+
     fn state_dict(&self) -> OptimizerResult<OptimizerState> {
         let mut state = OptimizerState {
             optimizer_type: "EventDriven".to_string(),
@@ -789,6 +797,10 @@ impl Optimizer for TemporalCreditOptimizer {
             let param_key = format!("param_{}", start_idx + i);
             // Would need to initialize eligibility trace here
         }
+    }
+
+    fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {
+        self.param_groups.clone()
     }
 
     fn state_dict(&self) -> OptimizerResult<OptimizerState> {

@@ -1,4 +1,5 @@
 use crate::context::AutogradContext;
+use crate::error_handling::AutogradError;
 use torsh_core::Result;
 use torsh_tensor::Tensor;
 
@@ -56,19 +57,80 @@ impl MetaGradientEngine {
         self.compute_second_order_gradients(&meta_loss, meta_parameters, &first_order_grads)
     }
 
+    /// Compute first-order gradients of `loss` with respect to `parameters`.
+    ///
+    /// This performs a real reverse-mode backward pass through the autograd tape
+    /// carried by the `torsh_tensor::Tensor` operation graph. The caller MUST
+    /// build `loss` from `parameters` using differentiable tensor operations and
+    /// mark the parameters with [`Tensor::requires_grad_`] so that the tape links
+    /// the scalar `loss` back to each parameter leaf.
+    ///
+    /// # Errors
+    ///
+    /// Returns an honest error (never a fabricated ones-/zeros-gradient) when:
+    /// - `loss` is not a scalar (backward is only defined for scalar outputs),
+    /// - `loss` does not require gradients (no tape was recorded), or
+    /// - a parameter has no gradient after the backward pass, which means it was
+    ///   not connected to `loss` in the autograd graph.
     fn compute_first_order_gradients(
         &mut self,
-        _loss: &Tensor,
+        loss: &Tensor,
         parameters: &[Tensor],
     ) -> Result<Vec<Tensor>> {
-        // TODO: Implement actual backward pass when AutogradTensor trait is available
-        // For now, create mock gradients
-        let mut gradients = Vec::new();
+        if loss.shape().numel() != 1 {
+            return Err(AutogradError::gradient_computation(
+                "meta_gradient::first_order",
+                format!(
+                    "first-order gradients require a scalar loss; got shape {:?}",
+                    loss.shape().dims()
+                ),
+            )
+            .into());
+        }
 
+        if !loss.requires_grad() {
+            return Err(AutogradError::gradient_computation(
+                "meta_gradient::first_order",
+                "loss tensor does not require grad: no autograd tape was recorded, so \
+                 real gradients cannot be computed. Build the loss from \
+                 `requires_grad_(true)` parameters using differentiable tensor ops.",
+            )
+            .into());
+        }
+
+        // Clear any stale gradients on the parameters so we read only the
+        // gradients produced by this backward pass. `set_grad` uses the
+        // tensor's interior-mutable gradient slot, so a shared `&Tensor` is
+        // sufficient (no `&mut` required).
         for param in parameters {
-            // Create mock gradient (ones with same shape as parameter)
-            let grad = Tensor::ones(param.shape().dims(), param.device())?;
-            gradients.push(grad);
+            param.set_grad(None);
+        }
+
+        // Real reverse-mode backward pass through the tensor autograd tape.
+        loss.backward()?;
+
+        let mut gradients = Vec::with_capacity(parameters.len());
+        for (index, param) in parameters.iter().enumerate() {
+            match param.grad() {
+                Some(grad) => gradients.push(grad),
+                None => {
+                    if self.config.allow_unused {
+                        // PyTorch `allow_unused=True` semantics: a parameter that
+                        // did not participate in the loss yields a zero gradient.
+                        gradients.push(Tensor::zeros(param.shape().dims(), param.device())?);
+                    } else {
+                        return Err(AutogradError::gradient_computation(
+                            "meta_gradient::first_order",
+                            format!(
+                                "parameter {index} has no gradient after backward: it is not \
+                                 connected to the loss in the autograd graph. Set \
+                                 `allow_unused = true` to treat unconnected parameters as zero.",
+                            ),
+                        )
+                        .into());
+                    }
+                }
+            }
         }
 
         Ok(gradients)
@@ -108,27 +170,39 @@ impl MetaGradientEngine {
         Ok(meta_loss)
     }
 
+    /// Compute second-order (meta) gradients.
+    ///
+    /// A genuine second-order meta-gradient is the gradient of the meta-loss with
+    /// respect to the meta-parameters *through* the inner gradient-update step,
+    /// i.e. it requires differentiating through the first-order gradients
+    /// themselves (a Hessian-vector product / double backward).
+    ///
+    /// The underlying `torsh_tensor::Tensor` autograd tape performs a single
+    /// reverse pass and stores gradients as plain data (it does not record the
+    /// backward pass into the graph), so `create_graph`-style double
+    /// backpropagation is not available. Returning the cloned first-order
+    /// gradients here would be a silent fabrication: a first-order gradient is
+    /// not a second-order gradient. We therefore return an honest error.
+    ///
+    /// Callers that only need first-order behaviour should set
+    /// [`MetaGradientConfig::second_order`] to `false`, which short-circuits
+    /// before this function is reached.
     fn compute_second_order_gradients(
         &mut self,
         _meta_loss: &Tensor,
-        meta_parameters: &[Tensor],
-        first_order_grads: &[Tensor],
+        _meta_parameters: &[Tensor],
+        _first_order_grads: &[Tensor],
     ) -> Result<Vec<Tensor>> {
-        let mut second_order_grads = Vec::new();
-
-        // TODO: Implement actual second-order gradient computation when AutogradTensor trait is available
-        // For now, return first-order gradients or mock gradients
-        for (_meta_param, first_grad) in meta_parameters.iter().zip(first_order_grads.iter()) {
-            if self.config.create_graph {
-                // For now, just clone the first-order gradient
-                second_order_grads.push(first_grad.clone());
-            } else {
-                // If not creating graph, just return first-order gradient
-                second_order_grads.push(first_grad.clone());
-            }
-        }
-
-        Ok(second_order_grads)
+        Err(AutogradError::gradient_computation(
+            "meta_gradient::second_order",
+            "second-order meta-gradients require double backpropagation \
+             (a Hessian-vector product through the inner update step), which the \
+             tensor autograd tape does not support: it performs a single reverse \
+             pass and stores gradients as plain data rather than graph-tracked \
+             tensors. Set `MetaGradientConfig::second_order = false` to use \
+             first-order meta-gradients (FOMAML/Reptile-style).",
+        )
+        .into())
     }
 
     pub fn maml_gradient_update(
@@ -588,32 +662,39 @@ impl HyperparameterOptimizer {
         total_loss.div(&num_losses)
     }
 
-    /// Compute gradients with respect to hyperparameters using the implicit function theorem
+    /// Compute gradients with respect to hyperparameters using the implicit
+    /// function theorem (IFT).
+    ///
+    /// A correct hyperparameter gradient via the IFT is
+    /// `dL_val/dλ = -∂L_val/∂θ* · (∂²L_train/∂θ²)⁻¹ · ∂²L_train/∂θ∂λ`,
+    /// which needs a Hessian-inverse-vector product over the training loss plus
+    /// mixed second derivatives with respect to the hyperparameters. None of
+    /// those quantities are available from the single-pass tensor autograd tape
+    /// (which does not support double backpropagation), so a real IFT gradient
+    /// cannot be formed here.
+    ///
+    /// # Errors
+    ///
+    /// Returns an honest error rather than the previous fabricated gradient,
+    /// whose sign was chosen from a hard-coded loss threshold and bore no
+    /// mathematical relationship to the true hyperparameter gradient.
     fn compute_hyperparameter_gradients(
         &mut self,
-        val_loss: &Tensor,
-        hyperparameters: &[Hyperparameter],
+        _val_loss: &Tensor,
+        _hyperparameters: &[Hyperparameter],
         _optimized_params: &[Tensor],
         _original_params: &[Tensor],
     ) -> Result<Vec<Tensor>> {
-        let mut hyperparam_gradients = Vec::new();
-
-        for hyperparam in hyperparameters {
-            if hyperparam.requires_grad {
-                // Simplified gradient computation (in practice, would use implicit function theorem)
-                // For now, create mock gradients based on validation loss
-                let mock_grad = if val_loss.to_vec()?[0] > 1.0 {
-                    Tensor::scalar(-0.1)? // Decrease hyperparameter if loss is high
-                } else {
-                    Tensor::scalar(0.01)? // Small increase if loss is low
-                };
-                hyperparam_gradients.push(mock_grad);
-            } else {
-                hyperparam_gradients.push(Tensor::scalar(0.0)?);
-            }
-        }
-
-        Ok(hyperparam_gradients)
+        Err(AutogradError::gradient_computation(
+            "meta_gradient::hyperparameter_ift",
+            "implicit-function-theorem hyperparameter gradients require a \
+             Hessian-inverse-vector product over the training loss and mixed \
+             second derivatives w.r.t. the hyperparameters. The tensor autograd \
+             tape only supports single-pass first-order differentiation, so these \
+             second-order quantities are unavailable and a real IFT gradient \
+             cannot be computed.",
+        )
+        .into())
     }
 
     /// Create common hyperparameters for optimization
@@ -663,129 +744,156 @@ mod tests {
     use super::*;
     use torsh_core::DeviceType;
 
+    /// Extract the single scalar value from a tensor for assertions.
+    fn scalar_value(t: &Tensor) -> Result<f32> {
+        Ok(t.to_vec()?[0])
+    }
+
     #[test]
-    fn test_meta_gradient_computation() -> Result<()> {
+    fn test_first_order_gradient_is_real_not_ones() -> Result<()> {
+        // Build a genuinely connected graph: loss = param^2 for a scalar param.
+        // The real derivative is dloss/dparam = 2 * param = 2 * 3 = 6.
         let mut engine = MetaGradientEngine::new(MetaGradientConfig::default());
+        let param = Tensor::scalar(3.0f32)?.requires_grad_(true);
+        let loss = param.pow(2.0f32)?;
 
-        let loss = Tensor::ones(&[1], DeviceType::Cpu)?;
-        let param1 = Tensor::ones(&[2, 2], DeviceType::Cpu)?;
-        let param2 = Tensor::ones(&[2, 2], DeviceType::Cpu)?;
-        let parameters = vec![param1, param2];
+        let grads = engine.compute_first_order_gradients(&loss, std::slice::from_ref(&param))?;
 
-        let meta_param1 = Tensor::zeros(&[2, 2], DeviceType::Cpu)?;
-        let meta_param2 = Tensor::zeros(&[2, 2], DeviceType::Cpu)?;
-        let meta_parameters = vec![meta_param1, meta_param2];
-
-        let result = engine.compute_meta_gradient(&loss, &parameters, &meta_parameters)?;
-
-        assert_eq!(result.len(), 2);
-        // Meta-gradient updates may return different shapes depending on implementation
-        // Ensure we got valid tensors for both parameters
+        assert_eq!(grads.len(), 1);
+        let value = scalar_value(&grads[0])?;
+        // A real gradient is 6.0, decisively NOT the old fabricated 1.0 (ones_like).
         assert!(
-            result[0].shape().dims().len() <= 2,
-            "Expected tensor with at most 2 dimensions, got {:?}",
-            result[0].shape()
+            (value - 6.0).abs() < 1e-4,
+            "expected real gradient 6.0, got {value}"
         );
         assert!(
-            result[1].shape().dims().len() <= 2,
-            "Expected tensor with at most 2 dimensions, got {:?}",
-            result[1].shape()
+            (value - 1.0).abs() > 1e-3,
+            "gradient must not be a fabricated ones-tensor"
         );
-
         Ok(())
     }
 
     #[test]
-    fn test_maml_gradient_update() -> Result<()> {
+    fn test_first_order_gradient_errors_on_disconnected_loss() {
+        // A loss that does not require grad has no tape linking it to params,
+        // so an honest error must be returned (never a ones-tensor).
         let mut engine = MetaGradientEngine::new(MetaGradientConfig::default());
+        let loss = Tensor::ones(&[1], DeviceType::Cpu).expect("tensor creation");
+        let param = Tensor::ones(&[2, 2], DeviceType::Cpu).expect("tensor creation");
 
-        let loss1 = Tensor::ones(&[1], DeviceType::Cpu)?;
-        let loss2 = Tensor::ones(&[1], DeviceType::Cpu)?;
-        let task_losses = vec![loss1, loss2];
-
-        let param1 = Tensor::ones(&[2, 2], DeviceType::Cpu)?;
-        let param2 = Tensor::ones(&[2, 2], DeviceType::Cpu)?;
-        let parameters = vec![param1, param2];
-
-        let result = engine.maml_gradient_update(&task_losses, &parameters, 0.01, 0.001)?;
-
-        assert_eq!(result.len(), 2);
-        // Meta-gradient updates may return different shapes depending on implementation
-        // Ensure we got valid tensors for both parameters
+        let result = engine.compute_first_order_gradients(&loss, std::slice::from_ref(&param));
         assert!(
-            result[0].shape().dims().len() <= 2,
-            "Expected tensor with at most 2 dimensions, got {:?}",
-            result[0].shape()
+            result.is_err(),
+            "disconnected loss must yield an honest error, not fabricated gradients"
         );
-        assert!(
-            result[1].shape().dims().len() <= 2,
-            "Expected tensor with at most 2 dimensions, got {:?}",
-            result[1].shape()
-        );
+    }
 
+    #[test]
+    fn test_first_order_gradient_errors_on_non_scalar_loss() {
+        // backward() is only defined for scalar outputs; a non-scalar loss must
+        // produce an honest error rather than a fabricated per-element gradient.
+        let mut engine = MetaGradientEngine::new(MetaGradientConfig::default());
+        let loss = Tensor::ones(&[2, 2], DeviceType::Cpu)
+            .expect("tensor creation")
+            .requires_grad_(true);
+        let param = Tensor::ones(&[2, 2], DeviceType::Cpu).expect("tensor creation");
+
+        let result = engine.compute_first_order_gradients(&loss, std::slice::from_ref(&param));
+        assert!(
+            result.is_err(),
+            "non-scalar loss must yield an honest error"
+        );
+    }
+
+    #[test]
+    fn test_allow_unused_yields_zero_not_ones() -> Result<()> {
+        // With allow_unused=true a parameter that does not participate in the
+        // loss yields a true zero gradient (PyTorch semantics), never a ones.
+        let config = MetaGradientConfig {
+            allow_unused: true,
+            ..MetaGradientConfig::default()
+        };
+        let mut engine = MetaGradientEngine::new(config);
+
+        let used = Tensor::scalar(2.0f32)?.requires_grad_(true);
+        let loss = used.pow(2.0f32)?;
+        let unused = Tensor::scalar(5.0f32)?.requires_grad_(true);
+
+        let grads = engine.compute_first_order_gradients(&loss, &[used.clone(), unused])?;
+        assert_eq!(grads.len(), 2);
+        // Used param: real gradient 2*2 = 4.
+        assert!((scalar_value(&grads[0])? - 4.0).abs() < 1e-4);
+        // Unused param: honest zero, not a fabricated one.
+        assert!((scalar_value(&grads[1])? - 0.0).abs() < 1e-6);
         Ok(())
     }
 
     #[test]
-    fn test_reptile_gradient_update() -> Result<()> {
+    fn test_second_order_gradient_returns_honest_error() {
+        // Second-order meta-gradients require double backprop which the tape
+        // does not support; the engine must error rather than clone first-order
+        // gradients and pass them off as second-order.
         let mut engine = MetaGradientEngine::new(MetaGradientConfig::default());
+        let loss = Tensor::scalar(1.0f32).expect("tensor creation");
+        let meta_param = Tensor::scalar(1.0f32).expect("tensor creation");
+        let first_grad = Tensor::scalar(1.0f32).expect("tensor creation");
 
-        let loss1 = Tensor::ones(&[1], DeviceType::Cpu)?;
-        let loss2 = Tensor::ones(&[1], DeviceType::Cpu)?;
-        let task_losses = vec![loss1, loss2];
-
-        let param1 = Tensor::ones(&[2, 2], DeviceType::Cpu)?;
-        let param2 = Tensor::ones(&[2, 2], DeviceType::Cpu)?;
-        let parameters = vec![param1, param2];
-
-        let result = engine.reptile_gradient_update(&task_losses, &parameters, 0.01, 5, 0.001)?;
-
-        assert_eq!(result.len(), 2);
-        // Meta-gradient updates may return different shapes depending on implementation
-        // Ensure we got valid tensors for both parameters
-        assert!(
-            result[0].shape().dims().len() <= 2,
-            "Expected tensor with at most 2 dimensions, got {:?}",
-            result[0].shape()
+        let result = engine.compute_second_order_gradients(
+            &loss,
+            std::slice::from_ref(&meta_param),
+            std::slice::from_ref(&first_grad),
         );
         assert!(
-            result[1].shape().dims().len() <= 2,
-            "Expected tensor with at most 2 dimensions, got {:?}",
-            result[1].shape()
+            result.is_err(),
+            "second-order gradients are unsupported and must return an honest error"
         );
+    }
 
+    #[test]
+    fn test_meta_gradient_first_order_path_is_real() -> Result<()> {
+        // second_order=false routes through the real first-order path. Build a
+        // connected scalar loss and verify the returned gradient is genuine.
+        let config = MetaGradientConfig {
+            second_order: false,
+            ..MetaGradientConfig::default()
+        };
+        let mut engine = MetaGradientEngine::new(config);
+
+        let param = Tensor::scalar(4.0f32)?.requires_grad_(true);
+        let loss = param.pow(2.0f32)?;
+        let meta_param = Tensor::scalar(0.0f32)?;
+
+        let result = engine.compute_meta_gradient(
+            &loss,
+            std::slice::from_ref(&param),
+            std::slice::from_ref(&meta_param),
+        )?;
+        assert_eq!(result.len(), 1);
+        // Real derivative 2*4 = 8.
+        assert!((scalar_value(&result[0])? - 8.0).abs() < 1e-4);
         Ok(())
     }
 
     #[test]
-    fn test_fomaml_gradient_update() -> Result<()> {
+    fn test_meta_gradient_second_order_path_errors() {
+        // Default config requests second-order gradients; with a connected loss
+        // the first-order step succeeds but the second-order step must error.
         let mut engine = MetaGradientEngine::new(MetaGradientConfig::default());
+        let param = Tensor::scalar(4.0f32)
+            .expect("tensor creation")
+            .requires_grad_(true);
+        let loss = param.pow(2.0f32).expect("pow");
+        let meta_param = Tensor::scalar(0.0f32).expect("tensor creation");
 
-        let loss1 = Tensor::ones(&[1], DeviceType::Cpu)?;
-        let loss2 = Tensor::ones(&[1], DeviceType::Cpu)?;
-        let task_losses = vec![loss1, loss2];
-
-        let param1 = Tensor::ones(&[2, 2], DeviceType::Cpu)?;
-        let param2 = Tensor::ones(&[2, 2], DeviceType::Cpu)?;
-        let parameters = vec![param1, param2];
-
-        let result = engine.fomaml_gradient_update(&task_losses, &parameters, 0.01, 0.001)?;
-
-        assert_eq!(result.len(), 2);
-        // Meta-gradient updates may return different shapes depending on implementation
-        // Ensure we got valid tensors for both parameters
-        assert!(
-            result[0].shape().dims().len() <= 2,
-            "Expected tensor with at most 2 dimensions, got {:?}",
-            result[0].shape()
+        let result = engine.compute_meta_gradient(
+            &loss,
+            std::slice::from_ref(&param),
+            std::slice::from_ref(&meta_param),
         );
         assert!(
-            result[1].shape().dims().len() <= 2,
-            "Expected tensor with at most 2 dimensions, got {:?}",
-            result[1].shape()
+            result.is_err(),
+            "second-order meta-gradient must surface an honest error"
         );
-
-        Ok(())
     }
 
     #[test]
@@ -821,7 +929,12 @@ mod tests {
     }
 
     #[test]
-    fn test_hyperparameter_optimization_simple() -> Result<()> {
+    fn test_hyperparameter_optimization_returns_honest_error() {
+        // The inner optimization step relies on real first-order gradients of
+        // disconnected scalar losses w.r.t. disconnected model parameters, and
+        // the outer step relies on implicit-function-theorem hyperparameter
+        // gradients. Neither is supported, so the optimizer must surface an
+        // honest error rather than fabricate an optimization trajectory.
         let config = HyperparameterOptimizationConfig {
             hyperparam_lr: 0.01,
             inner_steps: 2,
@@ -834,22 +947,24 @@ mod tests {
         let mut optimizer = HyperparameterOptimizer::new(config);
 
         // Create simple training and validation losses
-        let train_loss1 = Tensor::scalar(2.0)?;
-        let train_loss2 = Tensor::scalar(1.5)?;
+        let train_loss1 = Tensor::scalar(2.0).expect("tensor creation");
+        let train_loss2 = Tensor::scalar(1.5).expect("tensor creation");
         let train_losses = vec![train_loss1, train_loss2];
 
-        let val_loss1 = Tensor::scalar(1.8)?;
-        let val_loss2 = Tensor::scalar(1.3)?;
+        let val_loss1 = Tensor::scalar(1.8).expect("tensor creation");
+        let val_loss2 = Tensor::scalar(1.3).expect("tensor creation");
         let val_losses = vec![val_loss1, val_loss2];
 
         // Create simple model parameters
-        let param1 = Tensor::ones(&[2, 2], DeviceType::Cpu)?;
-        let param2 = Tensor::ones(&[1, 2], DeviceType::Cpu)?;
+        let param1 = Tensor::ones(&[2, 2], DeviceType::Cpu).expect("tensor creation");
+        let param2 = Tensor::ones(&[1, 2], DeviceType::Cpu).expect("tensor creation");
         let model_parameters = vec![param1, param2];
 
         // Create hyperparameters to optimize
-        let lr_hyperparam = HyperparameterOptimizer::create_learning_rate_hyperparam(0.01)?;
-        let l2_hyperparam = HyperparameterOptimizer::create_l2_regularization_hyperparam(0.001)?;
+        let lr_hyperparam =
+            HyperparameterOptimizer::create_learning_rate_hyperparam(0.01).expect("hyperparam");
+        let l2_hyperparam = HyperparameterOptimizer::create_l2_regularization_hyperparam(0.001)
+            .expect("hyperparam");
         let hyperparameters = vec![lr_hyperparam, l2_hyperparam];
 
         // Run optimization
@@ -858,24 +973,12 @@ mod tests {
             &val_losses,
             &model_parameters,
             hyperparameters,
-        )?;
+        );
 
-        // Verify results
-        assert_eq!(result.optimal_hyperparameters.len(), 2);
-        assert!(result.optimization_history.len() <= 3);
-        assert!(result.iterations <= 3);
-        assert!(result.best_validation_loss.is_finite());
-
-        // Verify hyperparameter types are preserved
-        assert!(matches!(
-            result.optimal_hyperparameters[0].param_type,
-            HyperparameterType::LearningRate
-        ));
-        assert!(matches!(
-            result.optimal_hyperparameters[1].param_type,
-            HyperparameterType::L2Regularization
-        ));
-
-        Ok(())
+        assert!(
+            result.is_err(),
+            "optimization over disconnected tensors must return an honest error, \
+             not a fabricated result"
+        );
     }
 }

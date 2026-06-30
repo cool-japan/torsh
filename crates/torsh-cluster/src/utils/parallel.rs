@@ -211,16 +211,17 @@ pub fn parallel_kmeans_iteration_f32(
     let new_centroids = Array2::from_shape_vec((n_clusters, n_features), new_centroids_flat)
         .map_err(|_| ClusterError::InvalidInput("Failed to create centroids".to_string()))?;
 
-    // Step 3: Compute inertia (within-cluster sum of squares) sequentially for now
-    // TODO: Optimize inertia computation with proper parallel_map_reduce
-    let mut inertia = 0.0f32;
-    for i in 0..n_samples {
-        let label = labels[i];
-        let point = data.row(i);
-        let centroid = new_centroids.row(label);
-        let diff = f32::simd_sub(&point, &centroid);
-        inertia += f32::simd_sum_squares(&diff.view());
-    }
+    // Step 3: Compute inertia (within-cluster sum of squares) in parallel
+    let data_rows_inertia: Vec<ArrayView1<f32>> = data.outer_iter().collect();
+    let centroid_rows_inertia: Vec<ArrayView1<f32>> = new_centroids.outer_iter().collect();
+    let sample_indices_inertia: Vec<usize> = (0..n_samples).collect();
+
+    let per_sample_sq: Vec<f32> = parallel_map(&sample_indices_inertia, |&i| {
+        let label = labels_vec[i];
+        let diff = f32::simd_sub(&data_rows_inertia[i], &centroid_rows_inertia[label]);
+        f32::simd_sum_squares(&diff.view())
+    });
+    let inertia: f32 = per_sample_sq.into_iter().sum();
 
     Ok((new_centroids, labels, inertia))
 }
@@ -388,6 +389,54 @@ mod tests {
         assert_relative_eq!(new_centroids[[0, 1]], 0.05, epsilon = 1e-4);
         assert_relative_eq!(new_centroids[[1, 0]], 5.05, epsilon = 1e-4);
         assert_relative_eq!(new_centroids[[1, 1]], 5.05, epsilon = 1e-4);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_parallel_kmeans_iteration_inertia_parallel() -> ClusterResult<()> {
+        // 3 well-separated clusters (4 points each) in 2D.
+        // Cluster 0 centred at (0, 0)  — points: (1,0), (-1,0), (0,1), (0,-1)
+        // Cluster 1 centred at (10, 0) — points: (11,0), (9,0), (10,1), (10,-1)
+        // Cluster 2 centred at (0, 10) — points: (1,10), (-1,10), (0,11), (0,9)
+        // Because the clusters are symmetric around their true means, the new
+        // centroids computed by the k-means step equal the initial centroids, and
+        // every point sits exactly 1 unit away from its centroid (dist² = 1).
+        // => expected inertia = 12 × 1.0 = 12.0
+        let data_flat: Vec<f32> = vec![
+            1.0, 0.0, -1.0, 0.0, 0.0, 1.0, 0.0, -1.0, // cluster 0
+            11.0, 0.0, 9.0, 0.0, 10.0, 1.0, 10.0, -1.0, // cluster 1
+            1.0, 10.0, -1.0, 10.0, 0.0, 11.0, 0.0, 9.0, // cluster 2
+        ];
+        let data = Array2::from_shape_vec((12, 2), data_flat)
+            .map_err(|_| ClusterError::InvalidInput("Failed to create test data".to_string()))?;
+
+        let centroids_flat: Vec<f32> = vec![0.0, 0.0, 10.0, 0.0, 0.0, 10.0];
+        let centroids = Array2::from_shape_vec((3, 2), centroids_flat)
+            .map_err(|_| ClusterError::InvalidInput("Failed to create centroids".to_string()))?;
+
+        let (new_centroids, labels, inertia) = parallel_kmeans_iteration_f32(&data, &centroids)?;
+
+        // Serial reference loop to validate the parallel result
+        let mut expected_inertia = 0.0f32;
+        for i in 0..12_usize {
+            let label = labels[i];
+            for j in 0..2_usize {
+                let diff = data[[i, j]] - new_centroids[[label, j]];
+                expected_inertia += diff * diff;
+            }
+        }
+
+        assert!(
+            (inertia - expected_inertia).abs() < 1e-4,
+            "Parallel inertia {inertia} differs from serial reference {expected_inertia}"
+        );
+
+        // Verify against the analytically known value
+        assert!(
+            (inertia - 12.0_f32).abs() < 1e-4,
+            "Expected inertia ~12.0, got {inertia}"
+        );
 
         Ok(())
     }

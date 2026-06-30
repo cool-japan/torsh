@@ -312,6 +312,10 @@ impl Optimizer for AsyncSGD {
         self.params.extend(params);
     }
 
+    fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {
+        self.params.clone()
+    }
+
     fn state_dict(&self) -> OptimizerResult<OptimizerState> {
         let param_group = ParamGroupState {
             lr: self.lr,

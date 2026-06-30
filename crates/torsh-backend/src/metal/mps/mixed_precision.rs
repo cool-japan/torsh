@@ -124,8 +124,8 @@ impl MPSMixedPrecision {
         input: &MetalBuffer,
         output: &MetalBuffer,
     ) -> Result<()> {
-        // Implementation would use Metal compute shaders to convert FP32 to FP16
-        // For now, this is a placeholder
+        // Performs a real FP32 -> FP16 conversion over shared-storage buffer contents.
+        // A future optimization could dispatch a Metal compute shader for large tensors.
         self.cast_tensor(command_buffer, input, output, MPSDataType::Float16)
     }
 
@@ -136,7 +136,8 @@ impl MPSMixedPrecision {
         input: &MetalBuffer,
         output: &MetalBuffer,
     ) -> Result<()> {
-        // Implementation would use Metal compute shaders to convert FP16 to FP32
+        // Performs a real FP16 -> FP32 conversion over shared-storage buffer contents.
+        // A future optimization could dispatch a Metal compute shader for large tensors.
         self.cast_tensor(command_buffer, input, output, MPSDataType::Float32)
     }
 
@@ -156,53 +157,221 @@ impl MPSMixedPrecision {
         }
     }
 
-    /// Scale a tensor by a scalar value
+    /// Scale a tensor by a scalar value, writing the result into `output`.
+    ///
+    /// Metal buffers on Apple Silicon use unified (shared-storage) memory, so the buffer
+    /// contents are directly addressable from the CPU. We multiply each element by `scale`
+    /// element-wise. A future optimization could dispatch a Metal compute shader, but this
+    /// path performs the real arithmetic rather than silently copying the input unchanged.
     fn scale_tensor(
         &self,
-        command_buffer: &CommandBuffer,
+        _command_buffer: &CommandBuffer,
         input: &MetalBuffer,
-        _scale: f32,
+        scale: f32,
         output: &MetalBuffer,
     ) -> Result<()> {
-        // Implementation would use a Metal compute shader for efficient scaling
-        // For now, this is a placeholder
-        self.copy_buffer(command_buffer, input, output)
+        Self::check_same_dtype("scale_tensor", input, output)?;
+        Self::check_same_byte_size("scale_tensor", input, output)?;
+
+        // SAFETY: shared-storage Metal buffers expose CPU-addressable contents for the
+        // full extent reported by `size_bytes()`; input and output are validated to share
+        // dtype and byte length above, and the element counts derive from those lengths.
+        match input.dtype() {
+            torsh_core::DType::F32 => unsafe {
+                let src = input.as_ptr() as *const f32;
+                let dst = output.buffer().contents() as *mut f32;
+                let count = input.size_bytes() / std::mem::size_of::<f32>();
+                for i in 0..count {
+                    *dst.add(i) = *src.add(i) * scale;
+                }
+            },
+            torsh_core::DType::F16 => unsafe {
+                let src = input.as_ptr() as *const half::f16;
+                let dst = output.buffer().contents() as *mut half::f16;
+                let count = input.size_bytes() / std::mem::size_of::<half::f16>();
+                for i in 0..count {
+                    let scaled = src.add(i).read().to_f32() * scale;
+                    *dst.add(i) = half::f16::from_f32(scaled);
+                }
+            },
+            other => {
+                return Err(crate::metal::error::TorshError::UnsupportedOperation {
+                    op: "scale_tensor".to_string(),
+                    dtype: format!("{:?}", other),
+                })
+            }
+        }
+
+        Ok(())
     }
 
-    /// Copy buffer contents
+    /// Copy buffer contents from `src` into `dst`.
+    ///
+    /// Performs a real byte-for-byte copy across the shared-storage buffers. This replaces
+    /// a former no-op that returned `Ok(())` without moving any data.
     fn copy_buffer(
         &self,
         _command_buffer: &CommandBuffer,
-        _src: &MetalBuffer,
-        _dst: &MetalBuffer,
+        src: &MetalBuffer,
+        dst: &MetalBuffer,
     ) -> Result<()> {
-        // Implementation would use Metal's blit encoder for efficient copying
-        // For now, this is a placeholder
+        Self::check_same_byte_size("copy_buffer", src, dst)?;
+
+        let byte_len = src.size_bytes();
+        // SAFETY: both buffers use shared storage and expose CPU-addressable contents for
+        // `size_bytes()` bytes; the lengths are validated equal above and the regions are
+        // distinct allocations, so the copy does not overlap.
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                src.as_ptr(),
+                dst.buffer().contents() as *mut u8,
+                byte_len,
+            );
+        }
+
         Ok(())
     }
 
-    /// Cast tensor to different data type
+    /// Cast tensor to a different data type, writing the converted values into `output`.
+    ///
+    /// Supports the FP32 <-> FP16 conversions used by automatic mixed precision. The
+    /// element count is derived from the source buffer and the destination is required to
+    /// have matching capacity for the target type. Unsupported conversions return an
+    /// honest error instead of silently leaving the output untouched.
     fn cast_tensor(
         &self,
         _command_buffer: &CommandBuffer,
-        _input: &MetalBuffer,
-        _output: &MetalBuffer,
-        _target_type: MPSDataType,
+        input: &MetalBuffer,
+        output: &MetalBuffer,
+        target_type: MPSDataType,
     ) -> Result<()> {
-        // Implementation would use Metal compute shaders for type conversion
-        // For now, this is a placeholder
-        Ok(())
+        match (input.dtype(), target_type) {
+            (torsh_core::DType::F32, MPSDataType::Float32)
+            | (torsh_core::DType::F16, MPSDataType::Float16) => {
+                // Same representation: a straight copy is the correct conversion.
+                self.copy_buffer(_command_buffer, input, output)
+            }
+            (torsh_core::DType::F32, MPSDataType::Float16) => {
+                let count = input.size_bytes() / std::mem::size_of::<f32>();
+                Self::check_element_capacity(
+                    "cast_tensor",
+                    output,
+                    count * std::mem::size_of::<half::f16>(),
+                )?;
+                // SAFETY: source holds `count` f32 values in shared storage; destination is
+                // validated to hold at least `count` f16 values.
+                unsafe {
+                    let src = input.as_ptr() as *const f32;
+                    let dst = output.buffer().contents() as *mut half::f16;
+                    for i in 0..count {
+                        *dst.add(i) = half::f16::from_f32(*src.add(i));
+                    }
+                }
+                Ok(())
+            }
+            (torsh_core::DType::F16, MPSDataType::Float32) => {
+                let count = input.size_bytes() / std::mem::size_of::<half::f16>();
+                Self::check_element_capacity(
+                    "cast_tensor",
+                    output,
+                    count * std::mem::size_of::<f32>(),
+                )?;
+                // SAFETY: source holds `count` f16 values in shared storage; destination is
+                // validated to hold at least `count` f32 values.
+                unsafe {
+                    let src = input.as_ptr() as *const half::f16;
+                    let dst = output.buffer().contents() as *mut f32;
+                    for i in 0..count {
+                        *dst.add(i) = src.add(i).read().to_f32();
+                    }
+                }
+                Ok(())
+            }
+            (src_dtype, target) => Err(crate::metal::error::TorshError::UnsupportedOperation {
+                op: "cast_tensor".to_string(),
+                dtype: format!("{:?} -> {:?}", src_dtype, target),
+            }),
+        }
     }
 
-    /// Check if tensor contains inf or nan values
+    /// Check whether a tensor contains any inf or NaN values.
+    ///
+    /// Performs a real scan over the buffer contents. A correct overflow check is
+    /// essential for loss scaling: returning `false` unconditionally (the former
+    /// behavior) would defeat gradient-overflow detection. Unsupported dtypes return an
+    /// honest error rather than a fabricated `false`.
     fn has_inf_or_nan(
         &self,
         _command_buffer: &CommandBuffer,
-        _tensor: &MetalBuffer,
+        tensor: &MetalBuffer,
     ) -> Result<bool> {
-        // Implementation would use a reduction operation to check for inf/nan
-        // For now, return false (no inf/nan detected)
-        Ok(false)
+        match tensor.dtype() {
+            torsh_core::DType::F32 => {
+                let count = tensor.size_bytes() / std::mem::size_of::<f32>();
+                // SAFETY: shared-storage buffer exposes `count` f32 values for CPU reads.
+                let ptr = tensor.as_ptr() as *const f32;
+                for i in 0..count {
+                    let value = unsafe { *ptr.add(i) };
+                    if !value.is_finite() {
+                        return Ok(true);
+                    }
+                }
+                Ok(false)
+            }
+            torsh_core::DType::F16 => {
+                let count = tensor.size_bytes() / std::mem::size_of::<half::f16>();
+                // SAFETY: shared-storage buffer exposes `count` f16 values for CPU reads.
+                let ptr = tensor.as_ptr() as *const half::f16;
+                for i in 0..count {
+                    let value = unsafe { ptr.add(i).read() };
+                    if !value.to_f32().is_finite() {
+                        return Ok(true);
+                    }
+                }
+                Ok(false)
+            }
+            other => Err(crate::metal::error::TorshError::UnsupportedOperation {
+                op: "has_inf_or_nan".to_string(),
+                dtype: format!("{:?}", other),
+            }),
+        }
+    }
+
+    /// Validate that two buffers share the same dtype.
+    fn check_same_dtype(op: &str, a: &MetalBuffer, b: &MetalBuffer) -> Result<()> {
+        if a.dtype() != b.dtype() {
+            return Err(crate::metal::error::TorshError::UnsupportedOperation {
+                op: op.to_string(),
+                dtype: format!("dtype mismatch: {:?} vs {:?}", a.dtype(), b.dtype()),
+            });
+        }
+        Ok(())
+    }
+
+    /// Validate that two buffers have identical byte lengths.
+    fn check_same_byte_size(op: &str, a: &MetalBuffer, b: &MetalBuffer) -> Result<()> {
+        if a.size_bytes() != b.size_bytes() {
+            return Err(crate::metal::error::TorshError::InvalidShape(format!(
+                "{}: buffer byte-size mismatch: {} vs {}",
+                op,
+                a.size_bytes(),
+                b.size_bytes()
+            )));
+        }
+        Ok(())
+    }
+
+    /// Validate that a destination buffer can hold at least `required_bytes`.
+    fn check_element_capacity(op: &str, buffer: &MetalBuffer, required_bytes: usize) -> Result<()> {
+        if buffer.size_bytes() < required_bytes {
+            return Err(crate::metal::error::TorshError::InvalidShape(format!(
+                "{}: destination buffer too small: have {} bytes, need {}",
+                op,
+                buffer.size_bytes(),
+                required_bytes
+            )));
+        }
+        Ok(())
     }
 
     /// Get training statistics

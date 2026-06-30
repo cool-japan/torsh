@@ -1,6 +1,6 @@
 # ToRSh CLI Implementation Roadmap
 
-## Current Status: v0.1.2 - Foundation Complete, Active Implementation Phase
+## Current Status: v0.1.3 - Foundation Complete, Active Implementation Phase
 
 ### Overview
 The torsh-cli crate has an **excellent architectural foundation** with comprehensive command structure and CLI framework. We are actively implementing real functionality to replace stubs and mock implementations.

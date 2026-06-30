@@ -67,6 +67,8 @@ pub struct ElasticConfig {
     pub rendezvous_backend: String,
     /// Rendezvous endpoint
     pub rendezvous_endpoint: String,
+    /// Maximum time since last heartbeat before a worker is considered failed
+    pub heartbeat_timeout: Duration,
 }
 
 impl Default for ElasticConfig {
@@ -79,6 +81,7 @@ impl Default for ElasticConfig {
             enable_elastic_scheduling: true,
             rendezvous_backend: "etcd".to_string(),
             rendezvous_endpoint: "localhost:2379".to_string(),
+            heartbeat_timeout: Duration::from_secs(60),
         }
     }
 }
@@ -450,7 +453,11 @@ pub struct ElasticTrainingManager {
     scaling_state: Arc<RwLock<ScalingState>>,
     checkpoint_manager: CheckpointManager,
     current_world_size: Arc<RwLock<usize>>,
+    /// Maps worker_id → time of last heartbeat. Updated by `update_worker_heartbeat`.
     worker_registry: Arc<RwLock<HashMap<usize, SystemTime>>>,
+    /// Snapshot of worker IDs seen at the previous `detect_new_workers` call.
+    /// Workers that appear in `worker_registry` but not in this set are newly joined.
+    known_workers: Arc<Mutex<std::collections::HashSet<usize>>>,
     scaling_events: Arc<Mutex<Vec<ScalingEvent>>>,
 }
 
@@ -473,8 +480,22 @@ impl ElasticTrainingManager {
             checkpoint_manager,
             current_world_size: Arc::new(RwLock::new(initial_world_size)),
             worker_registry: Arc::new(RwLock::new(HashMap::new())),
+            known_workers: Arc::new(Mutex::new(std::collections::HashSet::new())),
             scaling_events: Arc::new(Mutex::new(Vec::new())),
         })
+    }
+
+    /// Record a heartbeat for the given worker.
+    ///
+    /// Call this whenever a worker sends a health signal. Workers whose last
+    /// heartbeat is older than `config.heartbeat_timeout` will be reported as
+    /// failed by [`detect_failed_workers`].
+    pub fn update_worker_heartbeat(&self, worker_id: usize) -> TorshResult<()> {
+        let mut registry = self.worker_registry.write().map_err(|_| {
+            TorshDistributedError::backend_error("fault_tolerance", "Lock poisoned")
+        })?;
+        registry.insert(worker_id, SystemTime::now());
+        Ok(())
     }
 
     /// Check if scaling is needed and initiate if necessary
@@ -704,18 +725,67 @@ impl ElasticTrainingManager {
         Ok(())
     }
 
-    /// Detect failed workers (simplified implementation)
+    /// Detect failed workers by comparing `last_heartbeat` timestamps against
+    /// `config.heartbeat_timeout`.
+    ///
+    /// Returns the IDs of workers whose last heartbeat is older than the
+    /// configured timeout. If no heartbeat data has been recorded yet (i.e.
+    /// `update_worker_heartbeat` has never been called), the registry is
+    /// empty and an empty vec is returned — meaning "no failures observed".
     async fn detect_failed_workers(&self) -> TorshResult<Vec<usize>> {
-        // In a real implementation, this would check actual worker health
-        // For now, return empty to simulate no failures
-        Ok(Vec::new())
+        let registry = self.worker_registry.read().map_err(|_| {
+            TorshDistributedError::backend_error("fault_tolerance", "Lock poisoned")
+        })?;
+
+        if registry.is_empty() {
+            // No heartbeat data collected yet — cannot classify any worker as failed.
+            return Ok(Vec::new());
+        }
+
+        let now = SystemTime::now();
+        let timeout = self.config.heartbeat_timeout;
+        let mut failed = Vec::new();
+
+        for (&worker_id, &last_heartbeat) in registry.iter() {
+            let elapsed = now.duration_since(last_heartbeat).unwrap_or(Duration::MAX);
+            if elapsed > timeout {
+                warn!(
+                    "Worker {} has not sent a heartbeat for {:?} (timeout: {:?}); marking as failed",
+                    worker_id, elapsed, timeout
+                );
+                failed.push(worker_id);
+            }
+        }
+
+        failed.sort_unstable();
+        Ok(failed)
     }
 
-    /// Detect new workers (simplified implementation)
+    /// Detect newly joined workers by comparing the current `worker_registry`
+    /// against the previously-seen set stored in `known_workers`.
+    ///
+    /// Workers present in `worker_registry` but absent from `known_workers`
+    /// are treated as newly joined. After the call, `known_workers` is updated
+    /// to include all currently registered workers.
     async fn detect_new_workers(&self) -> TorshResult<Vec<usize>> {
-        // In a real implementation, this would check for new worker registrations
-        // For now, return empty to simulate no new workers
-        Ok(Vec::new())
+        let registry = self.worker_registry.read().map_err(|_| {
+            TorshDistributedError::backend_error("fault_tolerance", "Lock poisoned")
+        })?;
+
+        let current_ids: std::collections::HashSet<usize> = registry.keys().copied().collect();
+        drop(registry); // release read lock before acquiring mutex
+
+        let mut known = self.known_workers.lock().map_err(|_| {
+            TorshDistributedError::backend_error("fault_tolerance", "Lock poisoned")
+        })?;
+
+        let mut new_workers: Vec<usize> = current_ids.difference(&*known).copied().collect();
+        new_workers.sort_unstable();
+
+        // Update the snapshot so next call returns only truly new entries.
+        known.extend(current_ids);
+
+        Ok(new_workers)
     }
 
     /// Calculate optimal number of workers based on current load
@@ -1019,5 +1089,82 @@ mod tests {
 
         assert_ne!(event1, event2);
         assert_ne!(event2, event3);
+    }
+
+    /// Workers whose last heartbeat is older than the timeout must be detected
+    /// as failed; fresh workers must not be.
+    #[tokio::test]
+    async fn test_detect_failed_workers_stale_heartbeat() -> TorshResult<()> {
+        let temp_dir = TempDir::new().unwrap();
+        let elastic_config = ElasticConfig {
+            heartbeat_timeout: Duration::from_millis(10), // very short for test
+            ..ElasticConfig::default()
+        };
+        let checkpoint_config = CheckpointConfig {
+            checkpoint_dir: temp_dir.path().to_path_buf(),
+            ..Default::default()
+        };
+
+        let manager = ElasticTrainingManager::new(elastic_config, checkpoint_config, 2)?;
+
+        // Register worker 0 with a stale timestamp (well in the past).
+        {
+            let mut registry = manager
+                .worker_registry
+                .write()
+                .expect("lock should not be poisoned");
+            registry.insert(
+                0,
+                SystemTime::now()
+                    .checked_sub(Duration::from_secs(120))
+                    .unwrap(),
+            );
+        }
+        // Register worker 1 with a fresh timestamp.
+        manager.update_worker_heartbeat(1)?;
+
+        let failed = manager.detect_failed_workers().await?;
+        assert!(
+            failed.contains(&0),
+            "worker 0 should be detected as failed (stale heartbeat)"
+        );
+        assert!(
+            !failed.contains(&1),
+            "worker 1 should NOT be failed (fresh heartbeat)"
+        );
+        Ok(())
+    }
+
+    /// Workers absent from the `known_workers` snapshot must be reported as
+    /// newly joined; workers already known must not be re-reported.
+    #[tokio::test]
+    async fn test_detect_new_workers() -> TorshResult<()> {
+        let temp_dir = TempDir::new().unwrap();
+        let manager = ElasticTrainingManager::new(
+            ElasticConfig::default(),
+            CheckpointConfig {
+                checkpoint_dir: temp_dir.path().to_path_buf(),
+                ..Default::default()
+            },
+            0,
+        )?;
+
+        // First heartbeat for workers 2 and 3.
+        manager.update_worker_heartbeat(2)?;
+        manager.update_worker_heartbeat(3)?;
+
+        let new1 = manager.detect_new_workers().await?;
+        assert!(new1.contains(&2), "worker 2 should appear as new");
+        assert!(new1.contains(&3), "worker 3 should appear as new");
+
+        // Second call: no new workers since the snapshot was updated.
+        let new2 = manager.detect_new_workers().await?;
+        assert!(new2.is_empty(), "no new workers expected on second call");
+
+        // Third call: add worker 4.
+        manager.update_worker_heartbeat(4)?;
+        let new3 = manager.detect_new_workers().await?;
+        assert_eq!(new3, vec![4], "only worker 4 should appear as new");
+        Ok(())
     }
 }

@@ -449,34 +449,59 @@ impl CudaMemoryManager {
     // Private implementation methods
 
     fn query_device_properties(device_id: usize) -> CudaResult<DeviceProperties> {
-        if let Ok(device) = CustDevice::get_device(device_id as u32) {
-            let total_memory = device.total_memory().unwrap_or(8 * 1024 * 1024 * 1024); // 8GB fallback
+        use cust::device::DeviceAttribute;
 
-            // Note: In a real implementation, we would query all device properties
-            // For now, we'll provide reasonable defaults
-            Ok(DeviceProperties {
-                total_memory: total_memory as usize,
-                compute_capability: (7, 5), // Default to common capability
-                memory_bus_width: 384,
-                memory_clock_rate: 1000000,     // 1 GHz
-                l2_cache_size: 6 * 1024 * 1024, // 6MB
-                max_threads_per_block: 1024,
-                unified_addressing: true,
-                concurrent_kernels: true,
-            })
-        } else {
-            // Fallback properties when device is not available
-            Ok(DeviceProperties {
-                total_memory: 8 * 1024 * 1024 * 1024, // 8GB
-                compute_capability: (7, 5),
-                memory_bus_width: 384,
-                memory_clock_rate: 1000000,
-                l2_cache_size: 6 * 1024 * 1024,
-                max_threads_per_block: 1024,
-                unified_addressing: true,
-                concurrent_kernels: true,
-            })
-        }
+        // No device => honest failure. Fabricating an 8GB / (7,5) profile here
+        // would let callers make tensor-core / half-precision launch decisions
+        // for hardware that does not exist.
+        let device = CustDevice::get_device(device_id as u32).map_err(|e| CudaError::Context {
+            message: format!(
+                "CUDA device {} not found while querying properties: {}",
+                device_id, e
+            ),
+        })?;
+
+        let total_memory = device.total_memory().cuda_result()? as usize;
+
+        // Every field below is read from the live device. A driver failure on
+        // any attribute propagates as an error rather than a guessed value.
+        let major = device
+            .get_attribute(DeviceAttribute::ComputeCapabilityMajor)
+            .cuda_result()?;
+        let minor = device
+            .get_attribute(DeviceAttribute::ComputeCapabilityMinor)
+            .cuda_result()?;
+        let memory_bus_width = device
+            .get_attribute(DeviceAttribute::GlobalMemoryBusWidth)
+            .cuda_result()?;
+        let memory_clock_rate = device
+            .get_attribute(DeviceAttribute::MemoryClockRate)
+            .cuda_result()?;
+        let l2_cache_size = device
+            .get_attribute(DeviceAttribute::L2CacheSize)
+            .cuda_result()?;
+        let max_threads_per_block = device
+            .get_attribute(DeviceAttribute::MaxThreadsPerBlock)
+            .cuda_result()?;
+        let unified_addressing = device
+            .get_attribute(DeviceAttribute::UnifiedAddressing)
+            .cuda_result()?
+            != 0;
+        let concurrent_kernels = device
+            .get_attribute(DeviceAttribute::ConcurrentKernels)
+            .cuda_result()?
+            != 0;
+
+        Ok(DeviceProperties {
+            total_memory,
+            compute_capability: (major, minor),
+            memory_bus_width,
+            memory_clock_rate,
+            l2_cache_size,
+            max_threads_per_block,
+            unified_addressing,
+            concurrent_kernels,
+        })
     }
 
     fn calculate_memory_limits(
@@ -697,9 +722,37 @@ impl CudaMemoryManager {
     }
 
     fn calculate_fragmentation_level(&self) -> f32 {
-        // Simplified fragmentation calculation
-        // In a real implementation, this would analyze memory layout
-        0.1 // Placeholder
+        // Real fragmentation = 1.0 - (largest_free_block_size / total_free_bytes)
+        // Iterate pools to find total free bytes and the largest contiguous free block.
+        let pools = match self.pools.lock() {
+            Ok(p) => p,
+            Err(_) => return 0.0,
+        };
+
+        let mut total_free_bytes: usize = 0;
+        let mut largest_free_block: usize = 0;
+
+        for (size_class, pool) in pools.iter() {
+            let block_count = pool.free_blocks.len();
+            if block_count == 0 {
+                continue;
+            }
+            // Each free block in this pool occupies `size_class` bytes
+            let pool_free_bytes = block_count * size_class;
+            total_free_bytes += pool_free_bytes;
+            // The largest contiguous free block in this pool is one size_class block
+            if *size_class > largest_free_block {
+                largest_free_block = *size_class;
+            }
+        }
+
+        if total_free_bytes == 0 {
+            // No free memory: fragmentation is undefined; report 0.0 (fully used)
+            return 0.0;
+        }
+
+        // fragmentation in [0.0, 1.0): 0.0 = perfectly contiguous, approaching 1.0 = very fragmented
+        1.0 - (largest_free_block as f32 / total_free_bytes as f32)
     }
 
     fn get_pool_count(&self) -> usize {
@@ -1022,16 +1075,24 @@ mod tests {
 }
 
 impl Default for DeviceProperties {
+    /// Zeroed properties representing "no device queried".
+    ///
+    /// This intentionally does NOT invent plausible GPU specs (e.g. an 8GB
+    /// (7,5) device). Real properties must come from
+    /// [`CudaMemoryManager::query_device_properties`], which reads them from the
+    /// live device; a fabricated default here could drive incorrect kernel
+    /// launch decisions. Compute capability `(0, 0)` is not a real architecture
+    /// and signals "unknown".
     fn default() -> Self {
         Self {
-            total_memory: 8 * 1024 * 1024 * 1024,
-            compute_capability: (7, 5),
-            memory_bus_width: 384,
-            memory_clock_rate: 1000000,
-            l2_cache_size: 6 * 1024 * 1024,
-            max_threads_per_block: 1024,
-            unified_addressing: true,
-            concurrent_kernels: true,
+            total_memory: 0,
+            compute_capability: (0, 0),
+            memory_bus_width: 0,
+            memory_clock_rate: 0,
+            l2_cache_size: 0,
+            max_threads_per_block: 0,
+            unified_addressing: false,
+            concurrent_kernels: false,
         }
     }
 }

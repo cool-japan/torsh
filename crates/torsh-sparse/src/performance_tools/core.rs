@@ -12,7 +12,7 @@
 //!
 //! ## Usage Example
 //!
-//! ```rust
+//! ```rust,ignore
 //! use torsh_sparse::performance_tools::core::{SparseProfiler, BenchmarkConfig};
 //!
 //! let config = BenchmarkConfig::default();

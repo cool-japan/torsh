@@ -76,12 +76,32 @@ impl RandomHorizontalFlip {
                 "Input tensor must have at least 2 dimensions for horizontal flip".to_string(),
             ));
         }
-
-        // For now, return input as is - proper implementation would need tensor indexing operations
-        // In a full implementation, we would reverse the last dimension (width)
-        // This requires advanced tensor operations that aren't implemented yet
-        // Debug: Applying horizontal flip to tensor with shape {:?}", shape
-        Ok(input)
+        let device = input.device();
+        // For CHW (3D+), width = dim[-1], height = dim[-2]; for HW (2D), same layout
+        let (height, width, channels) = if shape.len() == 2 {
+            (shape[0], shape[1], 1usize)
+        } else {
+            (
+                shape[shape.len() - 2],
+                shape[shape.len() - 1],
+                shape[..shape.len() - 2].iter().product(),
+            )
+        };
+        let mut data = input
+            .to_vec()
+            .map_err(|e| TorshError::Other(format!("to_vec failed: {}", e)))?;
+        // Reverse the last dimension (width) for each channel row
+        for c in 0..channels {
+            for row in 0..height {
+                for col in 0..width / 2 {
+                    let mirror_col = width - 1 - col;
+                    let idx1 = c * height * width + row * width + col;
+                    let idx2 = c * height * width + row * width + mirror_col;
+                    data.swap(idx1, idx2);
+                }
+            }
+        }
+        Tensor::from_data(data, shape.to_vec(), device).map_err(|e| e)
     }
 }
 
@@ -541,5 +561,30 @@ mod tests {
 
         let random_crop = RandomCrop::new((3, 3)); // Larger than input, no padding
         assert!(random_crop.transform(tensor).is_err());
+    }
+
+    #[test]
+    fn test_horizontal_flip_changes_tensor() {
+        use torsh_core::device::DeviceType;
+        let flip = RandomHorizontalFlip::new(1.0); // always flip
+                                                   // HW tensor: [[1,2,3],[4,5,6]] -> [[3,2,1],[6,5,4]]
+        let tensor = Tensor::from_data(
+            vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0],
+            vec![2, 3],
+            DeviceType::Cpu,
+        )
+        .unwrap();
+        let result = flip.transform(tensor).unwrap();
+        let data = result.to_vec().unwrap();
+        assert!(
+            (data[0] - 3.0).abs() < 1e-6,
+            "First element should be 3.0 after horizontal flip, got {}",
+            data[0]
+        );
+        assert!(
+            (data[2] - 1.0).abs() < 1e-6,
+            "Third element should be 1.0 after horizontal flip, got {}",
+            data[2]
+        );
     }
 }

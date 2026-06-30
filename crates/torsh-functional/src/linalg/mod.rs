@@ -291,7 +291,7 @@ pub mod solving;
 pub use core::NormOrd;
 
 // Re-export basic operations
-pub use basic::{baddbmm, bmm, chain_matmul, norm};
+pub use basic::{baddbmm, bmm, chain_matmul, matrix_chain_optimal_cost, norm};
 
 // Re-export decomposition functions
 pub use decompositions::{cholesky, eig, lu, pca_lowrank, qr, svd, svd_lowrank};
@@ -359,7 +359,6 @@ mod tests {
         // identity matrices where all eigenvalues are equal. This is a known limitation.
         let rank = matrix_rank(&matrix, None)?;
         // For now, verify rank is at least 2 (the implementation finds dominant eigenvalues)
-        // TODO: Improve eigenvalue decomposition to handle degenerate cases
         assert!(
             rank.data()?[0] >= 2.0,
             "Expected rank >= 2, got {}",

@@ -7,34 +7,20 @@ use crate::Metric;
 use torsh_core::error::TorshError;
 use torsh_tensor::Tensor;
 
-#[cfg(feature = "gpu")]
-use scirs2_core::gpu::GpuBackend;
-
 /// GPU-accelerated accuracy metric
 pub struct GpuAccuracy {
-    #[cfg(feature = "gpu")]
-    #[allow(dead_code)] // Reserved for future GPU implementation
-    backend: GpuBackend,
     top_k: Option<usize>,
 }
 
 impl GpuAccuracy {
     /// Create a new GPU-accelerated accuracy metric
     pub fn new() -> Self {
-        Self {
-            #[cfg(feature = "gpu")]
-            backend: GpuBackend::Cpu, // Default to CPU backend
-            top_k: None,
-        }
+        Self { top_k: None }
     }
 
     /// Create a GPU-accelerated top-k accuracy metric
     pub fn top_k(k: usize) -> Self {
-        Self {
-            #[cfg(feature = "gpu")]
-            backend: GpuBackend::Cpu, // Default to CPU backend
-            top_k: Some(k),
-        }
+        Self { top_k: Some(k) }
     }
 
     /// Compute accuracy on GPU if available, fallback to CPU
@@ -111,19 +97,12 @@ impl Metric for GpuAccuracy {
 /// GPU-accelerated confusion matrix computation
 pub struct GpuConfusionMatrix {
     num_classes: usize,
-    #[cfg(feature = "gpu")]
-    #[allow(dead_code)] // Reserved for future GPU implementation
-    backend: GpuBackend,
 }
 
 impl GpuConfusionMatrix {
     /// Create a new GPU-accelerated confusion matrix
     pub fn new(num_classes: usize) -> Self {
-        Self {
-            num_classes,
-            #[cfg(feature = "gpu")]
-            backend: GpuBackend::Cpu, // Default to CPU backend
-        }
+        Self { num_classes }
     }
 
     /// Compute confusion matrix
@@ -194,9 +173,6 @@ impl GpuConfusionMatrix {
 
 /// Batch GPU metric computation for efficiency
 pub struct GpuBatchMetrics {
-    #[cfg(feature = "gpu")]
-    #[allow(dead_code)] // Reserved for future GPU implementation
-    backend: GpuBackend,
     metrics: Vec<String>,
 }
 
@@ -204,8 +180,6 @@ impl GpuBatchMetrics {
     /// Create a new batch GPU metrics computer
     pub fn new() -> Self {
         Self {
-            #[cfg(feature = "gpu")]
-            backend: GpuBackend::Cpu, // Default to CPU backend
             metrics: Vec::new(),
         }
     }

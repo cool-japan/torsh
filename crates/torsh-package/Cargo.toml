@@ -41,8 +41,12 @@ semver = { workspace = true }
 oxiarc-zstd = { workspace = true }
 lzma-rs = { workspace = true }
 
-# Security features
-ring = { workspace = true }
+# Security features (Pure-Rust RustCrypto, replaces C/asm `ring`)
+aes-gcm = { workspace = true }
+chacha20poly1305 = { workspace = true }
+pbkdf2 = { workspace = true, features = ["hmac"] }
+hmac = { workspace = true }
+getrandom = { workspace = true }
 ed25519-dalek = { workspace = true }
 
 # Performance optimizations
@@ -62,7 +66,7 @@ futures = { workspace = true, optional = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
-torsh-nn = { workspace = true }
+torsh-nn = { path = "../torsh-nn" }
 criterion = { workspace = true, features = ["html_reports"] }
 
 # Temporarily disabled due to API changes

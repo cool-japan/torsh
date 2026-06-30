@@ -138,14 +138,21 @@ fn load_safetensors<P: AsRef<Path>>(
 /// Save model to SafeTensors format
 fn save_safetensors<P: AsRef<Path>>(
     path: P,
-    tensors: &HashMap<String, Vec<u8>>,
-    metadata: Option<&ModelMetadata>,
+    _tensors: &HashMap<String, Vec<u8>>,
+    _metadata: Option<&ModelMetadata>,
 ) -> ModelResult<()> {
-    // For now, just save as a simple binary format
-    // In a real implementation, we'd properly construct SafeTensors format
-    let _ = (tensors, metadata);
-    std::fs::write(path.as_ref(), b"placeholder safetensors file")?;
-    Ok(())
+    // `HashMap<String, Vec<u8>>` carries raw bytes with no dtype or shape
+    // information, so we cannot construct a valid SafeTensors file from it.
+    // Callers that have `Tensor` objects should use `save_tensors_to_safetensors`
+    // instead, which has access to dtype and shape.
+    Err(ModelError::LoadingError {
+        reason: format!(
+            "Cannot serialize to SafeTensors format using raw bytes at '{}': \
+             dtype and shape metadata are required. \
+             Use `save_tensors_to_safetensors` with actual Tensor objects instead.",
+            path.as_ref().display()
+        ),
+    })
 }
 
 /// Load model from PyTorch format
@@ -437,79 +444,90 @@ pub fn save_tensors_to_safetensors<P: AsRef<Path>>(
     tensors: &HashMap<String, Tensor>,
     metadata: Option<&ModelMetadata>,
 ) -> ModelResult<()> {
+    use safetensors::tensor::serialize_to_file;
     use safetensors::tensor::{Dtype, TensorView};
 
-    let mut tensor_views = Vec::new();
-    let mut all_data = Vec::new();
+    // Phase 1: serialise every tensor to raw bytes and record its offset range
+    // inside a single backing buffer.
+    let mut all_data: Vec<u8> = Vec::new();
+    // (name, dtype, shape, byte_start, byte_end)
+    let mut layout: Vec<(String, Dtype, Vec<usize>, usize, usize)> = Vec::new();
 
-    for (_name, tensor) in tensors {
-        let _shape = tensor.shape().dims().to_vec();
-        let data = tensor.to_vec()?;
+    // Iterate in a stable, deterministic order so the file is reproducible.
+    let mut names: Vec<&String> = tensors.keys().collect();
+    names.sort();
 
-        // Convert tensor data to bytes based on dtype
-        let (bytes, _dtype) = match tensor.dtype() {
-            DType::F32 => {
-                let mut bytes = Vec::new();
-                for &value in data.iter() {
-                    bytes.extend_from_slice(&value.to_le_bytes());
-                }
-                (bytes, Dtype::F32)
-            }
-            DType::F64 => {
-                // For f64 tensors, we need to access as f64
-                return Err(ModelError::LoadingError {
-                    reason: "F64 tensor saving not yet implemented".to_string(),
-                });
-            }
-            _ => {
-                return Err(ModelError::LoadingError {
-                    reason: format!("Unsupported dtype for saving: {:?}", tensor.dtype()),
-                });
-            }
-        };
-
-        let _start = all_data.len();
-        all_data.extend_from_slice(&bytes);
-        let _end = all_data.len();
-    }
-
-    // Create tensor views after all data is collected
-    let mut offset = 0;
-    for (name, tensor) in tensors {
+    for name in &names {
+        let tensor = &tensors[*name];
         let dtype = match tensor.dtype() {
             DType::F32 => Dtype::F32,
-            _ => {
+            DType::F64 => {
                 return Err(ModelError::LoadingError {
-                    reason: format!("Unsupported dtype: {:?}", tensor.dtype()),
-                })
+                    reason: "F64 tensor saving is not yet supported in SafeTensors export; \
+                              convert to F32 before saving"
+                        .to_string(),
+                });
+            }
+            other => {
+                return Err(ModelError::LoadingError {
+                    reason: format!(
+                        "Unsupported dtype {:?} for SafeTensors export; only F32 is currently supported",
+                        other
+                    ),
+                });
             }
         };
-        let shape: Vec<usize> = tensor.shape().dims().to_vec();
-        let data_size = shape.iter().product::<usize>() * (dtype.bitsize() / 8);
 
-        let tensor_view = TensorView::new(dtype, shape, &all_data[offset..offset + data_size])?;
-        tensor_views.push((name.clone(), tensor_view));
-        offset += data_size;
+        let shape: Vec<usize> = tensor.shape().dims().to_vec();
+        let values = tensor.to_vec()?;
+        let byte_start = all_data.len();
+        for &v in &values {
+            all_data.extend_from_slice(&v.to_le_bytes());
+        }
+        let byte_end = all_data.len();
+
+        // Sanity check: byte count must match shape * sizeof(f32)
+        let expected_bytes = shape.iter().product::<usize>() * (dtype.bitsize() / 8);
+        if byte_end - byte_start != expected_bytes {
+            return Err(ModelError::LoadingError {
+                reason: format!(
+                    "Tensor '{}': serialised {} bytes but expected {} bytes \
+                     (shape {:?} × {} bytes/element)",
+                    name,
+                    byte_end - byte_start,
+                    expected_bytes,
+                    shape,
+                    dtype.bitsize() / 8,
+                ),
+            });
+        }
+
+        layout.push(((*name).clone(), dtype, shape, byte_start, byte_end));
     }
 
-    // Create metadata string
-    let metadata_map = if let Some(meta) = metadata {
-        let mut map = std::collections::HashMap::new();
+    // Phase 2: build TensorView slice references into the backing buffer and
+    // call the real safetensors serializer.
+    let mut tensor_views: Vec<(String, TensorView<'_>)> = Vec::with_capacity(layout.len());
+    for (name, dtype, shape, start, end) in &layout {
+        let view = TensorView::new(*dtype, shape.clone(), &all_data[*start..*end])?;
+        tensor_views.push((name.clone(), view));
+    }
+
+    // Build optional metadata map from ModelMetadata fields
+    let metadata_map: Option<HashMap<String, String>> = metadata.map(|meta| {
+        let mut map = HashMap::new();
         map.insert("name".to_string(), meta.name.clone());
         map.insert("version".to_string(), meta.version.clone());
         map.insert("architecture".to_string(), meta.architecture.clone());
         map.insert("framework".to_string(), meta.framework.clone());
         map.insert("created_at".to_string(), meta.created_at.clone());
-        Some(map)
-    } else {
-        None
-    };
+        for (k, v) in &meta.extra {
+            map.insert(k.clone(), v.clone());
+        }
+        map
+    });
 
-    // For now, just write the raw data
-    // A proper implementation would use the safetensors serialization API
-    let _placeholder = (tensor_views, metadata_map);
-    std::fs::write(path.as_ref(), b"safetensors placeholder with tensor data")?;
-
+    serialize_to_file(tensor_views, metadata_map, path.as_ref())?;
     Ok(())
 }
 
@@ -703,6 +721,90 @@ mod tests {
         assert_eq!(ModelFormat::SafeTensors.extension(), "safetensors");
         assert_eq!(ModelFormat::PyTorch.extension(), "pth");
         assert_eq!(ModelFormat::Onnx.extension(), "onnx");
+    }
+
+    #[test]
+    fn test_save_safetensors_returns_honest_error() {
+        // save_safetensors (the raw-bytes path) must return an error, not write
+        // corrupt placeholder bytes.  The file must NOT be created.
+        let temp_dir = std::env::temp_dir();
+        let file_path = temp_dir.join("test_save_raw_bytes.safetensors");
+        // Remove the file if it exists from a previous run
+        let _ = std::fs::remove_file(&file_path);
+
+        let mut tensors = HashMap::new();
+        tensors.insert("weight".to_string(), vec![0u8, 0, 128, 63]); // 1.0f32 LE
+
+        let result = save_model_to_file(&file_path, &tensors, None, ModelFormat::SafeTensors);
+        assert!(
+            result.is_err(),
+            "save_model_to_file(SafeTensors) with raw bytes must return an error"
+        );
+        // The file must not have been written with placeholder bytes
+        assert!(
+            !file_path.exists()
+                || std::fs::read(&file_path)
+                    .map(|b| b != b"placeholder safetensors file")
+                    .unwrap_or(true),
+            "save_model_to_file must not write placeholder bytes"
+        );
+    }
+
+    #[test]
+    fn test_save_tensors_to_safetensors_roundtrip() {
+        // Build two f32 tensors and verify they can be round-tripped through
+        // save_tensors_to_safetensors / load_safetensors_weights.
+        let temp_dir = std::env::temp_dir();
+        let file_path = temp_dir.join("test_roundtrip.safetensors");
+
+        let weight_vals: Vec<f32> = (0..6).map(|i| i as f32 * 0.5).collect();
+        let bias_vals: Vec<f32> = vec![0.1, 0.2, 0.3];
+
+        let mut tensors = HashMap::new();
+        tensors.insert(
+            "weight".to_string(),
+            Tensor::from_data(weight_vals.clone(), vec![2, 3], DeviceType::Cpu).unwrap(),
+        );
+        tensors.insert(
+            "bias".to_string(),
+            Tensor::from_data(bias_vals.clone(), vec![3], DeviceType::Cpu).unwrap(),
+        );
+
+        // Save
+        save_tensors_to_safetensors(&file_path, &tensors, None).unwrap();
+        assert!(file_path.exists(), "SafeTensors file must be created");
+
+        // Verify it is not a placeholder
+        let raw = std::fs::read(&file_path).unwrap();
+        assert!(
+            raw != b"safetensors placeholder with tensor data",
+            "File must not contain placeholder bytes"
+        );
+        assert!(
+            raw != b"placeholder safetensors file",
+            "File must not contain placeholder bytes"
+        );
+
+        // Round-trip: load back
+        let loaded = load_safetensors_weights(&file_path, Some(DeviceType::Cpu)).unwrap();
+        assert_eq!(loaded.len(), 2, "Must load both tensors");
+
+        let w = loaded.get("weight").expect("weight tensor must be present");
+        let w_vals = w.to_vec().unwrap();
+        assert_eq!(w_vals.len(), weight_vals.len());
+        for (a, b) in w_vals.iter().zip(&weight_vals) {
+            assert!((a - b).abs() < 1e-6, "weight value mismatch: {a} vs {b}");
+        }
+
+        let b = loaded.get("bias").expect("bias tensor must be present");
+        let b_vals = b.to_vec().unwrap();
+        assert_eq!(b_vals.len(), bias_vals.len());
+        for (a, b) in b_vals.iter().zip(&bias_vals) {
+            assert!((a - b).abs() < 1e-6, "bias value mismatch: {a} vs {b}");
+        }
+
+        // Cleanup
+        let _ = std::fs::remove_file(&file_path);
     }
 
     #[test]

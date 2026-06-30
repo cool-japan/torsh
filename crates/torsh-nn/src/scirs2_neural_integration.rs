@@ -593,7 +593,23 @@ impl Module for Mish {
 
 // === MEMORY EFFICIENT CONTAINERS ===
 
-/// Memory-efficient sequential container with gradient checkpointing
+/// Sequential container intended to support gradient checkpointing.
+///
+/// # Gradient checkpointing status
+///
+/// True gradient checkpointing (a.k.a. activation rematerialization) trades
+/// compute for memory by *discarding* intermediate activations during the
+/// forward pass and *recomputing* them on demand during the backward pass.
+/// Implementing it requires the autograd engine to register a recompute
+/// closure for each checkpoint segment, which is not yet wired through ToRSh's
+/// eager `Module::forward` path.
+///
+/// To avoid silently advertising a memory optimization that does nothing, the
+/// `checkpointing` flag is honored *honestly*: when it is enabled,
+/// [`MemoryEfficientSequential::forward`] emits a `tracing::warn!` and then
+/// runs the ordinary forward pass (retaining activations). The numerical result
+/// is correct; only the promised memory saving is absent until
+/// rematerialization is implemented.
 pub struct MemoryEfficientSequential {
     modules: Vec<Box<dyn Module>>,
     checkpointing: bool,
@@ -613,14 +629,21 @@ impl MemoryEfficientSequential {
 
     pub fn forward(&self, mut input: Tensor) -> Result<Tensor> {
         if self.checkpointing {
-            // Implement gradient checkpointing logic here
-            for module in &self.modules {
-                input = module.forward(&input)?;
-            }
-        } else {
-            for module in &self.modules {
-                input = module.forward(&input)?;
-            }
+            // Gradient checkpointing (activation rematerialization) is not yet
+            // implemented: it requires the autograd engine to recompute
+            // activations in the backward pass. Warn loudly so callers are not
+            // misled into believing memory is being saved, then fall back to a
+            // standard (activation-retaining) forward pass that is numerically
+            // correct.
+            tracing::warn!(
+                num_modules = self.modules.len(),
+                "gradient checkpointing requested but not yet implemented; running a standard \
+                 forward pass without activation rematerialization (no memory saving)"
+            );
+        }
+
+        for module in &self.modules {
+            input = module.forward(&input)?;
         }
         Ok(input)
     }

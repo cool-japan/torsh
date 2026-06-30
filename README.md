@@ -72,10 +72,10 @@ let matcher = FeatureMatcher::new(MatchingAlgorithm::NCC)?;
 
 ### Core Deep Learning
 - 🚀 **PyTorch Compatible**: Drop-in replacement for most PyTorch code
-- ⚡ **Superior Performance**: 2-3x faster inference, 50% less memory usage
+- ⚡ **High Performance**: SIMD-accelerated CPU ops (AVX2/NEON), buffer-pool memory management
 - 🛡️ **Memory Safety**: Compile-time guarantees eliminate segfaults and memory leaks
 - 🦀 **Pure Rust**: Leverage Rust's ecosystem and deployment advantages
-- 🔧 **Multiple Backends**: CPU (SIMD), Metal, and more (CUDA support in progress)
+- 🔧 **Multiple Backends**: CPU (SIMD) is production-ready; CUDA/Metal/WebGPU are experimental and feature-gated (in progress)
 
 ### 🔬 SciRS2 Scientific Computing Integration
 - 📊 **Complete Ecosystem**: 19/19 SciRS2 crates integrated (100% coverage)
@@ -84,7 +84,7 @@ let matcher = FeatureMatcher::new(MatchingAlgorithm::NCC)?;
 - 🖼️ **Computer Vision Spatial Operations**: Feature matching, geometric transforms, interpolation
 - 🎲 **Advanced Random Generation**: SIMD-accelerated distributions with variance reduction
 - ⚡ **Next-Generation Optimizers**: LAMB, Lookahead, enhanced Adam with adaptive learning rates
-- 🧮 **Mathematical Operations**: Auto-vectorized BLAS, sparse operations, GPU tensor cores
+- 🧮 **Mathematical Operations**: Auto-vectorized BLAS, sparse operations (GPU tensor cores planned)
 
 ### 🏭 Production Features
 - 📦 **Easy Deployment**: Single binary, no Python runtime required
@@ -99,12 +99,12 @@ Add ToRSh to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-torsh = "0.1.2"
-torsh-nn = "0.1.2"      # Neural networks
-torsh-graph = "0.1.2"   # Graph neural networks
-torsh-series = "0.1.2"  # Time series analysis
-torsh-vision = "0.1.2"  # Computer vision
-torsh-metrics = "0.1.2" # Evaluation metrics
+torsh = "0.1.3"
+torsh-nn = "0.1.3"      # Neural networks
+torsh-graph = "0.1.3"   # Graph neural networks
+torsh-series = "0.1.3"  # Time series analysis
+torsh-vision = "0.1.3"  # Computer vision
+torsh-metrics = "0.1.3" # Evaluation metrics
 ```
 
 ## 🚀 Quick Start
@@ -316,32 +316,33 @@ cargo bench --package torsh-benches -- spatial_operations
 cargo bench --package torsh-benches -- advanced_optimizers
 ```
 
-### Benchmark Results Preview
+### Benchmark Coverage
+
+The showcase and `torsh-benches` suite exercise the following SciRS2-integrated
+domains. Concrete timings depend on your hardware, so run the benchmarks locally
+(`cargo bench --package torsh-benches`) to obtain numbers for your machine — we do
+not publish fixed per-domain figures that cannot be reproduced from this repo.
 
 ```
 🚀 ToRSh SciRS2 Integration Showcase
 =====================================
 
-📊 Performance Overview:
-  • Total Benchmarks: 50+
-  • Domains Covered: 7
-  • SciRS2 Crates Used: 19/19 (100%)
+📊 Coverage:
+  • Domains Covered: Random Generation, Mathematical Operations,
+    Graph Neural Networks, Time Series Analysis, Computer Vision,
+    Neural Networks, Optimizers
+  • SciRS2 Crates Integrated: 19
 
-📈 Domain Performance:
-  • Random Generation: 12.5 μs average
-  • Mathematical Operations: 245.8 μs average
-  • Graph Neural Networks: 1.2 ms average
-  • Time Series Analysis: 892.3 μs average
-  • Computer Vision: 2.1 ms average
-  • Neural Networks: 456.7 μs average
-  • Optimizers: 89.4 μs average
+📈 Per-domain timings: produced live by `cargo bench` on your hardware.
 ```
 
 ## 🎯 Where We're Going
 
 ### Roadmap
 
-**v0.1.2 (Current)** - *2026-04-26* — SIMD performance release: real AVX2/NEON dispatch for f32 arithmetic and activations, true buffer pool reuse (100% alloc reduction proven by dhat benchmark), criterion regression framework, streaming TAR extraction in torsh-hub, simd+parallel enabled by default
+**v0.1.3 (Current)** - *2026-06-30* — GPU backend migration to oxicuda 0.3: real CUDA execution on A4000 via PTX kernels, MOS (Mathematical Operations Suite) enhancements with expanded special-function coverage, CUDA backend integration for tensor core ops
+
+**v0.1.2** - *2026-04-26* — SIMD performance release: real AVX2/NEON dispatch for f32 arithmetic and activations, true buffer pool reuse (100% alloc reduction proven by dhat benchmark), criterion regression framework, streaming TAR extraction in torsh-hub, simd+parallel enabled by default
 
 **v0.1.1** - *Initial Release*
 - ✅ Core tensor operations with PyTorch API compatibility
@@ -359,20 +360,41 @@ cargo bench --package torsh-benches -- advanced_optimizers
 
 **v1.0 Vision** - *Production Ready*
 - 🎯 95%+ PyTorch API compatibility for common workflows
-- 🎯 Full GPU acceleration (CUDA, Metal, WebGPU)
+- 🎯 Mature GPU acceleration (CUDA, Metal, WebGPU) — currently experimental/partial and feature-gated
 - 🎯 Enterprise-grade deployment tools
 - 🎯 Extensive pre-trained model zoo
 - 🎯 Industry adoption and community growth
 
 ### What We're Aiming For
 
-**Performance**: We're targeting 2-3x faster inference and 50% less memory than PyTorch while maintaining full API compatibility.
+**Performance**: Achieved real SIMD speedups for f32 tensor operations (AVX2/NEON), 100% allocation reduction via buffer pool reuse, and cache-aware chunking for large operations. Full benchmark comparison with PyTorch is in progress.
 
 **Safety**: Zero-cost abstractions mean you get Rust's compile-time safety without runtime overhead. No more segfaults or memory leaks in production.
 
 **Completeness**: Through SciRS2 integration, ToRSh isn't just a deep learning framework - it's a complete scientific computing platform with graph neural networks, time series analysis, and advanced optimization out of the box.
 
 **Deployment**: Single binary deployments to edge devices, mobile, WASM, and cloud without Python dependencies or containerization complexity.
+
+## ⚠️ Known Issues & Limitations
+
+ToRSh is under active development. These are the current limitations you should be aware of:
+
+### CUDA & GPU
+- **NCCL backend is a mock implementation**. Multi-node CUDA collective communication (`torsh-distributed::NcclBackend`) is currently a placeholder. A real implementation requires the `cudarc` crate with the `nccl` feature and is tracked as a follow-up effort.
+- **GPU kernel integration is partial**. Several `backend_integration.rs` paths use placeholders pending broader `scirs2_core::gpu` API stabilization (kernel registry, mixed precision). CPU paths are fully functional.
+- **GPU tensor cores are not yet implemented**. The WMMA/tensor-core (e.g. INT8) path returns an honest error rather than fabricated results; native tensor-core kernels are planned.
+- **CUDA build requires local CUDA toolkit**. Default features remain pure-Rust; enable the `cuda` feature to opt in.
+
+### Precision
+- **f16 / bf16 are partial**. Half-precision tensor types are defined but several ops still dispatch through f32 promotion. Full kernel-level support is planned.
+
+### Performance
+- **PyTorch-vs-ToRSh benchmark suite is still in progress**. The earlier "2-3x faster than PyTorch" claim has been removed pending verified end-to-end measurements. SIMD micro-benchmarks (AVX2/NEON) and `dhat` allocation-tracking benchmarks are in place; `pytorch_performance_suite` integration is the remaining piece.
+
+### Distributed Training
+- **API stabilization is ongoing** for `init_process_group`, `DistributedDataParallel`, and `FullyShardedDataParallel`. Basic flows work; gradient bucketing and elastic training are partially complete.
+
+If you hit a limitation that blocks your use case, please [open an issue](https://github.com/cool-japan/torsh/issues) — we triage based on real workloads.
 
 ## 🏗️ Architecture
 
@@ -400,7 +422,7 @@ ToRSh follows a modular architecture with specialized crates:
 - **`torsh-profiler`** [![crates.io](https://img.shields.io/crates/v/torsh-profiler.svg)](https://crates.io/crates/torsh-profiler) - Performance profiling and analysis
 
 ### 🖥️ Backend & Infrastructure
-- **`torsh-backend`** [![crates.io](https://img.shields.io/crates/v/torsh-backend.svg)](https://crates.io/crates/torsh-backend) - Multi-backend abstraction (CPU/CUDA/Metal/WebGPU)
+- **`torsh-backend`** [![crates.io](https://img.shields.io/crates/v/torsh-backend.svg)](https://crates.io/crates/torsh-backend) - Multi-backend abstraction (CPU production-ready; CUDA/Metal/WebGPU feature-gated & partial)
 - **`torsh-distributed`** [![crates.io](https://img.shields.io/crates/v/torsh-distributed.svg)](https://crates.io/crates/torsh-distributed) - Distributed training (DDP, FSDP, pipeline parallel)
 - **`torsh-jit`** [![crates.io](https://img.shields.io/crates/v/torsh-jit.svg)](https://crates.io/crates/torsh-jit) - JIT compilation and optimization
 - **`torsh-fx`** [![crates.io](https://img.shields.io/crates/v/torsh-fx.svg)](https://crates.io/crates/torsh-fx) - Graph-level transformations and analysis
@@ -516,22 +538,32 @@ make format    # Code formatting
 make audit     # Security audit
 ```
 
-**Test Coverage**: 9,600+ tests across all modules.
+**Test Coverage**: 10,170 tests across all modules.
 
 ## 📈 Performance Benchmarks
 
-ToRSh consistently outperforms PyTorch in key metrics:
+Performance benchmarking is in progress. ToRSh aims for competitive performance
+with PyTorch through SIMD vectorization (AVX2/NEON), buffer-pool reuse, and
+zero-copy operations. Verified comparative benchmarks will be published as they
+are measured; we deliberately avoid publishing speedup numbers that are not yet
+backed by reproducible measurements.
 
-| Operation | ToRSh | PyTorch | Improvement |
-|-----------|-------|---------|-------------|
-| Matrix Multiplication | 1.2ms | 2.8ms | **2.3x faster** |
-| Convolution 2D | 5.4ms | 8.1ms | **1.5x faster** |
-| Graph Convolution | 890μs | 1.9ms | **2.1x faster** |
-| Time Series STL | 245μs | 510μs | **2.1x faster** |
-| Memory Usage | 245MB | 489MB | **50% reduction** |
-| Binary Size | 12MB | 180MB+ | **15x smaller** |
+Reproducible local benchmarks (criterion + `dhat` allocation tracking) are
+available today:
 
-*Benchmarks run on Apple M2 Pro, averaged over 1000 iterations*
+```bash
+# SIMD micro-benchmarks for f32 tensor operations
+cargo bench --package torsh-tensor --bench simd_performance
+
+# Allocation tracking (buffer-pool reuse)
+cargo bench --package torsh-tensor --bench alloc_tracking
+
+# Cross-framework comparison harness (PyTorch suite is still being wired up)
+cargo run --example pytorch_performance_suite --package torsh-benches --release
+```
+
+See the **Known Issues & Limitations → Performance** section for the current
+status of the PyTorch-vs-ToRSh comparison suite.
 
 ## 🤝 Feedback & Contributing
 
@@ -560,7 +592,7 @@ make docs     # Build documentation
 
 ### Getting Started
 
-- ✅ Core functionality is stable and tested (9,600+ tests passing)
+- ✅ Core functionality is stable and tested (10,170 tests passing)
 - ✅ APIs are stabilized for core crates
 - ⚠️ Some advanced features are still under active development
 - ✅ Comprehensive documentation available

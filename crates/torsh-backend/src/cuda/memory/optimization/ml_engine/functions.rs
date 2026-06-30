@@ -2,14 +2,11 @@
 //!
 //! 🤖 Generated with [SplitRS](https://github.com/cool-japan/splitrs)
 
-use std::collections::{HashMap, VecDeque};
-use std::time::{Duration, Instant};
-
-use super::types::{Distribution, EnsembleConfig, EnsembleType, ExplanationMethod, ExplorationStrategy, ExtractionPerformance, ExtractorType, FairnessMetrics, FeatureExtractor, FeatureNormalization, FeatureSelectionCriteria, FeatureStatistics, MLModel, MLModelType, MLOptimizationEngine, ModelComplexityMetrics, ModelPerformance, OnlineLearningConfig, PerformanceTrend, PotentialFunction, RLAgentType, RLLearningParams, ReinforcementLearningAgent, RewardShaping, SearchSpace, StabilityMetrics, TrainingExample, TrainingStatus, ValidationMetrics, ValidationSplit, VotingStrategy};
-
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::super::*;
+    use std::collections::{HashMap, VecDeque};
+    use std::time::{Duration, Instant};
     #[test]
     fn test_ml_engine_creation() {
         let engine = MLOptimizationEngine::new();
@@ -83,8 +80,10 @@ mod tests {
     #[test]
     fn test_feature_extractor_types() {
         let extractors = vec![
-            ExtractorType::Statistical, ExtractorType::Temporal,
-            ExtractorType::Performance, ExtractorType::MemoryUsage,
+            ExtractorType::Statistical,
+            ExtractorType::Temporal,
+            ExtractorType::Performance,
+            ExtractorType::MemoryUsage,
         ];
         for extractor_type in extractors {
             let extractor = FeatureExtractor {
@@ -128,8 +127,10 @@ mod tests {
     #[test]
     fn test_model_types() {
         let model_types = vec![
-            MLModelType::LinearRegression, MLModelType::DecisionTree,
-            MLModelType::RandomForest, MLModelType::NeuralNetwork,
+            MLModelType::LinearRegression,
+            MLModelType::DecisionTree,
+            MLModelType::RandomForest,
+            MLModelType::NeuralNetwork,
             MLModelType::ReinforcementLearning,
         ];
         for model_type in model_types {
@@ -193,7 +194,8 @@ mod tests {
     #[test]
     fn test_explanation_methods() {
         let methods = vec![
-            ExplanationMethod::SHAP, ExplanationMethod::LIME,
+            ExplanationMethod::SHAP,
+            ExplanationMethod::LIME,
             ExplanationMethod::PermutationImportance,
         ];
         for method in methods {
@@ -207,12 +209,13 @@ mod tests {
             max: 1.0,
             distribution: Distribution::LogUniform,
         };
-        let integer_space = SearchSpace::Integer {
-            min: 1,
-            max: 100,
-        };
+        let integer_space = SearchSpace::Integer { min: 1, max: 100 };
         let categorical_space = SearchSpace::Categorical {
-            choices: vec!["relu".to_string(), "tanh".to_string(), "sigmoid".to_string(),],
+            choices: vec![
+                "relu".to_string(),
+                "tanh".to_string(),
+                "sigmoid".to_string(),
+            ],
         };
         match continuous_space {
             SearchSpace::Continuous { min, max, .. } => {
@@ -256,7 +259,7 @@ mod tests {
             },
             reward_shaping: RewardShaping {
                 potential_function: PotentialFunction::Linear {
-                    coefficients: vec![1.0, - 0.5, 0.3],
+                    coefficients: vec![1.0, -0.5, 0.3],
                 },
                 shaping_factor: 0.1,
                 intrinsic_motivation: true,

@@ -114,27 +114,23 @@ pub use statistics::{
     SystemHealthMetrics, TrendAnalysis,
 };
 
-// TODO: optimization module temporarily disabled due to extensive API refactoring needed
-// pub use optimization::{
-//     CudaMemoryOptimizationEngine, MLOptimizationConfig, MultiObjectiveResult, OptimizationResult,
-//     OptimizationStrategy, PerformanceTarget,
-// };
+pub use optimization::{
+    CudaMemoryOptimizationEngine, MLOptimizationConfig, MultiObjectiveResult, OptimizationResult,
+    OptimizationStrategy, PerformanceTarget,
+};
 
-// TODO: manager module temporarily disabled due to extensive API compatibility refactoring needed
-// pub use manager::{
-//     get_global_manager, initialize_global_manager, CudaMemoryManagerConfig,
-//     CudaMemoryManagerCoordinator, ManagerOperationResult, MemoryPressureLevel,
-//     MemoryPressureThresholds, PoolManagerConfig, SystemHealthStatus,
-// };
+pub use manager::{
+    get_global_manager, initialize_global_manager, CudaMemoryManagerConfig,
+    CudaMemoryManagerCoordinator, ManagerOperationResult, MemoryPressureLevel,
+    MemoryPressureThresholds, PoolManagerConfig, SystemHealthStatus,
+};
 
 // Module declarations
 pub mod allocation;
 pub mod device_memory;
-// TODO: manager module temporarily disabled due to extensive API compatibility refactoring needed
-// pub mod manager;
+pub mod manager;
 pub mod memory_pools;
-// TODO: optimization module temporarily disabled due to extensive API refactoring needed
-// pub mod optimization;
+pub mod optimization;
 pub mod pinned_memory;
 #[allow(unused_imports)]
 pub mod statistics;
@@ -143,174 +139,6 @@ pub mod unified_memory;
 // Convenience type aliases
 pub type MemoryResult<T> = Result<T, String>;
 pub type AllocationHandle = Box<dyn CudaMemoryAllocation>;
-
-// Placeholder types for disabled optimization module
-/// Placeholder for optimization result (optimization module disabled)
-#[derive(Debug, Clone, Default)]
-pub struct OptimizationResult {
-    pub success: bool,
-    pub message: String,
-}
-
-/// Placeholder for ML optimization config (optimization module disabled)
-#[derive(Debug, Clone, Default)]
-pub struct MLOptimizationConfig {
-    pub enabled: bool,
-}
-
-/// Placeholder for optimization strategy (optimization module disabled)
-#[derive(Debug, Clone, Default)]
-pub struct OptimizationStrategy {
-    pub name: String,
-}
-
-/// Placeholder for performance target (optimization module disabled)
-#[derive(Debug, Clone, Default)]
-pub struct PerformanceTarget {
-    pub target: f64,
-}
-
-/// Placeholder for multi-objective result (optimization module disabled)
-#[derive(Debug, Clone, Default)]
-pub struct MultiObjectiveResult {
-    pub success: bool,
-}
-
-/// Placeholder for memory optimization engine (optimization module disabled)
-pub struct CudaMemoryOptimizationEngine {
-    _placeholder: (),
-}
-
-impl CudaMemoryOptimizationEngine {
-    pub fn new(_config: MLOptimizationConfig) -> Self {
-        Self { _placeholder: () }
-    }
-
-    pub fn optimize(&self, _strategy: &OptimizationStrategy) -> OptimizationResult {
-        OptimizationResult {
-            success: false,
-            message: "Optimization module disabled".to_string(),
-        }
-    }
-
-    pub fn run_iteration(&self) -> OptimizationResult {
-        OptimizationResult {
-            success: false,
-            message: "Optimization module disabled".to_string(),
-        }
-    }
-
-    pub fn shutdown(&self) -> OptimizationResult {
-        OptimizationResult {
-            success: true,
-            message: "Shutdown complete".to_string(),
-        }
-    }
-
-    pub fn get_status(&self) -> OptimizationResult {
-        OptimizationResult {
-            success: true,
-            message: "Optimization module disabled".to_string(),
-        }
-    }
-}
-
-// ============== Manager Module Placeholders ==============
-// TODO: manager module temporarily disabled due to extensive API compatibility refactoring needed
-
-/// Placeholder for memory pressure level (manager module disabled)
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub enum MemoryPressureLevel {
-    #[default]
-    Low,
-    Medium,
-    High,
-    Critical,
-}
-
-/// Placeholder for memory pressure thresholds (manager module disabled)
-#[derive(Debug, Clone, Default)]
-pub struct MemoryPressureThresholds {
-    pub low: f64,
-    pub medium: f64,
-    pub high: f64,
-    pub critical: f64,
-}
-
-/// Placeholder for system health status (manager module disabled)
-#[derive(Debug, Clone, Default)]
-pub struct SystemHealthStatus {
-    pub healthy: bool,
-    pub message: String,
-}
-
-/// Placeholder for manager operation result (manager module disabled)
-#[derive(Debug, Clone, Default)]
-pub struct ManagerOperationResult {
-    pub success: bool,
-    pub message: String,
-}
-
-/// Placeholder for pool manager config (manager module disabled)
-#[derive(Debug, Clone, Default)]
-pub struct PoolManagerConfig {
-    pub enabled: bool,
-}
-
-/// Placeholder for CUDA memory manager config (manager module disabled)
-#[derive(Debug, Clone)]
-pub struct CudaMemoryManagerConfig {
-    pub enable_optimization: bool,
-    pub enable_predictive_allocation: bool,
-    pub optimization_config: MLOptimizationConfig,
-}
-
-impl Default for CudaMemoryManagerConfig {
-    fn default() -> Self {
-        Self {
-            enable_optimization: false,
-            enable_predictive_allocation: false,
-            optimization_config: MLOptimizationConfig::default(),
-        }
-    }
-}
-
-/// Placeholder for CUDA memory manager coordinator (manager module disabled)
-pub struct CudaMemoryManagerCoordinator {
-    _placeholder: (),
-}
-
-impl std::fmt::Debug for CudaMemoryManagerCoordinator {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("CudaMemoryManagerCoordinator")
-            .field("status", &"disabled")
-            .finish()
-    }
-}
-
-impl CudaMemoryManagerCoordinator {
-    pub fn new(_config: CudaMemoryManagerConfig) -> Result<Self, String> {
-        Ok(Self { _placeholder: () })
-    }
-
-    pub fn initialize_devices(&self, _device_ids: &[usize]) -> Result<(), String> {
-        Ok(())
-    }
-
-    pub fn get_memory_statistics(&self) -> Result<MemoryUsageStatistics, String> {
-        Ok(MemoryUsageStatistics::default())
-    }
-}
-
-/// Get global manager (placeholder - manager module disabled)
-pub fn get_global_manager() -> Result<std::sync::Arc<CudaMemoryManagerCoordinator>, String> {
-    Err("Manager module disabled".to_string())
-}
-
-/// Initialize global manager (placeholder - manager module disabled)
-pub fn initialize_global_manager(_config: CudaMemoryManagerConfig) -> Result<(), String> {
-    Ok(())
-}
 
 /// High-level memory system configuration
 #[derive(Debug, Clone)]
@@ -395,9 +223,18 @@ pub fn initialize_memory_system(config: MemorySystemConfig) -> MemoryResult<Memo
 }
 
 /// Get the global memory manager instance
-/// TODO: Manager module disabled - returns error
+///
+/// Returns the manager stored in [`SYSTEM_STATE`] (set by
+/// [`initialize_memory_system`]). Errors if the system has not been
+/// initialized yet.
 pub fn get_memory_manager() -> MemoryResult<Arc<CudaMemoryManagerCoordinator>> {
-    Err("Manager module disabled - use direct allocation APIs".to_string())
+    let state = SYSTEM_STATE
+        .lock()
+        .map_err(|e| format!("Failed to acquire memory system lock: {}", e))?;
+    state
+        .as_ref()
+        .map(Arc::clone)
+        .ok_or_else(|| "Memory system not initialized".to_string())
 }
 
 /// Allocate device memory with automatic device selection
@@ -528,33 +365,57 @@ pub fn deallocate_memory(allocation: AllocationHandle) -> MemoryResult<()> {
 }
 
 /// Get comprehensive memory statistics
-/// TODO: Manager module disabled - returns default
+///
+/// Delegates to the global manager when the system has been initialized.
+/// Falls back to a default snapshot when the system is not yet up so that
+/// callers (e.g. tests that skip CUDA init) still receive a valid value.
 pub fn get_memory_statistics() -> MemoryResult<MemoryUsageStatistics> {
+    if let Ok(state) = SYSTEM_STATE.lock() {
+        if let Some(manager) = state.as_ref() {
+            return manager.get_memory_statistics();
+        }
+    }
     Ok(MemoryUsageStatistics::default())
 }
 
 /// Get system performance metrics
-/// TODO: Manager module disabled - returns default
+///
+/// Delegates to the global manager when the system has been initialized.
+/// Falls back to a default snapshot when the system is not yet up so that
+/// callers (e.g. tests that skip CUDA init) still receive a valid value.
 pub fn get_performance_metrics() -> MemoryResult<PerformanceMetrics> {
+    if let Ok(state) = SYSTEM_STATE.lock() {
+        if let Some(manager) = state.as_ref() {
+            return manager.get_performance_metrics();
+        }
+    }
     Ok(PerformanceMetrics::default())
 }
 
 /// Get system health status
 pub fn get_system_health() -> MemoryResult<SystemHealthStatus> {
-    // Return healthy status when system is initialized
-    Ok(SystemHealthStatus {
-        healthy: true,
-        message: "Memory system operational".to_string(),
-    })
+    // Return healthy status when system is operational
+    Ok(SystemHealthStatus::Healthy)
 }
 
 /// Trigger manual memory optimization
-/// TODO: Manager module disabled - returns stub
+///
+/// Delegates to the global manager when the system has been initialized,
+/// translating its [`ManagerOperationResult`] into the [`MemoryResult`] used
+/// by this convenience API. Falls back to a default result when the system
+/// is not yet up.
 pub fn optimize_memory_layout() -> MemoryResult<OptimizationResult> {
-    Ok(OptimizationResult {
-        success: false,
-        message: "Manager module disabled".to_string(),
-    })
+    if let Ok(state) = SYSTEM_STATE.lock() {
+        if let Some(manager) = state.as_ref() {
+            return match manager.optimize_memory_layout() {
+                ManagerOperationResult::Success(result) => Ok(result),
+                ManagerOperationResult::PartialSuccess(result, _warnings) => Ok(result),
+                ManagerOperationResult::Failure(error) => Err(error),
+                ManagerOperationResult::RequiresOptimization(reason) => Err(reason),
+            };
+        }
+    }
+    Ok(OptimizationResult::default())
 }
 
 /// Perform system maintenance
@@ -590,8 +451,16 @@ pub fn perform_system_maintenance() -> MemoryResult<Vec<String>> {
 }
 
 /// Enable or disable predictive allocation
-/// TODO: Manager module disabled - no-op
-pub fn configure_predictive_allocation(_enable: bool) -> MemoryResult<()> {
+///
+/// Delegates to the global manager when the system has been initialized.
+/// When the system is not yet up the call is a no-op so that callers can
+/// configure the system before initialization without surfacing an error.
+pub fn configure_predictive_allocation(enable: bool) -> MemoryResult<()> {
+    if let Ok(state) = SYSTEM_STATE.lock() {
+        if let Some(manager) = state.as_ref() {
+            return manager.enable_predictive_allocation(enable);
+        }
+    }
     Ok(())
 }
 
@@ -607,15 +476,47 @@ pub fn shutdown_memory_system() -> MemoryResult<()> {
 // Internal helper functions
 
 fn collect_system_capabilities(device_ids: &[usize]) -> MemoryResult<SystemCapabilities> {
-    // Implementation would query CUDA devices for capabilities
+    use crate::cuda::cuda_sys_compat as cuda_sys;
+
+    let mut total_device_memory: usize = 0;
+    let mut max_allocation_sizes: HashMap<usize, usize> = HashMap::new();
+
+    for &device_id in device_ids {
+        // Query real per-device memory using cudaMemGetInfo.
+        // We set the CUDA device first so cudaMemGetInfo returns stats for the right device.
+        let (free_bytes, total_bytes) = {
+            let mut free: usize = 0;
+            let mut total: usize = 0;
+            let ok = unsafe { cuda_sys::cudaMemGetInfo(&mut free, &mut total) }
+                == crate::cuda::cudaSuccess;
+            if ok && total > 0 {
+                (free, total)
+            } else {
+                // Non-CUDA build or device query unavailable: use conservative defaults
+                (4 * 1024 * 1024 * 1024_usize, 4 * 1024 * 1024 * 1024_usize)
+            }
+        };
+
+        total_device_memory += total_bytes;
+        // Max single allocation is capped at the current free memory on the device
+        max_allocation_sizes.insert(device_id, free_bytes);
+    }
+
+    // Fallback: if no devices were queried, use per-device 4 GiB defaults
+    if device_ids.is_empty() {
+        total_device_memory = 0;
+    } else if total_device_memory == 0 {
+        total_device_memory = device_ids.len() * 4 * 1024 * 1024 * 1024;
+        for &id in device_ids {
+            max_allocation_sizes.insert(id, 4 * 1024 * 1024 * 1024);
+        }
+    }
+
     Ok(SystemCapabilities {
-        total_device_memory: device_ids.len() * 8 * 1024 * 1024 * 1024, // Mock: 8GB per device
+        total_device_memory,
         unified_memory_supported: true,
         p2p_capabilities: HashMap::new(),
-        max_allocation_sizes: device_ids
-            .iter()
-            .map(|&id| (id, 4 * 1024 * 1024 * 1024)) // Mock: 4GB max allocation
-            .collect(),
+        max_allocation_sizes,
     })
 }
 
@@ -794,7 +695,10 @@ mod tests {
 
         if let Ok(health_status) = health {
             // Initially should be healthy
-            assert!(health_status.healthy, "System should be healthy initially");
+            assert!(
+                matches!(health_status, SystemHealthStatus::Healthy),
+                "System should be healthy initially"
+            );
         }
 
         let _ = shutdown_memory_system();

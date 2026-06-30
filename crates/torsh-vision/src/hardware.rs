@@ -17,6 +17,8 @@ pub trait GpuTransform: Send + Sync {
     fn forward_gpu(&self, input: &Tensor<f32>) -> Result<Tensor<f32>>;
     // fn forward_gpu_f32(&self, input: &Tensor<f32>) -> Result<Tensor<f32>>; // Commented out - f32 not available
     fn forward_gpu_f32(&self, input: &Tensor<f32>) -> Result<Tensor<f32>>; // Using f32 for now
+    /// Clone this transform into a new boxed trait object, preserving all configuration.
+    fn clone_box(&self) -> Box<dyn GpuTransform>;
 }
 
 /// Mixed precision transform wrapper
@@ -80,6 +82,13 @@ impl GpuTransform for GpuResize {
             let output_f32 = crate::ops::resize(&input_f32, self.size)?;
             Ok(output_f32.to_dtype(torsh_core::dtype::DType::F32)?)
         }
+    }
+
+    fn clone_box(&self) -> Box<dyn GpuTransform> {
+        Box::new(GpuResize {
+            size: self.size,
+            device: Arc::clone(&self.device),
+        })
     }
 }
 
@@ -261,6 +270,15 @@ impl GpuTransform for GpuConvolution {
             let output_f32 = self.cpu_convolution(&input_f32)?;
             Ok(output_f32.to_dtype(torsh_core::dtype::DType::F32)?)
         }
+    }
+
+    fn clone_box(&self) -> Box<dyn GpuTransform> {
+        Box::new(GpuConvolution {
+            kernel: self.kernel.clone(),
+            stride: self.stride,
+            padding: self.padding,
+            device: Arc::clone(&self.device),
+        })
     }
 }
 

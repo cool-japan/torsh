@@ -13,6 +13,7 @@ use petgraph::visit::EdgeRef;
 use scirs2_core::parallel_ops::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 
@@ -166,9 +167,15 @@ impl ParallelTraversal {
 #[derive(Debug)]
 pub struct GraphCache {
     operation_cache: RwLock<HashMap<String, CachedResult>>,
-    subgraph_cache: RwLock<HashMap<String, Arc<FxGraph>>>,
+    subgraph_cache: RwLock<HashMap<String, CachedSubgraph>>,
     cache_stats: Arc<Mutex<CacheStatistics>>,
     max_cache_size: usize,
+    /// Monotonically increasing counter that assigns a strictly ordered
+    /// recency sequence number to every cache access. A counter is used
+    /// instead of wall-clock timestamps so that recency forms a tie-free
+    /// total order that is independent of clock resolution and of HashMap
+    /// iteration order, making LRU eviction fully deterministic.
+    access_counter: AtomicU64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -177,6 +184,20 @@ pub struct CachedResult {
     pub computation_time: Duration,
     pub access_count: u64,
     pub last_accessed: std::time::SystemTime,
+    /// Strictly monotonic recency sequence number (higher == more recently
+    /// used). This is the authoritative key for LRU eviction. It is runtime
+    /// ordering state, so it is excluded from (de)serialization; deserialized
+    /// entries start at 0 and are re-sequenced on their next access.
+    #[serde(skip)]
+    pub last_accessed_seq: u64,
+}
+
+/// Internal subgraph cache entry that tracks recency for deterministic LRU
+/// eviction alongside the cached graph.
+#[derive(Debug, Clone)]
+struct CachedSubgraph {
+    graph: Arc<FxGraph>,
+    last_accessed_seq: u64,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -195,7 +216,20 @@ impl GraphCache {
             subgraph_cache: RwLock::new(HashMap::new()),
             cache_stats: Arc::new(Mutex::new(CacheStatistics::default())),
             max_cache_size,
+            access_counter: AtomicU64::new(0),
         }
+    }
+
+    /// Claim the next strictly increasing recency sequence number.
+    ///
+    /// Each call returns a unique value, establishing a tie-free total
+    /// ordering of accesses. Callers invoke this while holding the relevant
+    /// cache write lock, so the sequence order matches the actual mutation
+    /// order. `Relaxed` ordering is sufficient because the value is only ever
+    /// compared inside lock-protected critical sections; the lock provides the
+    /// necessary synchronization.
+    fn next_access_seq(&self) -> u64 {
+        self.access_counter.fetch_add(1, Ordering::Relaxed)
     }
 
     /// Get cached operation result
@@ -207,6 +241,7 @@ impl GraphCache {
         if let Some(result) = cache.get_mut(key) {
             result.access_count += 1;
             result.last_accessed = std::time::SystemTime::now();
+            result.last_accessed_seq = self.next_access_seq();
             self.cache_stats
                 .lock()
                 .expect("lock should not be poisoned")
@@ -238,6 +273,7 @@ impl GraphCache {
             computation_time,
             access_count: 1,
             last_accessed: std::time::SystemTime::now(),
+            last_accessed_seq: self.next_access_seq(),
         };
 
         cache.insert(key, cached_result);
@@ -245,16 +281,20 @@ impl GraphCache {
 
     /// Get cached subgraph
     pub fn get_subgraph(&self, key: &str) -> Option<Arc<FxGraph>> {
-        let cache = self
+        // A write lock is required because a successful lookup updates the
+        // entry's recency sequence number (an access promotes it in the LRU
+        // ordering).
+        let mut cache = self
             .subgraph_cache
-            .read()
+            .write()
             .expect("lock should not be poisoned");
-        if let Some(graph) = cache.get(key) {
+        if let Some(entry) = cache.get_mut(key) {
+            entry.last_accessed_seq = self.next_access_seq();
             self.cache_stats
                 .lock()
                 .expect("lock should not be poisoned")
                 .hits += 1;
-            Some(graph.clone())
+            Some(entry.graph.clone())
         } else {
             self.cache_stats
                 .lock()
@@ -276,7 +316,13 @@ impl GraphCache {
             self.evict_lru_subgraph(&mut cache);
         }
 
-        cache.insert(key, graph);
+        cache.insert(
+            key,
+            CachedSubgraph {
+                graph,
+                last_accessed_seq: self.next_access_seq(),
+            },
+        );
     }
 
     /// Get cache statistics
@@ -303,11 +349,16 @@ impl GraphCache {
             .expect("lock should not be poisoned") = CacheStatistics::default();
     }
 
-    /// Evict least recently used operation
+    /// Evict the least recently used operation.
+    ///
+    /// The victim is the entry with the smallest recency sequence number.
+    /// Because sequence numbers are strictly monotonic and unique, exactly one
+    /// entry holds the minimum, so the choice is deterministic and independent
+    /// of HashMap iteration order.
     fn evict_lru_operation(&self, cache: &mut HashMap<String, CachedResult>) {
         if let Some(lru_key) = cache
             .iter()
-            .min_by_key(|(_, result)| result.last_accessed)
+            .min_by_key(|(_, result)| result.last_accessed_seq)
             .map(|(key, _)| key.clone())
         {
             cache.remove(&lru_key);
@@ -318,10 +369,18 @@ impl GraphCache {
         }
     }
 
-    /// Evict least recently used subgraph (simplified LRU)
-    fn evict_lru_subgraph(&self, cache: &mut HashMap<String, Arc<FxGraph>>) {
-        if let Some(key) = cache.keys().next().cloned() {
-            cache.remove(&key);
+    /// Evict the least recently used subgraph.
+    ///
+    /// As with [`Self::evict_lru_operation`], the victim is selected by the
+    /// unique minimum recency sequence number, giving deterministic true-LRU
+    /// behavior.
+    fn evict_lru_subgraph(&self, cache: &mut HashMap<String, CachedSubgraph>) {
+        if let Some(lru_key) = cache
+            .iter()
+            .min_by_key(|(_, entry)| entry.last_accessed_seq)
+            .map(|(key, _)| key.clone())
+        {
+            cache.remove(&lru_key);
             self.cache_stats
                 .lock()
                 .expect("lock should not be poisoned")
@@ -906,37 +965,63 @@ mod tests {
     fn test_cache_statistics() {
         let cache = GraphCache::new(2); // Small cache for testing eviction
 
+        // No artificial delays are required: recency is tracked with a strictly
+        // monotonic sequence counter, so eviction order is deterministic
+        // regardless of how fast the operations are inserted.
         cache.cache_operation(
             "op1".to_string(),
             "result1".to_string(),
             Duration::from_millis(50),
         );
-        // Small delay to ensure different timestamps
-        std::thread::sleep(Duration::from_millis(1));
-
         cache.cache_operation(
             "op2".to_string(),
             "result2".to_string(),
             Duration::from_millis(75),
         );
-        std::thread::sleep(Duration::from_millis(1));
-
         cache.cache_operation(
             "op3".to_string(),
             "result3".to_string(),
             Duration::from_millis(100),
-        ); // Should trigger eviction
+        ); // Should trigger eviction of the least recently used entry (op1)
 
         let stats = cache.statistics();
         assert_eq!(stats.evictions, 1);
 
-        // Verify cache contents - op1 should be evicted as it was oldest
+        // op1 is the least recently used and must be the evicted entry.
         assert!(cache.get_operation("op1").is_none());
-        assert!(cache.get_operation("op2").is_some() || cache.get_operation("op3").is_some());
+        assert!(cache.get_operation("op2").is_some());
+        assert!(cache.get_operation("op3").is_some());
+    }
 
-        // Verify we have exactly 2 items cached
-        let op2_exists = cache.get_operation("op2").is_some();
-        let op3_exists = cache.get_operation("op3").is_some();
-        assert_eq!((op2_exists as usize) + (op3_exists as usize), 2);
+    #[test]
+    fn test_cache_lru_promotion_on_access() {
+        // Verify true-LRU semantics: reading an entry promotes its recency so
+        // that a *different* (now least recently used) entry is evicted next.
+        let cache = GraphCache::new(2);
+
+        cache.cache_operation(
+            "op1".to_string(),
+            "result1".to_string(),
+            Duration::from_millis(10),
+        );
+        cache.cache_operation(
+            "op2".to_string(),
+            "result2".to_string(),
+            Duration::from_millis(20),
+        );
+
+        // Touch op1 so it becomes the most recently used; op2 is now the LRU.
+        assert!(cache.get_operation("op1").is_some());
+
+        // Inserting op3 must evict op2 (the least recently used), not op1.
+        cache.cache_operation(
+            "op3".to_string(),
+            "result3".to_string(),
+            Duration::from_millis(30),
+        );
+
+        assert!(cache.get_operation("op2").is_none());
+        assert!(cache.get_operation("op1").is_some());
+        assert!(cache.get_operation("op3").is_some());
     }
 }

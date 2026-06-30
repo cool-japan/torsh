@@ -7,7 +7,7 @@
 use crate::device::DeviceType;
 use crate::error::Result;
 use std::collections::{HashMap, VecDeque};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex, RwLock, Weak};
 use std::time::{Duration, Instant};
 
 /// Cross-device memory transfer manager
@@ -36,11 +36,48 @@ use std::time::{Duration, Instant};
 #[derive(Debug)]
 pub struct TransferManager {
     transfer_queue: Mutex<VecDeque<QueuedTransfer>>,
-    active_transfers: RwLock<HashMap<TransferId, ActiveTransfer>>,
-    transfer_stats: RwLock<TransferStatistics>,
+    /// Shared transfer bookkeeping, also referenced (weakly) by every
+    /// [`TransferHandle`] this manager hands out so that handle queries observe
+    /// the live transfer state rather than fabricated constants.
+    state: Arc<TransferState>,
     bandwidth_manager: Arc<BandwidthManager>,
     p2p_manager: Arc<P2PManager>,
     config: TransferConfig,
+}
+
+/// Shared, reference-counted transfer bookkeeping.
+///
+/// Held by the [`TransferManager`] and weakly referenced by each
+/// [`TransferHandle`]. Worker threads update the [`ActiveTransfer`] entries in
+/// place through this shared state, so a handle can report the genuine status,
+/// progress, and result of its transfer.
+#[derive(Debug)]
+struct TransferState {
+    active_transfers: RwLock<HashMap<TransferId, Arc<Mutex<ActiveTransfer>>>>,
+    transfer_stats: RwLock<TransferStatistics>,
+}
+
+impl TransferState {
+    fn new() -> Self {
+        Self {
+            active_transfers: RwLock::new(HashMap::new()),
+            transfer_stats: RwLock::new(TransferStatistics::new()),
+        }
+    }
+
+    /// Read the current status of a transfer, if it is still tracked.
+    fn status_of(&self, id: TransferId) -> Option<TransferStatus> {
+        let active = self
+            .active_transfers
+            .read()
+            .expect("lock should not be poisoned");
+        active.get(&id).map(|t| {
+            t.lock()
+                .expect("lock should not be poisoned")
+                .status
+                .clone()
+        })
+    }
 }
 
 impl Default for TransferManager {
@@ -54,8 +91,7 @@ impl TransferManager {
     pub fn new() -> Self {
         Self {
             transfer_queue: Mutex::new(VecDeque::new()),
-            active_transfers: RwLock::new(HashMap::new()),
-            transfer_stats: RwLock::new(TransferStatistics::new()),
+            state: Arc::new(TransferState::new()),
             bandwidth_manager: Arc::new(BandwidthManager::new()),
             p2p_manager: Arc::new(P2PManager::new()),
             config: TransferConfig::default(),
@@ -66,8 +102,7 @@ impl TransferManager {
     pub fn with_config(config: TransferConfig) -> Self {
         Self {
             transfer_queue: Mutex::new(VecDeque::new()),
-            active_transfers: RwLock::new(HashMap::new()),
-            transfer_stats: RwLock::new(TransferStatistics::new()),
+            state: Arc::new(TransferState::new()),
             bandwidth_manager: Arc::new(BandwidthManager::with_config(&config)),
             p2p_manager: Arc::new(P2PManager::new()),
             config,
@@ -77,7 +112,7 @@ impl TransferManager {
     /// Execute a memory transfer
     pub fn execute_transfer(&self, request: TransferRequest) -> Result<TransferHandle> {
         let transfer_id = self.generate_transfer_id();
-        let handle = TransferHandle::new(transfer_id, &request);
+        let handle = TransferHandle::new(transfer_id, &request, Arc::downgrade(&self.state));
 
         // Check if peer-to-peer transfer is possible
         let use_p2p = self
@@ -121,7 +156,7 @@ impl TransferManager {
         priority: TransferPriority,
     ) -> Result<TransferHandle> {
         let transfer_id = self.generate_transfer_id();
-        let handle = TransferHandle::new(transfer_id, &request);
+        let handle = TransferHandle::new(transfer_id, &request, Arc::downgrade(&self.state));
 
         let use_p2p = self
             .p2p_manager
@@ -159,31 +194,28 @@ impl TransferManager {
 
     /// Get transfer status
     pub fn get_transfer_status(&self, transfer_id: TransferId) -> Option<TransferStatus> {
-        let active = self
-            .active_transfers
-            .read()
-            .expect("lock should not be poisoned");
-        active.get(&transfer_id).map(|t| t.status.clone())
+        self.state.status_of(transfer_id)
     }
 
     /// Wait for transfer completion
     pub fn wait_for_transfer(&self, transfer_id: TransferId) -> Result<TransferResult> {
         loop {
-            {
-                let active = self
-                    .active_transfers
-                    .read()
-                    .expect("lock should not be poisoned");
-                if let Some(transfer) = active.get(&transfer_id) {
-                    match &transfer.status {
-                        TransferStatus::Completed(result) => {
-                            return Ok(result.clone());
-                        }
-                        TransferStatus::Failed(error) => {
-                            return Err(crate::error::TorshError::DeviceError(error.clone()));
-                        }
-                        _ => {}
-                    }
+            match self.state.status_of(transfer_id) {
+                Some(TransferStatus::Completed(result)) => return Ok(result),
+                Some(TransferStatus::Failed(error)) => {
+                    return Err(crate::error::TorshError::DeviceError(error));
+                }
+                Some(TransferStatus::Cancelled) => {
+                    return Err(crate::error::TorshError::DeviceError(format!(
+                        "transfer {transfer_id:?} was cancelled"
+                    )));
+                }
+                // Still queued / in progress, or no longer tracked.
+                Some(_) => {}
+                None => {
+                    return Err(crate::error::TorshError::DeviceError(format!(
+                        "transfer {transfer_id:?} is not tracked by this manager"
+                    )));
                 }
             }
             std::thread::sleep(Duration::from_millis(1));
@@ -206,11 +238,13 @@ impl TransferManager {
 
         // Cancel active transfer
         {
-            let mut active = self
+            let active = self
+                .state
                 .active_transfers
-                .write()
+                .read()
                 .expect("lock should not be poisoned");
-            if let Some(transfer) = active.get_mut(&transfer_id) {
+            if let Some(transfer) = active.get(&transfer_id) {
+                let mut transfer = transfer.lock().expect("lock should not be poisoned");
                 transfer.status = TransferStatus::Cancelled;
                 return Ok(true);
             }
@@ -222,6 +256,7 @@ impl TransferManager {
     /// Get transfer statistics
     pub fn get_statistics(&self) -> TransferStatistics {
         let stats = self
+            .state
             .transfer_stats
             .read()
             .expect("lock should not be poisoned");
@@ -231,6 +266,7 @@ impl TransferManager {
     /// Get active transfer count
     pub fn active_transfer_count(&self) -> usize {
         let active = self
+            .state
             .active_transfers
             .read()
             .expect("lock should not be poisoned");
@@ -257,6 +293,7 @@ impl TransferManager {
             .lock()
             .expect("lock should not be poisoned");
         let mut active = self
+            .state
             .active_transfers
             .write()
             .expect("lock should not be poisoned");
@@ -276,21 +313,35 @@ impl TransferManager {
 
                 // Start the transfer
                 let active_transfer = self.start_transfer(queued)?;
-                active.insert(active_transfer.id, active_transfer);
+                let id = active_transfer
+                    .lock()
+                    .expect("lock should not be poisoned")
+                    .id;
+                active.insert(id, active_transfer);
             }
+        }
+
+        // Refresh aggregate statistics so `get_statistics` reflects reality.
+        {
+            let mut stats = self
+                .state
+                .transfer_stats
+                .write()
+                .expect("lock should not be poisoned");
+            stats.total_transfers = stats.total_transfers.max(active.len() as u64);
         }
 
         Ok(())
     }
 
-    fn start_transfer(&self, queued: QueuedTransfer) -> Result<ActiveTransfer> {
+    fn start_transfer(&self, queued: QueuedTransfer) -> Result<Arc<Mutex<ActiveTransfer>>> {
         let start_time = Instant::now();
 
         // Allocate bandwidth
         self.bandwidth_manager.allocate_bandwidth(&queued.request)?;
 
         let total_bytes = queued.request.size_bytes;
-        let active_transfer = ActiveTransfer {
+        let active_transfer = Arc::new(Mutex::new(ActiveTransfer {
             id: queued.id,
             request: queued.request,
             method: queued.method,
@@ -300,36 +351,60 @@ impl TransferManager {
                 start_time,
             },
             start_time,
-        };
+        }));
 
-        // Spawn transfer execution
-        self.execute_transfer_async(active_transfer.clone())?;
+        // Spawn transfer execution against the *same* shared entry, so progress
+        // and completion are observable through the manager and any handle.
+        self.execute_transfer_async(Arc::clone(&active_transfer))?;
 
         Ok(active_transfer)
     }
 
-    fn execute_transfer_async(&self, transfer: ActiveTransfer) -> Result<()> {
-        #[allow(clippy::arc_with_non_send_sync)] // Temporary placeholder for async execution
-        let _manager = Arc::new(self as *const TransferManager);
-        let transfer_arc = Arc::new(Mutex::new(transfer));
+    fn execute_transfer_async(&self, transfer_arc: Arc<Mutex<ActiveTransfer>>) -> Result<()> {
+        // The worker only needs the bandwidth manager (to release its
+        // reservation) and the shared statistics; both are cheaply clonable
+        // `Arc`s, so no raw pointer to the manager is required.
+        let bandwidth_manager = Arc::clone(&self.bandwidth_manager);
+        let state = Arc::clone(&self.state);
 
         std::thread::spawn(move || {
-            let result = Self::perform_transfer(transfer_arc.clone());
+            let request = transfer_arc
+                .lock()
+                .expect("lock should not be poisoned")
+                .request
+                .clone();
 
-            // Update status based on result
-            let mut transfer = transfer_arc.lock().expect("lock should not be poisoned");
-            match result {
-                Ok(transfer_result) => {
-                    transfer.status = TransferStatus::Completed(transfer_result);
+            let result = Self::perform_transfer(Arc::clone(&transfer_arc));
+
+            // Update status based on result, in place on the shared entry.
+            let completed = {
+                let mut transfer = transfer_arc.lock().expect("lock should not be poisoned");
+                match result {
+                    Ok(transfer_result) => {
+                        transfer.status = TransferStatus::Completed(transfer_result);
+                        true
+                    }
+                    Err(error) => {
+                        transfer.status = TransferStatus::Failed(error.to_string());
+                        false
+                    }
                 }
-                Err(error) => {
-                    transfer.status = TransferStatus::Failed(error.to_string());
-                }
+            };
+
+            // Release the bandwidth reservation regardless of outcome.
+            let _ = bandwidth_manager.deallocate_bandwidth(&request);
+
+            // Record the outcome in the aggregate statistics.
+            let mut stats = state
+                .transfer_stats
+                .write()
+                .expect("lock should not be poisoned");
+            if completed {
+                stats.completed_transfers += 1;
+                stats.total_bytes_transferred += request.size_bytes as u64;
+            } else {
+                stats.failed_transfers += 1;
             }
-
-            // Clean up bandwidth allocation
-            // Note: In a real implementation, we'd need to safely access the manager
-            // This is simplified for the example
         });
 
         Ok(())
@@ -352,16 +427,22 @@ impl TransferManager {
         request: &TransferRequest,
         transfer: Arc<Mutex<ActiveTransfer>>,
     ) -> Result<TransferResult> {
-        let chunk_size = 1024 * 1024; // 1MB chunks
+        // This is a chunked transfer model: it advances the byte counters in
+        // real time at a fixed per-link throughput so that progress reporting,
+        // bandwidth accounting, and scheduling behave realistically. It does not
+        // itself copy device memory; an actual host-staged copy (pinned host
+        // buffer plus per-backend memcpy) is performed by the backend layer.
+        const MODELED_HOST_STAGED_BYTES_PER_SEC: u64 = 1024 * 1024 * 1024; // 1 GiB/s
+        let chunk_size = 1024 * 1024; // 1 MiB chunks
         let total_bytes = request.size_bytes;
         let mut bytes_transferred = 0;
 
-        // Simulate transfer with progress updates
         while bytes_transferred < total_bytes {
             let chunk = std::cmp::min(chunk_size, total_bytes - bytes_transferred);
 
-            // Simulate transfer time based on bandwidth
-            let transfer_time = Duration::from_millis(chunk as u64 / 1000); // Mock: 1GB/s
+            // Advance time according to the modeled link throughput.
+            let transfer_time =
+                Duration::from_secs_f64(chunk as f64 / MODELED_HOST_STAGED_BYTES_PER_SEC as f64);
             std::thread::sleep(transfer_time);
 
             bytes_transferred += chunk;
@@ -379,34 +460,50 @@ impl TransferManager {
             }
         }
 
+        // Capture the start time with a single lock acquisition. Locking the
+        // same non-reentrant mutex more than once inside a single expression
+        // would self-deadlock, so the duration and bandwidth are derived here.
+        let start_time = {
+            transfer
+                .lock()
+                .expect("lock should not be poisoned")
+                .start_time
+        };
+        let duration = Instant::now().duration_since(start_time);
+        let bandwidth_gbps = Self::bandwidth_gbps(total_bytes, duration);
+
         Ok(TransferResult {
             bytes_transferred: total_bytes,
-            duration: Instant::now().duration_since(
-                transfer
-                    .lock()
-                    .expect("lock should not be poisoned")
-                    .start_time,
-            ),
-            bandwidth_gbps: (total_bytes as f64 / (1024.0 * 1024.0 * 1024.0))
-                / (Instant::now()
-                    .duration_since(
-                        transfer
-                            .lock()
-                            .expect("lock should not be poisoned")
-                            .start_time,
-                    )
-                    .as_secs_f64()),
+            duration,
+            bandwidth_gbps,
             method: TransferMethod::HostStaged,
         })
+    }
+
+    /// Compute throughput in GiB/s from a byte count and elapsed duration,
+    /// guarding against a zero-length interval (which would otherwise yield a
+    /// non-finite value).
+    fn bandwidth_gbps(total_bytes: usize, duration: Duration) -> f64 {
+        let seconds = duration.as_secs_f64();
+        if seconds <= 0.0 {
+            return f64::INFINITY;
+        }
+        (total_bytes as f64 / (1024.0 * 1024.0 * 1024.0)) / seconds
     }
 
     fn perform_p2p_transfer(
         request: &TransferRequest,
         transfer: Arc<Mutex<ActiveTransfer>>,
     ) -> Result<TransferResult> {
-        // P2P transfers are typically faster
+        // Peer-to-peer transfer model. P2P links (e.g. NVLink / PCIe P2P) are
+        // modeled at a higher throughput than host-staged transfers. As with
+        // the host-staged path, this advances timing and byte counters for
+        // scheduling and reporting; the actual GPU-to-GPU copy is issued by the
+        // backend layer when real device handles are available.
+        const MODELED_P2P_BYTES_PER_SEC: u64 = 5 * 1024 * 1024 * 1024; // 5 GiB/s
         let total_bytes = request.size_bytes;
-        let transfer_duration = Duration::from_millis(total_bytes as u64 / 5000); // Mock: 5GB/s
+        let transfer_duration =
+            Duration::from_secs_f64(total_bytes as f64 / MODELED_P2P_BYTES_PER_SEC as f64);
 
         std::thread::sleep(transfer_duration);
 
@@ -425,8 +522,7 @@ impl TransferManager {
         Ok(TransferResult {
             bytes_transferred: total_bytes,
             duration: transfer_duration,
-            bandwidth_gbps: (total_bytes as f64 / (1024.0 * 1024.0 * 1024.0))
-                / transfer_duration.as_secs_f64(),
+            bandwidth_gbps: Self::bandwidth_gbps(total_bytes, transfer_duration),
             method: TransferMethod::PeerToPeer,
         })
     }
@@ -435,7 +531,9 @@ impl TransferManager {
         request: &TransferRequest,
         transfer: Arc<Mutex<ActiveTransfer>>,
     ) -> Result<TransferResult> {
-        // Direct copies (same device) are instantaneous
+        // Same-device "transfer": there is no cross-device movement, so the
+        // model completes immediately. Any genuine intra-device copy is handled
+        // by the backend without going through this scheduler.
         let total_bytes = request.size_bytes;
 
         {
@@ -519,22 +617,30 @@ impl TransferRequest {
     }
 }
 
-/// Transfer handle for tracking transfer progress
+/// Transfer handle for tracking transfer progress.
+///
+/// A handle holds a weak reference to its issuing [`TransferManager`]'s shared
+/// state, so [`Self::wait`], [`Self::is_complete`], and [`Self::progress`]
+/// report the genuine, live status of the underlying transfer rather than
+/// fabricated constants. If the manager has been dropped, those methods report
+/// the transfer as no longer trackable.
 #[derive(Debug)]
 pub struct TransferHandle {
     id: TransferId,
     source: DeviceType,
     destination: DeviceType,
     size_bytes: usize,
+    state: Weak<TransferState>,
 }
 
 impl TransferHandle {
-    fn new(id: TransferId, request: &TransferRequest) -> Self {
+    fn new(id: TransferId, request: &TransferRequest, state: Weak<TransferState>) -> Self {
         Self {
             id,
             source: request.source,
             destination: request.destination,
             size_bytes: request.size_bytes,
+            state,
         }
     }
 
@@ -558,25 +664,88 @@ impl TransferHandle {
         self.size_bytes
     }
 
-    /// Wait for transfer completion (mock implementation)
+    /// Block until the underlying transfer finishes, returning its result.
+    ///
+    /// Polls the issuing manager's live transfer state. Returns an error if the
+    /// transfer failed, was cancelled, the issuing manager has been dropped, or
+    /// the transfer is no longer tracked.
     pub fn wait(&self) -> Result<TransferResult> {
-        // In a real implementation, this would wait for the actual transfer
-        Ok(TransferResult {
-            bytes_transferred: self.size_bytes,
-            duration: Duration::from_millis(100),
-            bandwidth_gbps: 1.0,
-            method: TransferMethod::HostStaged,
-        })
+        let state = self.state.upgrade().ok_or_else(|| {
+            crate::error::TorshError::DeviceError(
+                "transfer manager has been dropped; transfer state is unavailable".to_string(),
+            )
+        })?;
+
+        loop {
+            match state.status_of(self.id) {
+                Some(TransferStatus::Completed(result)) => return Ok(result),
+                Some(TransferStatus::Failed(error)) => {
+                    return Err(crate::error::TorshError::DeviceError(error));
+                }
+                Some(TransferStatus::Cancelled) => {
+                    return Err(crate::error::TorshError::DeviceError(format!(
+                        "transfer {:?} was cancelled",
+                        self.id
+                    )));
+                }
+                // Queued or in progress: keep polling.
+                Some(_) => {}
+                None => {
+                    return Err(crate::error::TorshError::DeviceError(format!(
+                        "transfer {:?} is no longer tracked by its manager",
+                        self.id
+                    )));
+                }
+            }
+            std::thread::sleep(Duration::from_millis(1));
+        }
     }
 
-    /// Check if transfer is complete (mock implementation)
+    /// Report whether the underlying transfer has finished (completed, failed,
+    /// or cancelled).
+    ///
+    /// Reflects the live transfer state. If the issuing manager has been dropped
+    /// or the transfer is no longer tracked, it is reported as finished, since
+    /// no further progress is possible.
     pub fn is_complete(&self) -> bool {
-        true // Mock: always complete
+        match self.state.upgrade() {
+            Some(state) => match state.status_of(self.id) {
+                Some(TransferStatus::Queued) | Some(TransferStatus::InProgress { .. }) => false,
+                // Completed / Failed / Cancelled, or no longer tracked.
+                _ => true,
+            },
+            // Manager gone: nothing can advance the transfer further.
+            None => true,
+        }
     }
 
-    /// Get transfer progress (mock implementation)
+    /// Report the fraction of the transfer that has completed, in `[0.0, 1.0]`.
+    ///
+    /// Computed from the live byte counters. A finished transfer reports `1.0`;
+    /// a transfer that is no longer tracked or whose manager has been dropped
+    /// also reports `1.0`, since no further progress is observable.
     pub fn progress(&self) -> f64 {
-        1.0 // Mock: always 100%
+        let Some(state) = self.state.upgrade() else {
+            return 1.0;
+        };
+
+        match state.status_of(self.id) {
+            Some(TransferStatus::InProgress {
+                bytes_transferred,
+                total_bytes,
+                ..
+            }) => {
+                if total_bytes == 0 {
+                    1.0
+                } else {
+                    (bytes_transferred as f64 / total_bytes as f64).clamp(0.0, 1.0)
+                }
+            }
+            Some(TransferStatus::Queued) => 0.0,
+            Some(TransferStatus::Completed(_)) => 1.0,
+            // Failed / Cancelled / no longer tracked: no further progress.
+            _ => 1.0,
+        }
     }
 }
 
@@ -978,6 +1147,10 @@ mod tests {
             .execute_transfer(request)
             .expect("execute_transfer should succeed");
 
+        // The transfer runs asynchronously; block on the handle until the
+        // worker reports genuine completion, then verify the live state.
+        let result = handle.wait().expect("transfer should complete");
+        assert_eq!(result.bytes_transferred, 1024);
         assert!(handle.is_complete());
         assert_eq!(handle.progress(), 1.0);
     }
@@ -1050,14 +1223,41 @@ mod tests {
 
     #[test]
     fn test_transfer_handle() {
+        let manager = TransferManager::new();
         let request = TransferRequest::new(DeviceType::Cpu, DeviceType::Cuda(0), 1024);
-        let handle = TransferHandle::new(TransferId(1), &request);
+        let handle = manager
+            .execute_transfer(request)
+            .expect("execute_transfer should succeed");
 
         assert_eq!(handle.source(), DeviceType::Cpu);
         assert_eq!(handle.destination(), DeviceType::Cuda(0));
         assert_eq!(handle.size_bytes(), 1024);
 
+        // `wait` blocks on, and returns, the real transfer result.
         let result = handle.wait().expect("wait should succeed");
         assert_eq!(result.bytes_transferred, 1024);
+        assert!(handle.is_complete());
+    }
+
+    #[test]
+    fn test_handle_reports_completion_after_manager_dropped() {
+        // A handle whose manager has been dropped honestly reports the transfer
+        // as no longer trackable rather than fabricating a success result.
+        let request = TransferRequest::new(DeviceType::Cpu, DeviceType::Cpu, 1024);
+        let handle = {
+            let manager = TransferManager::new();
+            let handle = manager
+                .execute_transfer(request)
+                .expect("execute_transfer should succeed");
+            // Let the worker finish so it releases its `Arc<TransferState>`.
+            let _ = handle.wait();
+            handle
+            // `manager` dropped here.
+        };
+
+        // With both the manager and any worker gone, the state Arc is released.
+        assert!(handle.is_complete());
+        assert_eq!(handle.progress(), 1.0);
+        assert!(handle.wait().is_err());
     }
 }

@@ -8,7 +8,7 @@
 //!
 //! 🤖 Generated with [SplitRS](https://github.com/cool-japan/splitrs)
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 
 use super::types::{ExplanationMethod, ModelExplainability};
 
@@ -17,7 +17,8 @@ impl Default for ModelExplainability {
         Self {
             enabled: true,
             explanation_methods: vec![
-                ExplanationMethod::SHAP, ExplanationMethod::PermutationImportance,
+                ExplanationMethod::SHAP,
+                ExplanationMethod::PermutationImportance,
                 ExplanationMethod::PartialDependence,
             ],
             global_explanations: HashMap::new(),
@@ -25,4 +26,3 @@ impl Default for ModelExplainability {
         }
     }
 }
-

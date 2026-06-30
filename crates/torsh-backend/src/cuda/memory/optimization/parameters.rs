@@ -9,294 +9,17 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
-// ============================================================================
-// Stub implementations for missing types
-// ============================================================================
+// Placeholder implementations for supporting structures extracted into
+// a sibling module to comply with the project 2000-line file policy.
+#[path = "parameters_support.rs"]
+mod parameters_support;
+pub use parameters_support::*;
 
-/// Dependency condition type (stub implementation)
-#[derive(Debug, Clone)]
-pub enum DependencyCondition {
-    ValueEquals(f64),
-    ValueInRange { min: f64, max: f64 },
-}
-
-/// Convergence analysis result (stub implementation)
-#[derive(Debug, Clone, Default)]
-pub struct ConvergenceAnalysis {}
-
-/// Parameter space representation (stub implementation)
-#[derive(Debug)]
-pub struct ParameterSpace {}
-
-impl ParameterSpace {
-    fn new() -> Self {
-        Self {}
-    }
-}
-
-/// Parameter selection strategy (stub implementation)
-#[derive(Debug, Clone)]
-pub enum ParameterSelectionStrategy {
-    All,
-    ByType(ParameterType),
-    ByCategory(String),
-    Explicit(Vec<String>),
-    HighSensitivity,
-}
-
-/// Space analysis result (stub implementation)
-#[derive(Debug, Clone, Default)]
-pub struct SpaceAnalysis {}
-
-/// Parameter state (stub implementation)
-#[derive(Debug, Clone, Default)]
-pub struct ParameterState {}
-
-/// Optimization history summary (stub implementation)
-#[derive(Debug, Clone, Default)]
-pub struct OptimizationHistorySummary {}
-
-/// Tuning step result (stub implementation)
-#[derive(Debug, Clone, Default)]
-pub struct TuningStepResult {}
-
-/// Bayesian optimization result (stub implementation)
-#[derive(Debug, Clone, Default)]
-pub struct BayesianOptimizationResult {}
-
-/// Space exploration result (stub implementation)
-#[derive(Debug, Clone, Default)]
-pub struct SpaceExplorationResult {}
-
-/// Parameter analytics dashboard (stub implementation)
-#[derive(Debug, Clone, Default)]
-pub struct ParameterAnalyticsDashboard {}
-
-/// Auto tuning session config (stub implementation)
-#[derive(Debug, Clone, Default)]
-pub struct AutoTuningSessionConfig {}
-
-/// Resource usage (stub implementation)
-#[derive(Debug, Clone, Default)]
-pub struct ResourceUsage {}
-
-/// Parameter registry statistics (stub implementation)
-#[derive(Debug, Clone, Default)]
-pub struct ParameterRegistryStatistics {}
-
-// Additional stub types for parameters module
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
-pub enum ParameterCategory {
-    #[default]
-    General,
-    Memory,
-    Performance,
-    Algorithm,
-    Numerical,
-    Hardware,
-    Scheduling,
-    Custom(String),
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct ParameterDependency {}
-#[derive(Debug, Clone, Default)]
-pub struct ParameterValidationRule {}
-#[derive(Debug, Clone, Default)]
-pub struct AutoTuningConfig {
-    pub enabled: bool,
-}
-#[derive(Debug, Clone, Default)]
-pub struct SearchSpace {}
-#[derive(Debug, Clone, Default)]
-pub struct OptimizationRecord {}
-#[derive(Debug, Clone, Default)]
-pub struct ParameterQualityMetrics {}
-#[derive(Debug, Clone, Default)]
-pub struct StabilityAnalysis {}
-#[derive(Debug, Clone, Default)]
-pub struct CorrelationData {}
-#[derive(Debug, Clone, Default)]
-pub struct ParameterMetadata {}
-#[derive(Debug, Clone, Default)]
-pub struct ParameterLifecycle {}
-#[derive(Debug, Clone, Default)]
-pub struct DistributionType {}
-#[derive(Debug, Clone, Default)]
-pub struct FunctionType {}
-#[derive(Debug, Clone, Default)]
-pub struct ComplexParameterValue {}
-#[derive(Debug, Clone, Default)]
-pub struct DynamicParameterValue {}
-#[derive(Debug, Clone, Default)]
-pub struct ParameterCondition {}
-#[derive(Debug, Clone, Default)]
-pub struct ParameterConstraint {}
-#[derive(Debug, Clone, Default)]
-pub struct ParameterValidator {}
-#[derive(Debug, Clone, Default)]
-pub struct BoundsType {}
-#[derive(Debug, Clone, Default)]
-pub struct BoundsAdaptationRule {}
-#[derive(Debug, Clone, Default)]
-pub struct ViolationPenaltyConfig {}
-#[derive(Debug, Clone, Default)]
-pub struct TuningContext {}
-#[derive(Debug, Clone, Default)]
-pub struct ResourceCost {}
-#[derive(Debug, Clone, Default)]
-pub struct TuningMetadata {}
-#[derive(Debug, Clone, Default)]
-pub struct CrossValidationResults {}
-#[derive(Debug, Clone, Default)]
-pub struct StatisticalSignificance {}
-#[derive(Debug, Clone, Default)]
-pub struct ConvergenceInfo {}
-#[derive(Debug, Clone, Default)]
-pub struct ExplorationInfo {}
-#[derive(Debug, Clone, Default)]
-pub struct MultiObjectiveResults {}
-#[derive(Debug, Clone, Default)]
-pub struct UncertaintyQuantification {}
-#[derive(Debug, Clone, Default)]
-pub struct TuningScheduler {}
-#[derive(Debug, Clone, Default)]
-pub struct TuningPerformanceTracker {}
-#[derive(Debug, Clone, Default)]
-pub struct TuningResourceManager {}
-#[derive(Debug, Clone, Default)]
-pub struct EarlyStoppingSystem {}
-#[derive(Debug, Clone, Default)]
-pub struct MultiObjectiveTuning {}
-#[derive(Debug, Clone, Default)]
-pub struct DistributedTuningCoordinator {}
-#[derive(Debug, Clone, Default)]
-pub struct TuningResultAnalyzer {}
-#[derive(Debug, Clone, Default)]
-pub struct AdaptiveTuningController {}
-#[derive(Debug, Clone, Default)]
-pub struct TuningRecommendationEngine {}
-#[derive(Debug, Clone, Default)]
-pub struct BayesianOptimizationEngine {}
-#[derive(Debug, Clone, Default)]
-pub struct GridSearchOptimizer {}
-#[derive(Debug, Clone, Default)]
-pub struct RandomSearchOptimizer {}
-#[derive(Debug, Clone, Default)]
-pub struct EvolutionaryOptimizer {}
-#[derive(Debug, Clone, Default)]
-pub struct ParticleSwarmOptimizer {}
-#[derive(Debug, Clone, Default)]
-pub struct DifferentialEvolution {}
-#[derive(Debug, Clone, Default)]
-pub struct HyperbandOptimizer {}
-#[derive(Debug, Clone, Default)]
-pub struct PopulationBasedTraining {}
-#[derive(Debug, Clone, Default)]
-pub struct MultiFidelityOptimizer {}
-#[derive(Debug, Clone, Default)]
-pub struct NeuralArchitectureSearch {}
-#[derive(Debug, Clone, Default)]
-pub struct MetaLearningOptimizer {}
-#[derive(Debug, Clone, Default)]
-pub struct GaussianProcessModel {}
-#[derive(Debug, Clone, Default)]
-pub struct AcquisitionFunction {}
-#[derive(Debug, Clone, Default)]
-pub struct AcquisitionOptimizer {}
-#[derive(Debug, Clone, Default)]
-pub struct PriorDistribution {}
-#[derive(Debug, Clone, Default)]
-pub struct KernelFunction {}
-#[derive(Debug, Clone, Default)]
-pub struct HyperparameterLearning {}
-#[derive(Debug, Clone, Default)]
-pub struct MultiObjectiveAcquisition {}
-#[derive(Debug, Clone, Default)]
-pub struct ConstraintHandler {}
-#[derive(Debug, Clone, Default)]
-pub struct UncertaintyEstimator {}
-#[derive(Debug, Clone, Default)]
-pub struct ActiveLearning {}
-#[derive(Debug, Clone, Default)]
-pub struct ThompsonSampling {}
-#[derive(Debug, Clone, Default)]
-pub struct SpaceVisualization {}
-#[derive(Debug, Clone, Default)]
-pub struct DimensionalityReduction {}
-#[derive(Debug, Clone, Default)]
-pub struct SpacePartitioning {}
-#[derive(Debug, Clone, Default)]
-pub struct CoverageAnalyzer {}
-#[derive(Debug, Clone, Default)]
-pub struct SensitivityAnalyzer {}
-#[derive(Debug, Clone, Default)]
-pub struct FeatureImportanceAnalyzer {}
-#[derive(Debug, Clone, Default)]
-pub struct TopologyAnalyzer {}
-#[derive(Debug, Clone, Default)]
-pub struct ManifoldLearning {}
-#[derive(Debug, Clone, Default)]
-pub struct ClusteringAnalyzer {}
-#[derive(Debug, Clone, Default)]
-pub struct SpaceAnomalyDetector {}
-#[derive(Debug, Clone, Default)]
-pub struct TuningAlgorithmConfig {}
-#[derive(Debug, Clone, Default)]
-pub struct TuningRecord {}
-#[derive(Debug, Clone, Default)]
-pub struct ParameterExportConfig {}
-#[derive(Debug, Clone, Default)]
-pub struct ParameterExportData {}
-#[derive(Debug, Clone, Default)]
-pub struct ParameterImportData {}
-#[derive(Debug, Clone, Default)]
-pub struct ParameterImportResult {}
-
-/// Array3 type alias for 3D arrays
-pub type Array3<T> = scirs2_core::ndarray::Array<T, scirs2_core::ndarray::Ix3>;
-
-// More stub types
-#[derive(Debug, Clone, Default)]
-pub struct BayesianOptimizationConfig {}
-#[derive(Debug, Clone, Default)]
-pub struct HyperparameterOptimizationConfig {}
-#[derive(Debug, Clone, Default)]
-pub struct HyperparameterOptimizationResult {}
-#[derive(Debug, Clone, Default)]
-pub struct SpaceExplorationConfig {}
-#[derive(Debug, Clone, Default)]
-pub struct ParameterCorrelationAnalysis {}
-#[derive(Debug, Clone, Default)]
-pub struct RecommendationContext {}
-#[derive(Debug, Clone, Default)]
-pub struct ParameterRecommendation {}
-#[derive(Debug, Clone, Default)]
-pub struct ValidationResult {}
-#[derive(Debug, Clone, Default)]
-pub struct ResourceBudget {}
-#[derive(Debug, Clone, Default)]
-pub struct QualityMetrics {}
-#[derive(Debug, Clone, Default)]
-pub struct SideEffect {}
-#[derive(Debug, Clone, Default)]
-pub struct TuningRecommendation {}
-#[derive(Debug, Clone, Default)]
-pub struct BayesianOptimizationSession {}
-#[derive(Debug, Clone, Default)]
-pub struct OptimizationContext {}
-#[derive(Debug, Clone, Default)]
-pub struct ConvergenceMetrics {}
-#[derive(Debug, Clone, Default)]
-pub struct AcquisitionPoint {}
-#[derive(Debug, Clone, Default)]
-pub struct ExplorationResults {}
-#[derive(Debug, Clone, Default)]
-pub struct ExplorationRecommendation {}
-#[derive(Debug, Clone, Default)]
-pub struct DependencyViolation {}
-#[derive(Debug, Clone, Default)]
-pub struct PerformanceInsight {}
+// Stub/placeholder type definitions extracted into a sibling module to
+// comply with the project 2000-line file policy.
+#[path = "parameters_stubs.rs"]
+mod parameters_stubs;
+pub use parameters_stubs::*;
 
 // ============================================================================
 
@@ -545,7 +268,7 @@ pub enum ParameterType {
 }
 
 /// Auto-tuning engine for automated parameter optimization
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct AutoTuningEngine {
     /// Available tuning algorithms
     algorithms: HashMap<String, Box<dyn TuningAlgorithm>>,
@@ -572,7 +295,7 @@ pub struct AutoTuningEngine {
 }
 
 /// Hyperparameter optimization system
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct HyperparameterOptimizer {
     /// Bayesian optimization engine
     bayesian_engine: BayesianOptimizationEngine,
@@ -599,7 +322,7 @@ pub struct HyperparameterOptimizer {
 }
 
 /// Bayesian optimization framework
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct BayesianOptimizer {
     /// Gaussian process surrogate model
     gaussian_process: GaussianProcessModel,
@@ -626,7 +349,7 @@ pub struct BayesianOptimizer {
 }
 
 /// Parameter space exploration system
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ParameterSpaceExplorer {
     /// Space sampling strategies
     sampling_strategies: HashMap<String, Box<dyn SamplingStrategy>>,
@@ -757,11 +480,14 @@ impl ParameterManager {
         // Validate tuning configuration
         self.validate_tuning_config(&tuning_config)?;
 
+        // Extract multi_fidelity_config before moving tuning_config
+        let mf_config = tuning_config.multi_fidelity_config.clone();
+
         // Create tuning session
         let session_id = self.auto_tuning_engine.create_session(tuning_config)?;
 
         // Initialize multi-fidelity if configured
-        if let Some(mf_config) = &tuning_config.multi_fidelity_config {
+        if let Some(mf_config) = &mf_config {
             self.multi_fidelity_system
                 .initialize_session(&session_id, mf_config)?;
         }
@@ -811,7 +537,7 @@ impl ParameterManager {
         optimization_config: BayesianOptimizationConfig,
     ) -> Result<BayesianOptimizationResult, ParameterError> {
         // Initialize Bayesian optimization
-        let mut optimization_session = self
+        let optimization_session = self
             .bayesian_optimizer
             .initialize_session(optimization_config)?;
 
@@ -875,11 +601,14 @@ impl ParameterManager {
             .hyperparameter_optimizer
             .select_optimizer(&optimization_config)?;
 
+        // Extract flag before moving config
+        let apply_best = optimization_config.apply_best_configuration;
+
         // Run optimization
         let result = optimizer.optimize(parameter_space, optimization_config)?;
 
         // Apply best configuration
-        if optimization_config.apply_best_configuration {
+        if apply_best {
             for (param_id, value) in &result.best_configuration {
                 self.update_parameter(param_id, value.clone())?;
             }
@@ -1053,7 +782,7 @@ impl ParameterManager {
         // Validate dependency condition
         match &dependency.condition {
             DependencyCondition::ValueEquals(expected) => {
-                if dependency_param.value != *expected {
+                if dependency_param.value != ParameterValue::Float(*expected) {
                     return Err(ParameterError::DependencyViolation(format!(
                         "Parameter {} depends on {} having value {:?}, but current value is {:?}",
                         parameter.id, dependency.parameter_id, expected, dependency_param.value
@@ -1061,7 +790,11 @@ impl ParameterManager {
                 }
             }
             DependencyCondition::ValueInRange { min, max } => {
-                if !self.is_value_in_range(&dependency_param.value, min, max) {
+                if !self.is_value_in_range(
+                    &dependency_param.value,
+                    &ParameterValue::Float(*min),
+                    &ParameterValue::Float(*max),
+                ) {
                     return Err(ParameterError::DependencyViolation(format!(
                         "Parameter {} depends on {} being in range [{:?}, {:?}]",
                         parameter.id, dependency.parameter_id, min, max
@@ -1191,7 +924,7 @@ impl ParameterManager {
     ) -> Result<HashMap<String, ParameterValue>, ParameterError> {
         let mut original_values = HashMap::new();
 
-        for (param_id, new_value) in &config.parameters {
+        for (param_id, _new_value) in &config.parameters {
             let current_param = self.get_parameter(param_id)?;
             original_values.insert(param_id.clone(), current_param.value.clone());
 
@@ -1206,14 +939,14 @@ impl ParameterManager {
         &self,
         original_values: &HashMap<String, ParameterValue>,
     ) -> Result<(), ParameterError> {
-        for (param_id, original_value) in original_values {
+        for (_param_id, _original_value) in original_values {
             // Restore original value (this would need mutable access in practice)
             // For now, this is a conceptual implementation
         }
         Ok(())
     }
 
-    fn measure_performance(&self, context: &TuningContext) -> Result<f64, ParameterError> {
+    fn measure_performance(&self, _context: &TuningContext) -> Result<f64, ParameterError> {
         // This would integrate with the actual performance measurement system
         Ok(0.5) // Placeholder
     }
@@ -1274,6 +1007,7 @@ impl ParameterManager {
         // Check early stopping criteria
         if let Some(early_stopping) = &session.config.early_stopping {
             if self
+                .auto_tuning_engine
                 .early_stopping
                 .should_stop(session_id, early_stopping)?
             {
@@ -1318,7 +1052,7 @@ impl ParameterManager {
 
     fn generate_step_recommendations(
         &self,
-        session_id: &TuningSessionId,
+        _session_id: &TuningSessionId,
     ) -> Result<Vec<TuningRecommendation>, ParameterError> {
         // Generate recommendations for next steps
         Ok(Vec::new()) // Placeholder
@@ -1326,7 +1060,7 @@ impl ParameterManager {
 
     fn analyze_convergence(
         &self,
-        session_id: &TuningSessionId,
+        _session_id: &TuningSessionId,
     ) -> Result<ConvergenceAnalysis, ParameterError> {
         // Analyze convergence of tuning process
         Ok(ConvergenceAnalysis::default())
@@ -1343,8 +1077,8 @@ impl ParameterManager {
 
     fn evaluate_configuration_performance(
         &self,
-        config: &ParameterConfiguration,
-        context: &OptimizationContext,
+        _config: &ParameterConfiguration,
+        _context: &OptimizationContext,
     ) -> Result<f64, ParameterError> {
         // Evaluate configuration performance
         Ok(0.5) // Placeholder
@@ -1352,10 +1086,10 @@ impl ParameterManager {
 
     fn record_bayesian_iteration(
         &mut self,
-        session_id: &str,
-        iteration: usize,
-        config: &ParameterConfiguration,
-        performance: f64,
+        _session_id: &str,
+        _iteration: usize,
+        _config: &ParameterConfiguration,
+        _performance: f64,
     ) -> Result<(), ParameterError> {
         // Record Bayesian optimization iteration
         Ok(())
@@ -1363,7 +1097,7 @@ impl ParameterManager {
 
     fn calculate_convergence_metrics(
         &self,
-        session: &BayesianOptimizationSession,
+        _session: &BayesianOptimizationSession,
     ) -> Result<ConvergenceMetrics, ParameterError> {
         // Calculate convergence metrics
         Ok(ConvergenceMetrics::default())
@@ -1371,7 +1105,7 @@ impl ParameterManager {
 
     fn get_acquisition_history(
         &self,
-        session_id: &str,
+        _session_id: &str,
     ) -> Result<Vec<AcquisitionPoint>, ParameterError> {
         // Get acquisition function history
         Ok(Vec::new())
@@ -1401,8 +1135,9 @@ impl ParameterManager {
             ParameterSelectionStrategy::ByType(param_type) => {
                 Ok(self.parameter_registry.get_parameters_by_type(param_type))
             }
-            ParameterSelectionStrategy::ByCategory(category) => {
-                Ok(self.parameter_registry.get_parameters_by_category(category))
+            ParameterSelectionStrategy::ByCategory(_category) => {
+                // String category filtering - return all by default since we have no string-to-enum mapping
+                Ok(self.parameter_registry.get_all_parameter_ids())
             }
             ParameterSelectionStrategy::Explicit(param_ids) => Ok(param_ids.clone()),
             ParameterSelectionStrategy::HighSensitivity => {
@@ -1413,7 +1148,7 @@ impl ParameterManager {
 
     fn analyze_exploration_results(
         &self,
-        results: &ExplorationResults,
+        _results: &ExplorationResult,
     ) -> Result<SpaceAnalysis, ParameterError> {
         // Analyze space exploration results
         Ok(SpaceAnalysis::default())
@@ -1421,7 +1156,7 @@ impl ParameterManager {
 
     fn generate_exploration_recommendations(
         &self,
-        analysis: &SpaceAnalysis,
+        _analysis: &SpaceAnalysis,
     ) -> Result<Vec<ExplorationRecommendation>, ParameterError> {
         // Generate recommendations based on exploration analysis
         Ok(Vec::new())
@@ -1434,8 +1169,8 @@ impl ParameterManager {
 
     fn generate_performance_recommendations(
         &self,
-        state: &ParameterState,
-        context: &RecommendationContext,
+        _state: &ParameterState,
+        _context: &RecommendationContext,
     ) -> Result<Vec<ParameterRecommendation>, ParameterError> {
         // Generate performance-based recommendations
         Ok(Vec::new())
@@ -1443,7 +1178,7 @@ impl ParameterManager {
 
     fn generate_stability_recommendations(
         &self,
-        state: &ParameterState,
+        _state: &ParameterState,
     ) -> Result<Vec<ParameterRecommendation>, ParameterError> {
         // Generate stability-based recommendations
         Ok(Vec::new())
@@ -1451,8 +1186,8 @@ impl ParameterManager {
 
     fn generate_resource_recommendations(
         &self,
-        state: &ParameterState,
-        context: &RecommendationContext,
+        _state: &ParameterState,
+        _context: &RecommendationContext,
     ) -> Result<Vec<ParameterRecommendation>, ParameterError> {
         // Generate resource-based recommendations
         Ok(Vec::new())
@@ -1461,7 +1196,7 @@ impl ParameterManager {
     fn rank_and_filter_recommendations(
         &self,
         recommendations: Vec<ParameterRecommendation>,
-        context: &RecommendationContext,
+        _context: &RecommendationContext,
     ) -> Result<Vec<ParameterRecommendation>, ParameterError> {
         // Rank and filter recommendations based on context
         Ok(recommendations)
@@ -1469,7 +1204,7 @@ impl ParameterManager {
 
     fn check_configuration_dependencies(
         &self,
-        configuration: &HashMap<String, ParameterValue>,
+        _configuration: &HashMap<String, ParameterValue>,
     ) -> Result<Vec<DependencyViolation>, ParameterError> {
         // Check parameter dependencies in configuration
         Ok(Vec::new())
@@ -1477,8 +1212,8 @@ impl ParameterManager {
 
     fn record_hyperparameter_optimization(
         &mut self,
-        parameters: &[String],
-        result: &HyperparameterOptimizationResult,
+        _parameters: &[String],
+        _result: &HyperparameterOptimizationResult,
     ) -> Result<(), ParameterError> {
         // Record hyperparameter optimization results
         Ok(())
@@ -1496,7 +1231,7 @@ impl ParameterManager {
 
 impl ParameterRegistry {
     /// Create a new parameter registry
-    pub fn new(config: ParameterRegistryConfig) -> Self {
+    pub fn new(_config: ParameterRegistryConfig) -> Self {
         Self {
             parameters: Arc::new(RwLock::new(HashMap::new())),
             parameter_groups: HashMap::new(),
@@ -1611,8 +1346,8 @@ impl ParameterRegistry {
     /// Associate tuning session with parameter
     pub fn associate_tuning_session(
         &mut self,
-        parameter_id: &str,
-        session_id: TuningSessionId,
+        _parameter_id: &str,
+        _session_id: TuningSessionId,
     ) -> Result<(), ParameterError> {
         // Associate tuning session with parameter for tracking
         Ok(())
@@ -1659,7 +1394,7 @@ impl ParameterRegistry {
     ) -> HashMap<ParameterType, usize> {
         let mut counts = HashMap::new();
         for param in parameters.values() {
-            *counts.entry(param.parameter_type).or_insert(0) += 1;
+            *counts.entry(param.parameter_type.clone()).or_insert(0) += 1;
         }
         counts
     }
@@ -1670,14 +1405,14 @@ impl ParameterRegistry {
     ) -> HashMap<ParameterCategory, usize> {
         let mut counts = HashMap::new();
         for param in parameters.values() {
-            *counts.entry(param.category).or_insert(0) += 1;
+            *counts.entry(param.category.clone()).or_insert(0) += 1;
         }
         counts
     }
 }
 
 // Error handling
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ParameterError {
     ParameterNotFound(String),
     ParameterAlreadyExists(String),
@@ -1756,114 +1491,6 @@ pub trait SamplingStrategy: std::fmt::Debug + Send + Sync {
     fn get_parameters(&self) -> HashMap<String, f64>;
 }
 
-// Placeholder implementations for supporting structures
-// (Due to space constraints, providing abbreviated versions)
-
-#[derive(Debug, Default)]
-pub struct ParameterManagerConfig;
-#[derive(Debug, Default)]
-pub struct ParameterRegistryConfig;
-#[derive(Debug, Default)]
-pub struct MultiFidelitySystem;
-#[derive(Debug, Default)]
-pub struct ParameterValidationFramework;
-#[derive(Debug, Default)]
-pub struct ParameterEvolutionTracker;
-#[derive(Debug, Default)]
-pub struct ParameterConstraintEngine;
-#[derive(Debug, Default)]
-pub struct ParameterCorrelationAnalyzer;
-#[derive(Debug, Default)]
-pub struct ParameterMetaLearningSystem;
-#[derive(Debug, Default)]
-pub struct AdaptiveParameterSystem;
-
-// Additional supporting structures (abbreviated for space)
-#[derive(Debug, Default)]
-pub struct ParameterGroup;
-#[derive(Debug, Default)]
-pub struct ParameterDependencyGraph;
-#[derive(Debug, Default)]
-pub struct ParameterTemplate;
-#[derive(Debug, Default)]
-pub struct ConfigurationProfile;
-#[derive(Debug, Default)]
-pub struct ParameterVersioningSystem;
-#[derive(Debug, Default)]
-pub struct ParameterMetadataIndex;
-#[derive(Debug, Default)]
-pub struct ParameterUsageStatistics;
-#[derive(Debug, Default)]
-pub struct ParameterImportExportManager;
-
-// Many more supporting structures would be implemented for complete functionality
-// This represents the core architecture and main interfaces
-
-impl AutoTuningEngine {
-    fn new(config: AutoTuningEngineConfig) -> Self {
-        Self
-    }
-    fn create_session(
-        &mut self,
-        config: AutoTuningSessionConfig,
-    ) -> Result<TuningSessionId, ParameterError> {
-        Ok("session_1".to_string())
-    }
-    fn get_session(&self, id: &TuningSessionId) -> Result<TuningSession, ParameterError> {
-        Ok(TuningSession::default())
-    }
-    fn is_algorithm_available(&self, algorithm: &str) -> bool {
-        true
-    }
-    fn select_next_configuration(
-        &self,
-        session: &TuningSession,
-    ) -> Result<ParameterConfiguration, ParameterError> {
-        Ok(ParameterConfiguration::default())
-    }
-    fn update_algorithm(
-        &mut self,
-        algorithm: &str,
-        config: &ParameterConfiguration,
-        result: &EvaluationResult,
-    ) -> Result<(), ParameterError> {
-        Ok(())
-    }
-    fn get_metrics(&self) -> TuningEngineMetrics {
-        TuningEngineMetrics::default()
-    }
-}
-
-impl ParameterValidationFramework {
-    fn new(config: ParameterValidationConfig) -> Self {
-        Self
-    }
-    fn validate_parameter(&self, parameter: &OptimizationParameter) -> Result<(), ParameterError> {
-        Ok(())
-    }
-    fn validate_parameter_value(
-        &self,
-        parameter: &OptimizationParameter,
-        value: &ParameterValue,
-    ) -> Result<(), ParameterError> {
-        Ok(())
-    }
-}
-
-// Type aliases and additional structures
-pub type TuningSessionId = String;
-
-#[derive(Debug, Default)]
-pub struct AutoTuningEngineConfig;
-#[derive(Debug, Default)]
-pub struct ParameterValidationConfig;
-#[derive(Debug, Default)]
-pub struct TuningSession;
-#[derive(Debug, Default)]
-pub struct ParameterConfiguration;
-#[derive(Debug, Default)]
-pub struct EvaluationResult;
-#[derive(Debug, Default)]
-pub struct TuningEngineMetrics;
-
-// This represents the comprehensive parameter management module architecture
+// Placeholder implementations for supporting structures have been moved to
+// `parameters_support.rs` to comply with the project 2000-line file policy.
+// See the `mod parameters_support;` declaration near the top of this file.

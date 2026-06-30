@@ -218,7 +218,9 @@ impl SubwordTokenizer {
             Some(false), // strip_accents
             true,        // lowercase
         );
-        tokenizer.with_normalizer(Some(normalizer));
+        tokenizer
+            .with_normalizer(Some(normalizer))
+            .map_err(|e| TextError::TokenizationError(e.to_string()))?;
 
         tokenizer.with_pre_tokenizer(Some(BertPreTokenizer));
 

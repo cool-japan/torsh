@@ -23,14 +23,15 @@ use super::image_to_tensor;
 /// Tuple of (means, stds) where each vector contains values for RGB channels
 ///
 /// # Example
-/// ```
+/// ```no_run
 /// use torsh_vision::utils::statistics::calculate_stats;
 /// use image::DynamicImage;
 ///
-/// let images: Vec<DynamicImage> = load_dataset_images();
+/// let images: Vec<DynamicImage> = vec![]; // load dataset images
 /// let (means, stds) = calculate_stats(&images)?;
 /// println!("Channel means: {:?}", means);
 /// println!("Channel stds: {:?}", stds);
+/// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 pub fn calculate_stats(images: &[DynamicImage]) -> Result<(Vec<f32>, Vec<f32>)> {
     if images.is_empty() {
@@ -112,14 +113,14 @@ pub fn calculate_stats(images: &[DynamicImage]) -> Result<(Vec<f32>, Vec<f32>)> 
 /// PSNR value in decibels (dB). Higher values indicate better quality.
 ///
 /// # Example
-/// ```
+/// ```rust
 /// use torsh_vision::utils::statistics::psnr;
-/// use torsh_tensor::Tensor;
+/// use torsh_tensor::creation::zeros_mut;
 ///
-/// let original_image: Tensor<f32> = load_reference_image();
-/// let compressed_image: Tensor<f32> = load_compressed_image();
-/// let psnr_value = psnr(&original_image, &compressed_image, Some(1.0))?;
-/// println!("PSNR: {:.2} dB", psnr_value);
+/// let original_image = zeros_mut::<f32>(&[3, 32, 32]);
+/// let compressed_image = zeros_mut::<f32>(&[3, 32, 32]);
+/// let psnr_value = psnr(&original_image, &compressed_image, Some(1.0)).unwrap();
+/// assert!(psnr_value.is_infinite()); // identical images => infinite PSNR
 /// ```
 pub fn psnr(image1: &Tensor<f32>, image2: &Tensor<f32>, max_val: Option<f32>) -> Result<f32> {
     // Input validation
@@ -181,14 +182,14 @@ pub fn psnr(image1: &Tensor<f32>, image2: &Tensor<f32>, max_val: Option<f32>) ->
 /// SSIM value between -1 and 1. Higher values indicate better structural similarity.
 ///
 /// # Example
-/// ```
+/// ```rust
 /// use torsh_vision::utils::statistics::ssim;
-/// use torsh_tensor::Tensor;
+/// use torsh_tensor::creation::zeros_mut;
 ///
-/// let original_image: Tensor<f32> = load_reference_image();
-/// let processed_image: Tensor<f32> = load_processed_image();
-/// let ssim_value = ssim(&original_image, &processed_image, None, None, None)?;
-/// println!("SSIM: {:.4}", ssim_value);
+/// let original_image = zeros_mut::<f32>(&[3, 32, 32]);
+/// let processed_image = zeros_mut::<f32>(&[3, 32, 32]);
+/// let ssim_value = ssim(&original_image, &processed_image, None, None, None).unwrap();
+/// assert!(ssim_value >= -1.0 && ssim_value <= 1.0);
 /// ```
 pub fn ssim(
     image1: &Tensor<f32>,
@@ -331,14 +332,14 @@ fn calculate_window_statistics(
 /// MSE value. Lower values indicate better similarity.
 ///
 /// # Example
-/// ```
+/// ```rust
 /// use torsh_vision::utils::statistics::mse;
-/// use torsh_tensor::Tensor;
+/// use torsh_tensor::creation::zeros_mut;
 ///
-/// let image1: Tensor<f32> = load_image_tensor();
-/// let image2: Tensor<f32> = load_image_tensor();
-/// let mse_value = mse(&image1, &image2)?;
-/// println!("MSE: {:.6}", mse_value);
+/// let image1 = zeros_mut::<f32>(&[3, 32, 32]);
+/// let image2 = zeros_mut::<f32>(&[3, 32, 32]);
+/// let mse_value = mse(&image1, &image2).unwrap();
+/// assert!((mse_value - 0.0).abs() < 1e-7);
 /// ```
 pub fn mse(image1: &Tensor<f32>, image2: &Tensor<f32>) -> Result<f32> {
     // Input validation
@@ -388,14 +389,14 @@ pub fn mse(image1: &Tensor<f32>, image2: &Tensor<f32>) -> Result<f32> {
 /// MAE value. Lower values indicate better similarity.
 ///
 /// # Example
-/// ```
+/// ```rust
 /// use torsh_vision::utils::statistics::mae;
-/// use torsh_tensor::Tensor;
+/// use torsh_tensor::creation::zeros_mut;
 ///
-/// let image1: Tensor<f32> = load_image_tensor();
-/// let image2: Tensor<f32> = load_image_tensor();
-/// let mae_value = mae(&image1, &image2)?;
-/// println!("MAE: {:.6}", mae_value);
+/// let image1 = zeros_mut::<f32>(&[3, 32, 32]);
+/// let image2 = zeros_mut::<f32>(&[3, 32, 32]);
+/// let mae_value = mae(&image1, &image2).unwrap();
+/// assert!((mae_value - 0.0).abs() < 1e-7);
 /// ```
 pub fn mae(image1: &Tensor<f32>, image2: &Tensor<f32>) -> Result<f32> {
     // Input validation

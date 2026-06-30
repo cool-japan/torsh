@@ -12,7 +12,10 @@ use super::types::ConfigExportConfig;
 
 impl Default for ConfigExportConfig {
     fn default() -> Self {
-        Self
+        Self {
+            format: Default::default(),
+            include_metadata: true,
+            include_history: false,
+        }
     }
 }
-

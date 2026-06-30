@@ -177,14 +177,36 @@ impl CraneliftCodeGen {
             builder.finalize();
         }
 
-        // Compile the function
+        // Compile the function.
+        // Per cranelift-module docs: "After calling define_function the given Context
+        // will contain the compiled function."  We extract the machine-code bytes from
+        // ctx.compiled_code() immediately after the call.
         ctx.func = func;
         self.module
             .define_function(func_id, &mut ctx)
             .map_err(|e| JitError::CodeGenError(format!("Function definition error: {}", e)))?;
 
-        // For now, return empty code (actual JIT execution would need more work)
-        Ok(vec![])
+        let code_bytes = ctx
+            .compiled_code()
+            .ok_or_else(|| {
+                JitError::CodeGenError(
+                    "Cranelift produced no compiled code after define_function — \
+                     the function body may be malformed"
+                        .to_string(),
+                )
+            })?
+            .code_buffer()
+            .to_vec();
+
+        if code_bytes.is_empty() {
+            return Err(JitError::CodeGenError(
+                "Cranelift emitted zero bytes for the compiled function — \
+                 the IR body may be empty or degenerate"
+                    .to_string(),
+            ));
+        }
+
+        Ok(code_bytes)
     }
 
     /// Static version of generate_ir_body to avoid borrowing issues
@@ -519,7 +541,7 @@ impl CraneliftCodeGen {
             // Memory operations
             IrOpcode::Load => {
                 if operands.len() == 1 {
-                    let flags = cranelift_codegen::ir::MemFlags::trusted();
+                    let flags = cranelift_codegen::ir::MemFlagsData::trusted();
                     Some(builder.ins().load(types::F64, flags, operands[0], 0))
                 } else {
                     return Err(JitError::CodeGenError(
@@ -530,7 +552,7 @@ impl CraneliftCodeGen {
 
             IrOpcode::Store => {
                 if operands.len() == 2 {
-                    let flags = cranelift_codegen::ir::MemFlags::trusted();
+                    let flags = cranelift_codegen::ir::MemFlagsData::trusted();
                     builder.ins().store(flags, operands[1], operands[0], 0);
                     None // Store doesn't return a value
                 } else {
@@ -681,7 +703,7 @@ impl CraneliftCodeGen {
             IrOpcode::Load => {
                 // Load from memory - simplified
                 if operands.len() == 1 {
-                    let flags = cranelift_codegen::ir::MemFlags::trusted();
+                    let flags = cranelift_codegen::ir::MemFlagsData::trusted();
                     Some(builder.ins().load(types::F64, flags, operands[0], 0))
                 } else {
                     return Err(JitError::CodeGenError(
@@ -693,7 +715,7 @@ impl CraneliftCodeGen {
             IrOpcode::Store => {
                 // Store to memory - simplified
                 if operands.len() == 2 {
-                    let flags = cranelift_codegen::ir::MemFlags::trusted();
+                    let flags = cranelift_codegen::ir::MemFlagsData::trusted();
                     builder.ins().store(flags, operands[1], operands[0], 0);
                     None // Store doesn't return a value
                 } else {
@@ -939,5 +961,35 @@ mod tests {
             let result = CraneliftCodeGen::new();
             assert!(result.is_err());
         }
+    }
+
+    /// Verify that compile_function produces non-empty machine code bytes for a
+    /// trivially valid IR module (void function, no inputs, no outputs, single
+    /// empty block).  An empty byte vector would indicate the previous silent
+    /// fabrication is back.
+    #[test]
+    #[cfg(feature = "cranelift-backend")]
+    fn test_compile_function_emits_non_empty_bytes() {
+        use crate::ir::IrModule;
+
+        let mut ir_module = IrModule::new("test_fn".to_string());
+        // Add an empty entry block with no inputs/outputs — the simplest valid IR.
+        let block_id = ir_module.add_block();
+        ir_module.entry_block = block_id;
+
+        let mut codegen = CraneliftCodeGen::new().expect("CraneliftCodeGen::new() should succeed");
+
+        let kernels = codegen
+            .generate(&ir_module)
+            .expect("generate() should succeed for a void function");
+
+        assert!(
+            !kernels.is_empty(),
+            "generate() must produce at least one kernel"
+        );
+        assert!(
+            !kernels[0].code.is_empty(),
+            "compiled kernel code must be non-empty — empty bytes mean no machine code was emitted"
+        );
     }
 }

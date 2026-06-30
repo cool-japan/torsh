@@ -290,23 +290,73 @@ impl DistillationTrainer {
         }
     }
 
-    /// Adapt student features to match teacher feature dimensions
+    /// Adapt student features to match teacher feature dimensions.
+    ///
+    /// For `FeatureAdaptation::None` the student features are returned
+    /// unchanged (requires that student and teacher already share the same
+    /// shape).
+    ///
+    /// For `FeatureAdaptation::Linear` and `FeatureAdaptation::Convolutional` /
+    /// `FeatureAdaptation::Attention` a learned projection layer must be
+    /// registered via `add_adaptation_layer` before computing feature-matching
+    /// loss.  If no such layer has been registered, an error is returned rather
+    /// than silently passing student features through (which would produce
+    /// meaningless loss values whenever student and teacher have different
+    /// dimensions).
     fn adapt_features(
         &self,
         student_features: &Tensor,
-        _teacher_features: &Tensor,
+        teacher_features: &Tensor,
         adaptation: &FeatureAdaptation,
     ) -> Result<Tensor> {
         match adaptation {
-            FeatureAdaptation::Linear => {
-                // Simple linear projection (would need actual implementation)
-                // For now, just return student features
+            FeatureAdaptation::None => {
+                // Verify that shapes match when no adaptation is requested.
+                if student_features.shape() != teacher_features.shape() {
+                    return Err(torsh_core::error::TorshError::ShapeMismatch {
+                        expected: teacher_features.shape().dims().to_vec(),
+                        got: student_features.shape().dims().to_vec(),
+                    });
+                }
                 Ok(student_features.clone())
             }
-            FeatureAdaptation::None => Ok(student_features.clone()),
-            _ => {
-                // Fallback to no adaptation
-                Ok(student_features.clone())
+            FeatureAdaptation::Linear => {
+                // A linear projection requires a learned weight matrix.  Look
+                // for one registered under the "linear_adaptation" key.
+                if let Some(layer) = self.adaptation_layers.get("linear_adaptation") {
+                    layer.forward(student_features)
+                } else {
+                    Err(torsh_core::error::TorshError::InvalidOperation(
+                        "FeatureAdaptation::Linear requires a projection layer registered via \
+                         `add_adaptation_layer(\"linear_adaptation\", ...)` — \
+                         none was found"
+                            .to_string(),
+                    ))
+                }
+            }
+            FeatureAdaptation::Convolutional => {
+                if let Some(layer) = self.adaptation_layers.get("conv_adaptation") {
+                    layer.forward(student_features)
+                } else {
+                    Err(torsh_core::error::TorshError::InvalidOperation(
+                        "FeatureAdaptation::Convolutional requires a conv layer registered via \
+                         `add_adaptation_layer(\"conv_adaptation\", ...)` — \
+                         none was found"
+                            .to_string(),
+                    ))
+                }
+            }
+            FeatureAdaptation::Attention => {
+                if let Some(layer) = self.adaptation_layers.get("attention_adaptation") {
+                    layer.forward(student_features)
+                } else {
+                    Err(torsh_core::error::TorshError::InvalidOperation(
+                        "FeatureAdaptation::Attention requires an attention layer registered via \
+                         `add_adaptation_layer(\"attention_adaptation\", ...)` — \
+                         none was found"
+                            .to_string(),
+                    ))
+                }
             }
         }
     }

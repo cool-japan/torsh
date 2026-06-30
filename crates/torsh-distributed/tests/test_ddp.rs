@@ -194,9 +194,12 @@ async fn test_ddp_gradient_consistency_check() -> Result<()> {
     let model = TestModel::new();
     let ddp = DistributedDataParallel::new(model, pg, vec![0], None, true, 25.0)?;
 
-    // Test gradient consistency check
+    // `check_gradient_consistency` returns false when no actual cross-rank
+    // communication has taken place (the check has not been implemented yet).
+    // The function is honest: false means "unknown / not checked", not
+    // "definitely inconsistent".
     let is_consistent = ddp.check_gradient_consistency().await?;
-    assert!(is_consistent); // Should always be true for mock implementation
+    assert!(!is_consistent); // false == check not run, not "diverged"
 
     Ok(())
 }

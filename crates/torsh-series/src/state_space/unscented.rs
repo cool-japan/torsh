@@ -38,6 +38,47 @@ fn cholesky_lower(a: &[f64], n: usize) -> Option<Vec<f64>> {
     Some(l)
 }
 
+/// Invert a symmetric positive-definite n×n matrix using Cholesky decomposition.
+/// Matrix is stored in flat row-major order.  Returns `None` if not PD.
+fn cholesky_invert_f64(a: &[f64], n: usize) -> Option<Vec<f64>> {
+    let l = cholesky_lower(a, n)?;
+    let mut inv = vec![0.0f64; n * n];
+    for col in 0..n {
+        let mut e = vec![0.0f64; n];
+        e[col] = 1.0;
+        // Forward substitution: L y = e
+        let mut y = vec![0.0f64; n];
+        for i in 0..n {
+            let mut s = e[i];
+            for j in 0..i {
+                s -= l[i * n + j] * y[j];
+            }
+            let diag = l[i * n + i];
+            if diag.abs() < 1e-15 {
+                return None;
+            }
+            y[i] = s / diag;
+        }
+        // Back substitution: L^T x = y
+        let mut x = vec![0.0f64; n];
+        for i in (0..n).rev() {
+            let mut s = y[i];
+            for j in (i + 1)..n {
+                s -= l[j * n + i] * x[j];
+            }
+            let diag = l[i * n + i];
+            if diag.abs() < 1e-15 {
+                return None;
+            }
+            x[i] = s / diag;
+        }
+        for row in 0..n {
+            inv[row * n + col] = x[row];
+        }
+    }
+    Some(inv)
+}
+
 /// Unscented Kalman Filter for nonlinear systems
 pub struct UnscentedKalmanFilter {
     state_dim: usize,
@@ -498,12 +539,18 @@ impl UnscentedKalmanFilter {
     }
 
     /// Update step
+    ///
+    /// Computes the Kalman gain, innovation, and applies the state/covariance update
+    /// using pure-Rust Cholesky-based matrix inversion.
     pub fn update(&mut self, observation: &Tensor, observation_fn: &dyn Fn(&Tensor) -> Tensor) {
         // Generate sigma points from predicted state
         self.generate_sigma_points();
 
+        let n = self.state_dim;
+        let m = self.obs_dim;
+
         // Collect predicted sigma point slices
-        let predicted_sigma_points: Vec<Tensor> = (0..(2 * self.state_dim + 1))
+        let predicted_sigma_points: Vec<Tensor> = (0..(2 * n + 1))
             .map(|i| {
                 self.sigma_points
                     .slice_tensor(0, i, i + 1)
@@ -511,17 +558,104 @@ impl UnscentedKalmanFilter {
             })
             .collect();
 
-        let (_obs_mean, _obs_cov, _cross_cov) =
+        let (obs_mean, obs_cov, cross_cov) =
             self.unscented_transform_update(observation_fn, &predicted_sigma_points);
 
-        // Innovation
-        // innovation = observation - obs_mean
-        let _innovation = observation.clone(); // Subtraction not yet implemented
+        // Extract obs_cov as f64 matrix for inversion
+        let mut s_mat = vec![0.0f64; m * m];
+        for j in 0..m {
+            for k in 0..m {
+                s_mat[j * m + k] =
+                    obs_cov.get(&[j, k]).expect("obs_cov read should succeed") as f64;
+            }
+        }
+        // Add small regularization
+        for j in 0..m {
+            s_mat[j * m + j] += 1e-8;
+        }
 
-        // Kalman gain: K = cross_cov @ inv(obs_cov + measurement_noise)
-        // State update: state = state + K @ innovation
-        // Covariance update: covariance = covariance - K @ obs_cov @ K.T
-        // These require matrix inversion; deferred until tensor matrix-inverse is available.
+        // Invert obs_cov matrix (S^{-1})
+        let s_inv = cholesky_invert_f64(&s_mat, m).unwrap_or_else(|| {
+            // Fallback: diagonal pseudo-inverse
+            let mut diag_inv = vec![0.0f64; m * m];
+            for j in 0..m {
+                let d = s_mat[j * m + j];
+                diag_inv[j * m + j] = if d.abs() > 1e-15 { 1.0 / d } else { 0.0 };
+            }
+            diag_inv
+        });
+
+        // Kalman gain K = cross_cov (n×m) @ S^{-1} (m×m)  →  result: n×m
+        let mut k_gain = vec![0.0f64; n * m];
+        for i in 0..n {
+            for j in 0..m {
+                let mut s = 0.0f64;
+                for l in 0..m {
+                    let cc = cross_cov
+                        .get(&[i, l])
+                        .expect("cross_cov read should succeed")
+                        as f64;
+                    s += cc * s_inv[l * m + j];
+                }
+                k_gain[i * m + j] = s;
+            }
+        }
+
+        // Innovation: v = z - obs_mean  (m-vector)
+        let mut innovation = vec![0.0f64; m];
+        for j in 0..m {
+            let z_j = if observation.shape().ndim() == 2 {
+                observation
+                    .get(&[0, j])
+                    .unwrap_or_else(|_| observation.get(&[j]).unwrap_or(0.0))
+            } else {
+                observation.get(&[j]).unwrap_or(0.0)
+            };
+            let mean_j = obs_mean.get(&[j]).expect("obs mean read should succeed");
+            innovation[j] = z_j as f64 - mean_j as f64;
+        }
+
+        // State update: x = x + K @ v  (n-vector)
+        for i in 0..n {
+            let mut delta = 0.0f64;
+            for j in 0..m {
+                delta += k_gain[i * m + j] * innovation[j];
+            }
+            let old = self.state.get(&[i]).expect("state read should succeed") as f64;
+            self.state
+                .set(&[i], (old + delta) as f32)
+                .expect("state set should succeed");
+        }
+
+        // Covariance update: P = P - K @ S @ K^T  (n×n)
+        // First compute K @ S  (n×m)
+        let mut k_s = vec![0.0f64; n * m];
+        for i in 0..n {
+            for j in 0..m {
+                let mut s = 0.0f64;
+                for l in 0..m {
+                    let s_jl = obs_cov.get(&[l, j]).expect("obs_cov read should succeed") as f64;
+                    s += k_gain[i * m + l] * s_jl;
+                }
+                k_s[i * m + j] = s;
+            }
+        }
+        // Then compute K @ S @ K^T  (n×n) and subtract from P
+        for i in 0..n {
+            for j in 0..n {
+                let mut correction = 0.0f64;
+                for l in 0..m {
+                    correction += k_s[i * m + l] * k_gain[j * m + l];
+                }
+                let old = self
+                    .covariance
+                    .get(&[i, j])
+                    .expect("covariance read should succeed") as f64;
+                self.covariance
+                    .set(&[i, j], (old - correction) as f32)
+                    .expect("covariance set should succeed");
+            }
+        }
     }
 
     /// Run UKF on time series
@@ -531,26 +665,32 @@ impl UnscentedKalmanFilter {
         transition_fn: &dyn Fn(&Tensor) -> Tensor,
         observation_fn: &dyn Fn(&Tensor) -> Tensor,
     ) -> TimeSeries {
-        let mut filtered = Vec::new();
+        let t_len = series.len();
+        let n = self.state_dim;
 
-        for t in 0..series.len() {
+        // Collect filtered states as a flat Vec then reshape
+        let mut all_states = vec![0.0f32; t_len * n];
+
+        for t in 0..t_len {
             // Predict
             self.predict(transition_fn);
 
-            // Update
+            // Update with observation at time t
             let obs = series
                 .values
                 .slice_tensor(0, t, t + 1)
                 .expect("slice should succeed");
             self.update(&obs, observation_fn);
 
-            filtered.push(self.state.clone());
+            // Store current state
+            for j in 0..n {
+                let val = self.state.get(&[j]).expect("state read should succeed");
+                all_states[t * n + j] = val;
+            }
         }
 
-        // Stack filtered states into output series
-        let _ = filtered; // Stacking not yet implemented via tensor ops
         let values =
-            zeros(&[series.len(), self.state_dim]).expect("tensor creation should succeed");
+            Tensor::from_vec(all_states, &[t_len, n]).expect("tensor creation should succeed");
         TimeSeries::new(values)
     }
 

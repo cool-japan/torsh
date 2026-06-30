@@ -23,7 +23,7 @@ The transforms module is organized into several sub-modules:
 ### Basic Usage
 
 ```rust
-use torsh_vision::transforms::{Compose, Resize, Normalize, RandomHorizontalFlip};
+use torsh_vision::transforms::{Compose, Resize, Normalize, RandomHorizontalFlip, Transform};
 
 // Create a simple pipeline
 let transforms = vec![
@@ -48,13 +48,13 @@ let train_transforms = TransformBuilder::new()
     .build();
 
 // Or use presets
-let train_transforms = presets::imagenet_train(224);
+let train_transforms = presets::presets::imagenet_train(224);
 ```
 
 ### Advanced Augmentation
 
 ```rust
-use torsh_vision::transforms::{RandAugment, ColorJitter, RandomErasing};
+use torsh_vision::transforms::{RandAugment, ColorJitter, RandomErasing, TransformBuilder};
 
 // RandAugment for automated augmentation
 let rand_aug = RandAugment::new(2, 5.0);

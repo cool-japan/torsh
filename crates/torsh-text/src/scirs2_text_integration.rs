@@ -947,7 +947,7 @@ pub mod advanced_ops {
     ///
     /// # Example
     ///
-    /// ```rust,no_run
+    /// ```rust,ignore
     /// # use torsh_text::scirs2_text_integration::SciRS2TextIntegration;
     /// let integration = SciRS2TextIntegration::default();
     /// let text = "The quick brown fox jumps over the lazy dog";

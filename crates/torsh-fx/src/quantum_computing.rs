@@ -5,6 +5,8 @@
 //! It integrates quantum computing capabilities into the ToRSh FX graph framework.
 
 use crate::{FxGraph, Node, Result};
+use scirs2_core::random::thread_rng;
+use scirs2_core::Complex64;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -347,26 +349,51 @@ impl QuantumComputingBackend {
     }
 
     // Private helper methods
+
+    /// Execute a circuit on the built-in, ideal (noiseless) state-vector
+    /// simulator.
+    ///
+    /// This performs a genuine simulation: it allocates a `2^n` complex
+    /// amplitude vector, applies every gate as a unitary operation on the
+    /// state, then draws `shots` samples from the resulting measurement
+    /// distribution `|amplitude|^2`. It does not fabricate measurement
+    /// statistics.
     fn simulate_locally(
         &self,
         circuit: &QuantumCircuit,
         shots: u32,
-        _num_qubits: u8,
+        num_qubits: u8,
     ) -> Result<QuantumExecutionResult> {
-        // Simplified local simulation
-        let mut counts = HashMap::new();
+        let start_time = std::time::Instant::now();
+
+        if num_qubits == 0 {
+            return Err(TorshError::InvalidArgument(
+                "cannot simulate a circuit with zero qubits".to_string(),
+            ));
+        }
+        // A dense state vector is exponential in the qubit count; cap it so we
+        // fail loudly rather than attempt an impossible allocation.
+        const MAX_SIMULATED_QUBITS: u8 = 24;
+        if num_qubits > MAX_SIMULATED_QUBITS {
+            return Err(TorshError::InvalidArgument(format!(
+                "state-vector simulation supports at most {MAX_SIMULATED_QUBITS} qubits, \
+                 but the circuit declares {num_qubits} (a dense state vector would need \
+                 2^{num_qubits} complex amplitudes)"
+            )));
+        }
+
+        let state = StateVector::from_circuit(circuit, num_qubits)?;
+        let probabilities_per_outcome = state.measurement_distribution();
+
+        // Sample `shots` measurement outcomes from the true distribution.
+        let counts = Self::sample_counts(&probabilities_per_outcome, num_qubits, shots);
+
+        // Report empirical probabilities derived from the sampled counts so that
+        // `counts` and `probabilities` are mutually consistent.
         let mut probabilities = HashMap::new();
-
-        // Generate mock results based on circuit complexity
-        let num_outcomes = 2_u32.pow(circuit.num_qubits as u32);
-        for i in 0..num_outcomes.min(8) {
-            let bitstring = format!("{:0width$b}", i, width = circuit.num_qubits as usize);
-            let count = shots / num_outcomes + (i % 3); // Mock distribution
-            let prob = count as f64 / shots as f64;
-
-            if count > 0 {
-                counts.insert(bitstring.clone(), count);
-                probabilities.insert(bitstring, prob);
+        if shots > 0 {
+            for (bitstring, count) in &counts {
+                probabilities.insert(bitstring.clone(), *count as f64 / shots as f64);
             }
         }
 
@@ -374,36 +401,88 @@ impl QuantumComputingBackend {
             shots,
             counts,
             probabilities,
-            execution_time: std::time::Duration::from_millis(100),
-            quantum_volume: Some(2.0_f64.powi(circuit.num_qubits as i32)),
-            fidelity: Some(0.95 - (circuit.gates.len() as f64 * 0.001)),
+            execution_time: start_time.elapsed(),
+            // Quantum volume of an n-qubit ideal simulator is bounded by 2^n.
+            quantum_volume: Some(2.0_f64.powi(num_qubits as i32)),
+            // The state-vector simulator is exact, so fidelity is 1.0.
+            fidelity: Some(1.0),
         })
+    }
+
+    /// Draw `shots` independent measurement outcomes from a measurement
+    /// probability distribution and aggregate them into bitstring counts.
+    fn sample_counts(probabilities: &[f64], num_qubits: u8, shots: u32) -> HashMap<String, u32> {
+        let mut counts: HashMap<String, u32> = HashMap::new();
+        if shots == 0 || probabilities.is_empty() {
+            return counts;
+        }
+
+        let width = num_qubits as usize;
+        let mut rng = thread_rng();
+
+        for _ in 0..shots {
+            let sample: f64 = rng.gen_range(0.0..1.0);
+            let mut cumulative = 0.0;
+            let mut chosen = probabilities.len() - 1;
+            for (index, &probability) in probabilities.iter().enumerate() {
+                cumulative += probability;
+                if sample < cumulative {
+                    chosen = index;
+                    break;
+                }
+            }
+            let bitstring = format!("{chosen:0width$b}");
+            *counts.entry(bitstring).or_insert(0) += 1;
+        }
+
+        counts
     }
 
     fn execute_qiskit(
         &self,
-        circuit: &QuantumCircuit,
-        shots: u32,
+        _circuit: &QuantumCircuit,
+        _shots: u32,
     ) -> Result<QuantumExecutionResult> {
-        // Mock Qiskit execution - in real implementation, this would interface with Qiskit
-        self.simulate_locally(circuit, shots, circuit.num_qubits)
+        // No Qiskit FFI/IBM Quantum transport is linked into this crate, so
+        // there is no way to actually dispatch to a Qiskit backend. Returning an
+        // honest error is preferable to silently running a different (local)
+        // simulator while claiming the Qiskit backend was used. Callers wanting
+        // a real run should select `QuantumBackend::LocalSimulator`.
+        Err(TorshError::NotImplemented(
+            "Qiskit backend execution requires a Qiskit/IBM Quantum transport that is not \
+             linked into torsh-fx; use QuantumBackend::LocalSimulator for an in-process run"
+                .to_string(),
+        ))
     }
 
-    fn execute_cirq(&self, circuit: &QuantumCircuit, shots: u32) -> Result<QuantumExecutionResult> {
-        // Mock Cirq execution - in real implementation, this would interface with Cirq
-        self.simulate_locally(circuit, shots, circuit.num_qubits)
+    fn execute_cirq(
+        &self,
+        _circuit: &QuantumCircuit,
+        _shots: u32,
+    ) -> Result<QuantumExecutionResult> {
+        // As with Qiskit, no Cirq transport is linked in, so we cannot honestly
+        // claim to have executed on Cirq.
+        Err(TorshError::NotImplemented(
+            "Cirq backend execution requires a Cirq transport that is not linked into \
+             torsh-fx; use QuantumBackend::LocalSimulator for an in-process run"
+                .to_string(),
+        ))
     }
 
     fn execute_cloud(
         &self,
-        circuit: &QuantumCircuit,
-        shots: u32,
+        _circuit: &QuantumCircuit,
+        _shots: u32,
     ) -> Result<QuantumExecutionResult> {
-        // Mock cloud execution - in real implementation, this would make API calls
-        let mut result = self.simulate_locally(circuit, shots, circuit.num_qubits)?;
-        result.execution_time = std::time::Duration::from_secs(5); // Cloud latency
-        result.fidelity = result.fidelity.map(|f| f * 0.8); // Lower fidelity due to real hardware
-        Ok(result)
+        // No cloud quantum provider client (IBM, AWS Braket, Azure Quantum,
+        // etc.) is wired up, so a cloud execution cannot be performed. We refuse
+        // rather than fabricate hardware-like results and a degraded fidelity.
+        Err(TorshError::NotImplemented(
+            "cloud quantum execution requires a provider client (IBM/AWS Braket/Azure \
+             Quantum/...) that is not linked into torsh-fx; use \
+             QuantumBackend::LocalSimulator for an in-process run"
+                .to_string(),
+        ))
     }
 
     fn analyze_integration_points(
@@ -450,27 +529,61 @@ impl QuantumComputingBackend {
     }
 
     fn merge_rotation_gates(circuit: &mut QuantumCircuit) {
-        // Merge consecutive rotation gates on the same qubit
-        // RZ(θ₁) followed by RZ(θ₂) → RZ(θ₁ + θ₂)
+        // Merge consecutive rotation gates of the same axis on the same qubit by
+        // adding their angles, which is exact because rotations about a fixed
+        // axis form a one-parameter group: R_a(θ₁) · R_a(θ₂) = R_a(θ₁ + θ₂).
 
         let mut i = 0;
         while i + 1 < circuit.gates.len() {
-            let can_merge = match (&circuit.gates[i], &circuit.gates.get(i + 1)) {
-                (QuantumGate::RZ { qubit: q1, .. }, Some(QuantumGate::RZ { qubit: q2, .. })) => {
-                    q1 == q2
-                }
-                (QuantumGate::RX { qubit: q1, .. }, Some(QuantumGate::RX { qubit: q2, .. })) => {
-                    q1 == q2
-                }
-                (QuantumGate::RY { qubit: q1, .. }, Some(QuantumGate::RY { qubit: q2, .. })) => {
-                    q1 == q2
-                }
-                _ => false,
+            // Determine the combined gate, if the adjacent pair is mergeable.
+            let merged = match (&circuit.gates[i], &circuit.gates[i + 1]) {
+                (
+                    QuantumGate::RZ {
+                        qubit: q1,
+                        angle: a1,
+                    },
+                    QuantumGate::RZ {
+                        qubit: q2,
+                        angle: a2,
+                    },
+                ) if q1 == q2 => Some(QuantumGate::RZ {
+                    qubit: *q1,
+                    angle: a1 + a2,
+                }),
+                (
+                    QuantumGate::RX {
+                        qubit: q1,
+                        angle: a1,
+                    },
+                    QuantumGate::RX {
+                        qubit: q2,
+                        angle: a2,
+                    },
+                ) if q1 == q2 => Some(QuantumGate::RX {
+                    qubit: *q1,
+                    angle: a1 + a2,
+                }),
+                (
+                    QuantumGate::RY {
+                        qubit: q1,
+                        angle: a1,
+                    },
+                    QuantumGate::RY {
+                        qubit: q2,
+                        angle: a2,
+                    },
+                ) if q1 == q2 => Some(QuantumGate::RY {
+                    qubit: *q1,
+                    angle: a1 + a2,
+                }),
+                _ => None,
             };
 
-            if can_merge {
-                // In a full implementation, we would combine the angles
-                // For now, just remove the second gate as a simplification
+            if let Some(merged_gate) = merged {
+                // Replace the first gate with the merged rotation and drop the
+                // second. Do not advance `i`, so chains of three or more
+                // rotations collapse fully.
+                circuit.gates[i] = merged_gate;
                 circuit.gates.remove(i + 1);
             } else {
                 i += 1;
@@ -650,6 +763,264 @@ impl QuantumComputingBackend {
         }
 
         Ok(())
+    }
+}
+
+/// Dense state-vector representation of an `n`-qubit quantum register.
+///
+/// The amplitudes are stored in little-endian basis ordering: the amplitude at
+/// index `i` corresponds to the computational basis state whose qubit `q` is set
+/// to bit `q` of `i` (qubit 0 is the least-significant bit). All gate
+/// applications mutate the vector in place and preserve normalization (up to
+/// floating-point rounding), since every implemented gate is unitary.
+struct StateVector {
+    amplitudes: Vec<Complex64>,
+    num_qubits: u8,
+}
+
+impl StateVector {
+    /// Build the state vector by initializing to `|0...0>` and applying every
+    /// gate in the circuit in order.
+    fn from_circuit(circuit: &QuantumCircuit, num_qubits: u8) -> Result<Self> {
+        let dimension = 1usize << num_qubits;
+        let mut amplitudes = vec![Complex64::new(0.0, 0.0); dimension];
+        amplitudes[0] = Complex64::new(1.0, 0.0);
+
+        let mut state = Self {
+            amplitudes,
+            num_qubits,
+        };
+
+        for gate in &circuit.gates {
+            state.apply_gate(gate)?;
+        }
+
+        Ok(state)
+    }
+
+    /// Validate that a qubit index is within range for this register.
+    fn check_qubit(&self, qubit: u8) -> Result<usize> {
+        if qubit >= self.num_qubits {
+            return Err(TorshError::InvalidArgument(format!(
+                "gate references qubit {} but the circuit only has {} qubit(s)",
+                qubit, self.num_qubits
+            )));
+        }
+        Ok(qubit as usize)
+    }
+
+    /// Apply a single gate to the state vector.
+    fn apply_gate(&mut self, gate: &QuantumGate) -> Result<()> {
+        match gate {
+            QuantumGate::X { qubit } => self.apply_single(*qubit, &Self::pauli_x()),
+            QuantumGate::Y { qubit } => self.apply_single(*qubit, &Self::pauli_y()),
+            QuantumGate::Z { qubit } => self.apply_single(*qubit, &Self::pauli_z()),
+            QuantumGate::H { qubit } => self.apply_single(*qubit, &Self::hadamard()),
+            QuantumGate::S { qubit } => self.apply_single(*qubit, &Self::phase_s()),
+            QuantumGate::T { qubit } => self.apply_single(*qubit, &Self::phase_t()),
+            QuantumGate::RX { qubit, angle } => self.apply_single(*qubit, &Self::rx(*angle)),
+            QuantumGate::RY { qubit, angle } => self.apply_single(*qubit, &Self::ry(*angle)),
+            QuantumGate::RZ { qubit, angle } => self.apply_single(*qubit, &Self::rz(*angle)),
+            QuantumGate::CNOT { control, target } => {
+                self.apply_controlled_single(*control, *target, &Self::pauli_x())
+            }
+            QuantumGate::CZ { control, target } => {
+                self.apply_controlled_single(*control, *target, &Self::pauli_z())
+            }
+            QuantumGate::SWAP { qubit1, qubit2 } => self.apply_swap(*qubit1, *qubit2),
+            QuantumGate::Toffoli {
+                control1,
+                control2,
+                target,
+            } => self.apply_toffoli(*control1, *control2, *target),
+            QuantumGate::Custom {
+                name,
+                qubits,
+                parameters,
+            } => Self::apply_custom(name, qubits, parameters),
+        }
+    }
+
+    /// Apply a 2x2 unitary `matrix` to a single `qubit`.
+    fn apply_single(&mut self, qubit: u8, matrix: &[[Complex64; 2]; 2]) -> Result<()> {
+        let target = self.check_qubit(qubit)?;
+        let stride = 1usize << target;
+
+        for base in 0..self.amplitudes.len() {
+            // Process each amplitude pair exactly once: only when the target bit
+            // is 0 in `base`.
+            if base & stride == 0 {
+                let partner = base | stride;
+                let a0 = self.amplitudes[base];
+                let a1 = self.amplitudes[partner];
+                self.amplitudes[base] = matrix[0][0] * a0 + matrix[0][1] * a1;
+                self.amplitudes[partner] = matrix[1][0] * a0 + matrix[1][1] * a1;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Apply a 2x2 unitary `matrix` to `target`, conditioned on `control` being
+    /// in state `|1>`.
+    fn apply_controlled_single(
+        &mut self,
+        control: u8,
+        target: u8,
+        matrix: &[[Complex64; 2]; 2],
+    ) -> Result<()> {
+        let control_idx = self.check_qubit(control)?;
+        let target_idx = self.check_qubit(target)?;
+        if control_idx == target_idx {
+            return Err(TorshError::InvalidArgument(
+                "controlled gate requires distinct control and target qubits".to_string(),
+            ));
+        }
+
+        let control_mask = 1usize << control_idx;
+        let target_stride = 1usize << target_idx;
+
+        for base in 0..self.amplitudes.len() {
+            if base & control_mask == 0 {
+                continue; // Control qubit is |0>: identity.
+            }
+            if base & target_stride == 0 {
+                let partner = base | target_stride;
+                let a0 = self.amplitudes[base];
+                let a1 = self.amplitudes[partner];
+                self.amplitudes[base] = matrix[0][0] * a0 + matrix[0][1] * a1;
+                self.amplitudes[partner] = matrix[1][0] * a0 + matrix[1][1] * a1;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Exchange the states of two qubits.
+    fn apply_swap(&mut self, qubit1: u8, qubit2: u8) -> Result<()> {
+        let q1 = self.check_qubit(qubit1)?;
+        let q2 = self.check_qubit(qubit2)?;
+        if q1 == q2 {
+            return Ok(());
+        }
+
+        let mask1 = 1usize << q1;
+        let mask2 = 1usize << q2;
+
+        for base in 0..self.amplitudes.len() {
+            let bit1 = base & mask1 != 0;
+            let bit2 = base & mask2 != 0;
+            // Only swap the pair once, for the configuration (bit1=1, bit2=0).
+            if bit1 && !bit2 {
+                let partner = (base & !mask1) | mask2;
+                self.amplitudes.swap(base, partner);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Apply a doubly-controlled X (Toffoli) gate.
+    fn apply_toffoli(&mut self, control1: u8, control2: u8, target: u8) -> Result<()> {
+        let c1 = self.check_qubit(control1)?;
+        let c2 = self.check_qubit(control2)?;
+        let t = self.check_qubit(target)?;
+        if c1 == c2 || c1 == t || c2 == t {
+            return Err(TorshError::InvalidArgument(
+                "Toffoli gate requires three distinct qubits".to_string(),
+            ));
+        }
+
+        let c1_mask = 1usize << c1;
+        let c2_mask = 1usize << c2;
+        let t_stride = 1usize << t;
+
+        for base in 0..self.amplitudes.len() {
+            if base & c1_mask == 0 || base & c2_mask == 0 {
+                continue; // A control is |0>: identity.
+            }
+            if base & t_stride == 0 {
+                let partner = base | t_stride;
+                self.amplitudes.swap(base, partner);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Custom gates are not supported by the built-in simulator: their unitary
+    /// is opaque, so we cannot apply them. Refuse rather than silently skip the
+    /// gate (which would corrupt the simulated state).
+    fn apply_custom(name: &str, _qubits: &[u8], _parameters: &[f64]) -> Result<()> {
+        Err(TorshError::NotImplemented(format!(
+            "custom quantum gate '{name}' is not supported by the built-in state-vector \
+             simulator (no unitary definition is available)"
+        )))
+    }
+
+    /// Probability of each computational-basis measurement outcome, indexed by
+    /// the integer value of the bitstring (little-endian qubit ordering).
+    fn measurement_distribution(&self) -> Vec<f64> {
+        self.amplitudes.iter().map(|a| a.norm_sqr()).collect()
+    }
+
+    // --- Gate matrices -----------------------------------------------------
+
+    fn pauli_x() -> [[Complex64; 2]; 2] {
+        let zero = Complex64::new(0.0, 0.0);
+        let one = Complex64::new(1.0, 0.0);
+        [[zero, one], [one, zero]]
+    }
+
+    fn pauli_y() -> [[Complex64; 2]; 2] {
+        let zero = Complex64::new(0.0, 0.0);
+        let i = Complex64::new(0.0, 1.0);
+        [[zero, -i], [i, zero]]
+    }
+
+    fn pauli_z() -> [[Complex64; 2]; 2] {
+        let zero = Complex64::new(0.0, 0.0);
+        let one = Complex64::new(1.0, 0.0);
+        [[one, zero], [zero, -one]]
+    }
+
+    fn hadamard() -> [[Complex64; 2]; 2] {
+        let inv_sqrt2 = Complex64::new(std::f64::consts::FRAC_1_SQRT_2, 0.0);
+        [[inv_sqrt2, inv_sqrt2], [inv_sqrt2, -inv_sqrt2]]
+    }
+
+    fn phase_s() -> [[Complex64; 2]; 2] {
+        let zero = Complex64::new(0.0, 0.0);
+        let one = Complex64::new(1.0, 0.0);
+        let i = Complex64::new(0.0, 1.0);
+        [[one, zero], [zero, i]]
+    }
+
+    fn phase_t() -> [[Complex64; 2]; 2] {
+        let zero = Complex64::new(0.0, 0.0);
+        let one = Complex64::new(1.0, 0.0);
+        // e^{i pi/4}
+        let phase = Complex64::from_polar(1.0, std::f64::consts::FRAC_PI_4);
+        [[one, zero], [zero, phase]]
+    }
+
+    fn rx(angle: f64) -> [[Complex64; 2]; 2] {
+        let cos = Complex64::new((angle / 2.0).cos(), 0.0);
+        let neg_i_sin = Complex64::new(0.0, -(angle / 2.0).sin());
+        [[cos, neg_i_sin], [neg_i_sin, cos]]
+    }
+
+    fn ry(angle: f64) -> [[Complex64; 2]; 2] {
+        let cos = Complex64::new((angle / 2.0).cos(), 0.0);
+        let sin = Complex64::new((angle / 2.0).sin(), 0.0);
+        [[cos, -sin], [sin, cos]]
+    }
+
+    fn rz(angle: f64) -> [[Complex64; 2]; 2] {
+        let zero = Complex64::new(0.0, 0.0);
+        let neg = Complex64::from_polar(1.0, -angle / 2.0);
+        let pos = Complex64::from_polar(1.0, angle / 2.0);
+        [[neg, zero], [zero, pos]]
     }
 }
 
@@ -969,5 +1340,201 @@ mod tests {
         };
 
         assert!(backend.apply_error_mitigation(&mut result).is_ok());
+    }
+
+    #[test]
+    fn test_state_vector_x_gate_flips_qubit() {
+        // X|0> = |1>: the only nonzero amplitude must be the |1> basis state.
+        let mut circuit = QuantumCircuit::new(1);
+        circuit.add_gate(QuantumGate::X { qubit: 0 });
+        let state = StateVector::from_circuit(&circuit, 1).expect("simulation should succeed");
+        let dist = state.measurement_distribution();
+        assert!((dist[0]).abs() < 1e-12, "|0> probability should be ~0");
+        assert!(
+            (dist[1] - 1.0).abs() < 1e-12,
+            "|1> probability should be ~1"
+        );
+    }
+
+    #[test]
+    fn test_state_vector_hadamard_uniform_superposition() {
+        // H|0> = (|0> + |1>)/sqrt(2): equal probabilities of 0.5.
+        let mut circuit = QuantumCircuit::new(1);
+        circuit.add_gate(QuantumGate::H { qubit: 0 });
+        let state = StateVector::from_circuit(&circuit, 1).expect("simulation should succeed");
+        let dist = state.measurement_distribution();
+        assert!((dist[0] - 0.5).abs() < 1e-12);
+        assert!((dist[1] - 0.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_state_vector_bell_state() {
+        // H on qubit 0 then CNOT(0->1) produces the Bell state
+        // (|00> + |11>)/sqrt(2): only outcomes 00 and 11 have probability 0.5,
+        // and the off-diagonal outcomes 01 and 10 are forbidden.
+        let mut circuit = QuantumCircuit::new(2);
+        circuit.add_gate(QuantumGate::H { qubit: 0 });
+        circuit.add_gate(QuantumGate::CNOT {
+            control: 0,
+            target: 1,
+        });
+        let state = StateVector::from_circuit(&circuit, 2).expect("simulation should succeed");
+        let dist = state.measurement_distribution();
+        assert!((dist[0b00] - 0.5).abs() < 1e-12);
+        assert!((dist[0b11] - 0.5).abs() < 1e-12);
+        assert!(dist[0b01].abs() < 1e-12);
+        assert!(dist[0b10].abs() < 1e-12);
+
+        // Total probability is conserved.
+        let total: f64 = dist.iter().sum();
+        assert!((total - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_state_vector_swap() {
+        // Prepare |10> (qubit 0 = 1, qubit 1 = 0) then SWAP -> |01>.
+        let mut circuit = QuantumCircuit::new(2);
+        circuit.add_gate(QuantumGate::X { qubit: 0 });
+        circuit.add_gate(QuantumGate::SWAP {
+            qubit1: 0,
+            qubit2: 1,
+        });
+        let state = StateVector::from_circuit(&circuit, 2).expect("simulation should succeed");
+        let dist = state.measurement_distribution();
+        // After swap, qubit 1 is set: basis index 0b10 == 2.
+        assert!((dist[0b10] - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_state_vector_toffoli() {
+        // Toffoli flips the target only when both controls are |1>.
+        let mut circuit = QuantumCircuit::new(3);
+        circuit.add_gate(QuantumGate::X { qubit: 0 });
+        circuit.add_gate(QuantumGate::X { qubit: 1 });
+        circuit.add_gate(QuantumGate::Toffoli {
+            control1: 0,
+            control2: 1,
+            target: 2,
+        });
+        let state = StateVector::from_circuit(&circuit, 3).expect("simulation should succeed");
+        let dist = state.measurement_distribution();
+        // Controls 0,1 set and target 2 flipped: 0b111 == 7.
+        assert!((dist[0b111] - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_state_vector_rotation_norm_preserved() {
+        // An arbitrary rotation keeps the state normalized.
+        let mut circuit = QuantumCircuit::new(1);
+        circuit.add_gate(QuantumGate::RY {
+            qubit: 0,
+            angle: 0.73,
+        });
+        let state = StateVector::from_circuit(&circuit, 1).expect("simulation should succeed");
+        let total: f64 = state.measurement_distribution().iter().sum();
+        assert!((total - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_simulate_locally_sampling_matches_distribution() {
+        // With many shots, the empirical distribution of a Bell state must
+        // concentrate on 00 and 11 and (almost) never produce 01 or 10.
+        let backend = create_local_quantum_backend(2);
+        let mut circuit = QuantumCircuit::new(2);
+        circuit.add_gate(QuantumGate::H { qubit: 0 });
+        circuit.add_gate(QuantumGate::CNOT {
+            control: 0,
+            target: 1,
+        });
+        let result = backend
+            .simulate_locally(&circuit, 4000, 2)
+            .expect("simulation should succeed");
+
+        assert_eq!(result.shots, 4000);
+        assert_eq!(result.fidelity, Some(1.0));
+        // Forbidden outcomes must not appear in an ideal simulation.
+        assert!(!result.counts.contains_key("01"));
+        assert!(!result.counts.contains_key("10"));
+
+        // The probabilities reported must sum to ~1 over observed outcomes.
+        let prob_sum: f64 = result.probabilities.values().sum();
+        assert!((prob_sum - 1.0).abs() < 1e-9);
+
+        // Both allowed outcomes should be reasonably balanced around 0.5.
+        let p00 = result.probabilities.get("00").copied().unwrap_or(0.0);
+        let p11 = result.probabilities.get("11").copied().unwrap_or(0.0);
+        assert!(p00 > 0.4 && p00 < 0.6, "p00 = {p00}");
+        assert!(p11 > 0.4 && p11 < 0.6, "p11 = {p11}");
+    }
+
+    #[test]
+    fn test_custom_gate_is_rejected() {
+        // The simulator must refuse custom gates rather than silently skip them.
+        let mut circuit = QuantumCircuit::new(1);
+        circuit.add_gate(QuantumGate::Custom {
+            name: "mystery".to_string(),
+            qubits: vec![0],
+            parameters: vec![],
+        });
+        let result = StateVector::from_circuit(&circuit, 1);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_out_of_range_qubit_is_rejected() {
+        let mut circuit = QuantumCircuit::new(1);
+        circuit.add_gate(QuantumGate::X { qubit: 3 });
+        let result = StateVector::from_circuit(&circuit, 1);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_merge_rotation_gates_combines_angles() {
+        // Two RZ rotations on the same qubit collapse into one with the summed
+        // angle, rather than dropping a gate.
+        let mut circuit = QuantumCircuit::new(1);
+        circuit.add_gate(QuantumGate::RZ {
+            qubit: 0,
+            angle: 0.3,
+        });
+        circuit.add_gate(QuantumGate::RZ {
+            qubit: 0,
+            angle: 0.4,
+        });
+        QuantumComputingBackend::merge_rotation_gates(&mut circuit);
+        assert_eq!(circuit.gates.len(), 1);
+        match &circuit.gates[0] {
+            QuantumGate::RZ { qubit, angle } => {
+                assert_eq!(*qubit, 0);
+                assert!((angle - 0.7).abs() < 1e-12);
+            }
+            other => panic!("expected merged RZ gate, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_external_backends_return_honest_errors() {
+        // Qiskit / Cirq / cloud backends are not wired, so execution must fail
+        // honestly instead of silently producing local-simulator results.
+        let circuit = QuantumCircuit::new(2);
+
+        let mut qiskit = create_qiskit_backend("aer".to_string(), 1024);
+        let circuit_id = qiskit.add_circuit(circuit.clone()).expect("add circuit");
+        assert!(qiskit.execute_circuit(circuit_id, 1024).is_err());
+
+        let mut cirq = QuantumComputingBackend::new(QuantumBackend::Cirq {
+            simulator_type: "density_matrix".to_string(),
+            noise_model: None,
+        });
+        let cirq_id = cirq.add_circuit(circuit.clone()).expect("add circuit");
+        assert!(cirq.execute_circuit(cirq_id, 1024).is_err());
+
+        let mut cloud = QuantumComputingBackend::new(QuantumBackend::CloudQuantum {
+            provider: CloudProvider::IBM,
+            device_name: "ibmq".to_string(),
+            credentials: "token".to_string(),
+        });
+        let cloud_id = cloud.add_circuit(circuit).expect("add circuit");
+        assert!(cloud.execute_circuit(cloud_id, 1024).is_err());
     }
 }

@@ -355,19 +355,184 @@ pub fn feature_alpha_dropout(
     }
 }
 
+/// Generate a fractional pooling region-boundary sequence.
+///
+/// Implements the disjoint pseudo-random sampling scheme from Ben Graham,
+/// "Fractional Max-Pooling" (2015). For an input dimension `input_size`,
+/// a pooling-window `kernel`, and a target `output_size`, this produces the
+/// `output_size` starting indices of the (possibly overlapping) pooling
+/// regions. Region `i` covers `[starts[i], starts[i] + kernel)`.
+///
+/// The boundaries follow `starts[i] = floor(alpha * (i + u))` where
+/// `alpha = (input_size - kernel) / (output_size - 1)` and `u` is a single
+/// random sample shared across the dimension (PyTorch-compatible behaviour),
+/// guaranteeing the regions tile the input without leaving gaps.
+fn fractional_pool_sequence(
+    input_size: usize,
+    kernel: usize,
+    output_size: usize,
+    sample: f32,
+) -> TorshResult<Vec<usize>> {
+    if kernel == 0 {
+        return Err(TorshError::invalid_argument_with_context(
+            "fractional_max_pool2d: kernel size must be non-zero",
+            "fractional_max_pool2d",
+        ));
+    }
+    if output_size == 0 || output_size > input_size {
+        return Err(TorshError::invalid_argument_with_context(
+            &format!(
+                "fractional_max_pool2d: invalid output size {output_size} for input size {input_size}"
+            ),
+            "fractional_max_pool2d",
+        ));
+    }
+    if kernel > input_size {
+        return Err(TorshError::invalid_argument_with_context(
+            &format!("fractional_max_pool2d: kernel {kernel} exceeds input size {input_size}"),
+            "fractional_max_pool2d",
+        ));
+    }
+
+    let mut starts = Vec::with_capacity(output_size);
+
+    if output_size == 1 {
+        starts.push(0);
+        return Ok(starts);
+    }
+
+    let alpha = (input_size - kernel) as f32 / (output_size - 1) as f32;
+    let u = sample.clamp(0.0, 1.0 - f32::EPSILON);
+
+    let max_start = input_size - kernel;
+    for i in 0..output_size {
+        let start = (alpha * (i as f32 + u)).floor() as usize;
+        starts.push(start.min(max_start));
+    }
+
+    Ok(starts)
+}
+
 /// Fractional max pooling 2d with dropout
 ///
-/// Applies fractional max pooling with random sampling for regularization
+/// Applies 2D fractional max pooling with pseudo-random region sampling, as
+/// described in Ben Graham, "Fractional Max-Pooling" (2015). The output spatial
+/// size is given either explicitly via `output_size` or derived from
+/// `output_ratio` (`out = floor(input_dim * ratio)`). Exactly one of the two
+/// must be provided. When `return_indices` is set, the flattened input index of
+/// each selected maximum is returned alongside the pooled output.
 pub fn fractional_max_pool2d_with_indices(
     input: &Tensor,
-    _kernel_size: (usize, usize),
-    _output_size: Option<(usize, usize)>,
-    _output_ratio: Option<(f64, f64)>,
-    _return_indices: bool,
+    kernel_size: (usize, usize),
+    output_size: Option<(usize, usize)>,
+    output_ratio: Option<(f64, f64)>,
+    return_indices: bool,
 ) -> TorshResult<(Tensor, Option<Tensor>)> {
-    // TODO: Implement fractional max pooling
-    // For now, return the input unchanged as a placeholder
-    Ok((input.clone(), None))
+    let shape = input.shape().dims().to_vec();
+    if shape.len() != 4 {
+        return Err(TorshError::invalid_argument_with_context(
+            &format!("Expected 4D input (N, C, H, W), got {}D", shape.len()),
+            "fractional_max_pool2d",
+        ));
+    }
+
+    let (batch_size, channels, height, width) = (shape[0], shape[1], shape[2], shape[3]);
+
+    // Resolve the target output size from either an explicit size or a ratio.
+    let (out_h, out_w) = match (output_size, output_ratio) {
+        (Some(size), None) => size,
+        (None, Some((rh, rw))) => {
+            if !(0.0..=1.0).contains(&rh) || !(0.0..=1.0).contains(&rw) {
+                return Err(TorshError::invalid_argument_with_context(
+                    "fractional_max_pool2d: output_ratio components must be in (0, 1]",
+                    "fractional_max_pool2d",
+                ));
+            }
+            (
+                ((height as f64) * rh).floor() as usize,
+                ((width as f64) * rw).floor() as usize,
+            )
+        }
+        (Some(_), Some(_)) => {
+            return Err(TorshError::invalid_argument_with_context(
+                "fractional_max_pool2d: specify exactly one of output_size or output_ratio",
+                "fractional_max_pool2d",
+            ));
+        }
+        (None, None) => {
+            return Err(TorshError::invalid_argument_with_context(
+                "fractional_max_pool2d: one of output_size or output_ratio is required",
+                "fractional_max_pool2d",
+            ));
+        }
+    };
+
+    // Draw the two per-dimension random samples that anchor the region grids.
+    let samples = rand(&[2], Some(0.0), Some(1.0), None)?.to_vec()?;
+    let row_starts = fractional_pool_sequence(height, kernel_size.0, out_h, samples[0])?;
+    let col_starts = fractional_pool_sequence(width, kernel_size.1, out_w, samples[1])?;
+
+    let output_len = batch_size * channels * out_h * out_w;
+    let mut output_data = vec![f32::NEG_INFINITY; output_len];
+    let mut indices_data = if return_indices {
+        Some(vec![0i64; output_len])
+    } else {
+        None
+    };
+
+    let input_data = input.to_vec()?;
+
+    for b in 0..batch_size {
+        for c in 0..channels {
+            for oh in 0..out_h {
+                let h_start = row_starts[oh];
+                let h_end = (h_start + kernel_size.0).min(height);
+                for ow in 0..out_w {
+                    let w_start = col_starts[ow];
+                    let w_end = (w_start + kernel_size.1).min(width);
+
+                    let out_idx = ((b * channels + c) * out_h + oh) * out_w + ow;
+                    let mut max_val = f32::NEG_INFINITY;
+                    let mut max_idx = 0i64;
+
+                    for ih in h_start..h_end {
+                        for iw in w_start..w_end {
+                            let in_idx = ((b * channels + c) * height + ih) * width + iw;
+                            let val = input_data[in_idx];
+                            if val > max_val {
+                                max_val = val;
+                                max_idx = in_idx as i64;
+                            }
+                        }
+                    }
+
+                    output_data[out_idx] = max_val;
+                    if let Some(ref mut indices) = indices_data {
+                        indices[out_idx] = max_idx;
+                    }
+                }
+            }
+        }
+    }
+
+    let output = Tensor::from_data(
+        output_data,
+        vec![batch_size, channels, out_h, out_w],
+        input.device(),
+    )?;
+
+    let indices = if let Some(indices_data) = indices_data {
+        let indices_f32: Vec<f32> = indices_data.iter().map(|&idx| idx as f32).collect();
+        Some(Tensor::from_data(
+            indices_f32,
+            vec![batch_size, channels, out_h, out_w],
+            input.device(),
+        )?)
+    } else {
+        None
+    };
+
+    Ok((output, indices))
 }
 
 /// Gaussian dropout
@@ -425,6 +590,85 @@ mod tests {
 
         // Test that training=false returns input unchanged (doesn't execute dropout logic)
         assert!(dropout(&input, 0.5, false, false).is_ok());
+        Ok(())
+    }
+
+    #[test]
+    fn test_fractional_pool_sequence_tiles_input() {
+        // The region starts must be non-decreasing, in range, and the last
+        // region must reach the end of the input.
+        let starts = fractional_pool_sequence(8, 2, 4, 0.5).unwrap();
+        assert_eq!(starts.len(), 4);
+        for w in starts.windows(2) {
+            assert!(w[1] >= w[0], "region starts must be non-decreasing");
+        }
+        assert!(*starts.last().unwrap() + 2 <= 8);
+        assert_eq!(*starts.last().unwrap(), 6); // last window covers [6, 8)
+    }
+
+    #[test]
+    fn test_fractional_max_pool2d_output_shape_and_values() -> TorshResult<()> {
+        // 1x1x4x4 ramp: value at (h, w) = h * 4 + w.
+        let data: Vec<f32> = (0..16).map(|x| x as f32).collect();
+        let input = Tensor::from_data(data, vec![1, 1, 4, 4], torsh_core::device::DeviceType::Cpu)?;
+
+        let (output, indices) =
+            fractional_max_pool2d_with_indices(&input, (2, 2), Some((2, 2)), None, true)?;
+
+        assert_eq!(output.shape().dims(), &[1, 1, 2, 2]);
+        let out = output.to_vec()?;
+        // Every pooled value must be a genuine maximum drawn from the input, and
+        // strictly greater than the global minimum (proves it is not a clone /
+        // passthrough of the input).
+        let in_vec = input.to_vec()?;
+        let in_max = in_vec.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        for &v in &out {
+            assert!(in_vec.contains(&v), "pooled value {v} must come from input");
+        }
+        // The bottom-right region always includes the global maximum (15.0).
+        assert!(out.iter().cloned().fold(f32::NEG_INFINITY, f32::max) == in_max);
+
+        // Indices must point at the selected maxima.
+        let idx = indices.expect("indices requested").to_vec()?;
+        for (k, &v) in out.iter().enumerate() {
+            let flat = idx[k] as usize;
+            assert!((in_vec[flat] - v).abs() < 1e-6);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_fractional_max_pool2d_ratio() -> TorshResult<()> {
+        let data: Vec<f32> = (0..36).map(|x| x as f32).collect();
+        let input = Tensor::from_data(data, vec![1, 1, 6, 6], torsh_core::device::DeviceType::Cpu)?;
+
+        // ratio 0.5 on a size-6 dimension -> output size 3.
+        let (output, _) =
+            fractional_max_pool2d_with_indices(&input, (2, 2), None, Some((0.5, 0.5)), false)?;
+        assert_eq!(output.shape().dims(), &[1, 1, 3, 3]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_fractional_max_pool2d_argument_errors() -> TorshResult<()> {
+        let input = ones::<f32>(&[1, 1, 4, 4])?;
+        // Neither output_size nor output_ratio.
+        assert!(fractional_max_pool2d_with_indices(&input, (2, 2), None, None, false).is_err());
+        // Both specified.
+        assert!(fractional_max_pool2d_with_indices(
+            &input,
+            (2, 2),
+            Some((2, 2)),
+            Some((0.5, 0.5)),
+            false
+        )
+        .is_err());
+        // Wrong dimensionality.
+        let input_3d = ones::<f32>(&[1, 4, 4])?;
+        assert!(
+            fractional_max_pool2d_with_indices(&input_3d, (2, 2), Some((2, 2)), None, false)
+                .is_err()
+        );
         Ok(())
     }
 }

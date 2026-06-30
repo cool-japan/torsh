@@ -3,7 +3,10 @@
 //! This module provides automatic parameter estimation methods for clustering algorithms,
 //! particularly DBSCAN and HDBSCAN, to reduce the need for manual parameter tuning.
 
+use crate::algorithms::dbscan::DBSCAN;
 use crate::error::{ClusterError, ClusterResult};
+use crate::evaluation::metrics::distance_based::silhouette_score as distance_silhouette_score;
+use crate::traits::{ClusteringResult, Fit};
 use scirs2_core::ndarray::{Array2, ArrayView1};
 use scirs2_core::parallel_ops::{IntoParallelIterator, ParallelIterator};
 use std::cmp::Ordering;
@@ -392,17 +395,38 @@ pub fn suggest_dbscan_params(
 /// # Returns
 ///
 /// Tuple of (best_epsilon, estimated_n_clusters, best_silhouette_score)
-#[allow(dead_code)]
+/// Estimate optimal epsilon for DBSCAN by evaluating clustering quality
+/// over a range of epsilon values using the silhouette score.
+///
+/// The function probes `n_values` epsilon candidates on a log scale between
+/// `min_eps` and `max_eps`, runs DBSCAN for each, and keeps the candidate that
+/// maximises the silhouette score over all *non-noise* points.
+///
+/// **Computational cost** is O(n_values × n²) where n is the number of samples.
+/// Only use this for small-to-medium datasets (≤ a few thousand points).
+///
+/// # Returns
+///
+/// `(best_epsilon, n_clusters_at_best, best_silhouette_score)`
+///
+/// If no candidate produces at least 2 non-trivial clusters the function returns
+/// the middle epsilon value with `n_clusters = 0` and `score = f64::NEG_INFINITY`.
 pub fn optimize_epsilon(
-    _data: &Tensor,
+    data: &Tensor,
     min_eps: f64,
     max_eps: f64,
     n_values: usize,
-    _min_samples: usize,
+    min_samples: usize,
 ) -> ClusterResult<(f64, usize, f64)> {
     if n_values < 2 {
         return Err(ClusterError::InvalidInput(
             "Need at least 2 epsilon values to optimize".to_string(),
+        ));
+    }
+
+    if min_eps <= 0.0 {
+        return Err(ClusterError::InvalidInput(
+            "min_eps must be positive".to_string(),
         ));
     }
 
@@ -412,43 +436,49 @@ pub fn optimize_epsilon(
         ));
     }
 
-    // Generate epsilon values (log scale for better coverage)
-    let _eps_values: Vec<f64> = (0..n_values)
+    // Generate epsilon values on a log scale for better coverage of the search space
+    let eps_values: Vec<f64> = (0..n_values)
         .map(|i| {
             let log_min = min_eps.ln();
             let log_max = max_eps.ln();
-            let log_eps = log_min + (log_max - log_min) * (i as f64 / (n_values - 1) as f64);
-            log_eps.exp()
+            let t = i as f64 / (n_values - 1) as f64;
+            (log_min + (log_max - log_min) * t).exp()
         })
         .collect();
 
-    // Run DBSCAN (this would require importing DBSCAN, which creates circular dependency)
-    // For now, return error - this function should be used externally
-    // with manual DBSCAN calls
-    Err(ClusterError::NotImplemented(
-        "optimize_epsilon requires external DBSCAN evaluation - use suggest_epsilon instead or implement manually".to_string(),
-    ))
+    let mut best_eps = eps_values[n_values / 2]; // sensible default
+    let mut best_n_clusters = 0usize;
+    let mut best_score = f64::NEG_INFINITY;
 
-    // TODO: When possible, implement as:
-    // let mut best_eps = eps_values[0];
-    // let mut best_n_clusters = 0;
-    // let mut best_score = f64::NEG_INFINITY;
-    //
-    // for &eps in &eps_values {
-    //     let dbscan = DBSCAN::new(eps, min_samples);
-    //     let result = dbscan.fit(data)?;
-    //
-    //     if result.n_clusters > 0 {
-    //         let score = silhouette_score(data, &result.labels)?;
-    //         if score > best_score {
-    //             best_score = score;
-    //             best_eps = eps;
-    //             best_n_clusters = result.n_clusters;
-    //         }
-    //     }
-    // }
-    //
-    // Ok((best_eps, best_n_clusters, best_score))
+    for &eps in &eps_values {
+        let dbscan = DBSCAN::new(eps, min_samples);
+        let result = match dbscan.fit(data) {
+            Ok(r) => r,
+            Err(_) => continue,
+        };
+
+        let n_clusters = result.n_clusters();
+        // Silhouette score is only meaningful for 2+ clusters and at least some
+        // non-noise points.
+        if n_clusters < 2 {
+            continue;
+        }
+
+        // Filter out noise points (label == -1) for silhouette computation.
+        // silhouette_score in this crate accepts -1 labels, so pass through.
+        let score = match distance_silhouette_score(data, result.labels()) {
+            Ok(s) if s.is_finite() => s,
+            _ => continue,
+        };
+
+        if score > best_score {
+            best_score = score;
+            best_eps = eps;
+            best_n_clusters = n_clusters;
+        }
+    }
+
+    Ok((best_eps, best_n_clusters, best_score))
 }
 
 #[cfg(test)]
@@ -653,5 +683,43 @@ mod tests {
         assert!(eps.is_finite());
 
         Ok(())
+    }
+
+    #[test]
+    fn test_optimize_epsilon_two_clusters() -> ClusterResult<()> {
+        // Two well-separated clusters
+        let data = Tensor::from_vec(
+            vec![
+                0.0_f32, 0.0, 0.1, 0.1, 0.0, 0.1, 0.1, 0.0, -0.1, 0.0, 5.0, 5.0, 5.1, 5.1, 5.0,
+                5.1, 5.1, 5.0, 4.9, 5.0,
+            ],
+            &[10, 2],
+        )?;
+
+        let (best_eps, n_clusters, _score) = optimize_epsilon(&data, 0.05, 3.0, 10, 2)?;
+
+        assert!(best_eps > 0.0, "best_eps should be positive");
+        assert!(best_eps.is_finite(), "best_eps should be finite");
+        // Should discover the 2-cluster structure
+        assert_eq!(n_clusters, 2, "should find 2 clusters");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_optimize_epsilon_validation() {
+        let data = Tensor::from_vec(vec![0.0_f32, 0.0], &[1, 2]).unwrap();
+        assert!(
+            optimize_epsilon(&data, 1.0, 0.5, 5, 1).is_err(),
+            "min_eps > max_eps should error"
+        );
+        assert!(
+            optimize_epsilon(&data, 0.1, 1.0, 1, 1).is_err(),
+            "n_values < 2 should error"
+        );
+        assert!(
+            optimize_epsilon(&data, 0.0, 1.0, 3, 1).is_err(),
+            "min_eps == 0 should error"
+        );
     }
 }

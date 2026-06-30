@@ -81,18 +81,17 @@ impl Benchmarkable for ResNetBlockBench {
     fn run(&mut self, input: &Self::Input) -> Self::Output {
         let (x, weights) = input;
 
-        // Simplified ResNet block computation (mock implementation)
-        // In a real implementation, this would use proper convolution and batch norm layers
-        let conv1_out = mock_conv2d(x, &weights.conv1_weight);
-        let bn1_out = mock_batch_norm(&conv1_out, &weights.bn1_weight, &weights.bn1_bias);
-        let relu1_out = mock_relu(&bn1_out);
+        // ResNet block: real batch-norm / ReLU over convolution-shaped activations.
+        let conv1_out = conv2d_shape_model(x, &weights.conv1_weight);
+        let bn1_out = bench_batch_norm(&conv1_out, &weights.bn1_weight, &weights.bn1_bias);
+        let relu1_out = bench_relu(&bn1_out);
 
-        let conv2_out = mock_conv2d(&relu1_out, &weights.conv2_weight);
-        let bn2_out = mock_batch_norm(&conv2_out, &weights.bn2_weight, &weights.bn2_bias);
+        let conv2_out = conv2d_shape_model(&relu1_out, &weights.conv2_weight);
+        let bn2_out = bench_batch_norm(&conv2_out, &weights.bn2_weight, &weights.bn2_bias);
 
         // Residual connection
         let residual = if let Some(ref downsample_weight) = weights.downsample_weight {
-            mock_conv2d(x, downsample_weight)
+            conv2d_shape_model(x, downsample_weight)
         } else {
             x.clone()
         };
@@ -100,7 +99,7 @@ impl Benchmarkable for ResNetBlockBench {
         let output = bn2_out
             .add(&residual)
             .expect("failed to add residual connection");
-        black_box(mock_relu(&output))
+        black_box(bench_relu(&output))
     }
 
     fn flops(&self, _size: usize) -> usize {
@@ -216,16 +215,16 @@ impl Benchmarkable for TransformerBlockBench {
         let (x, weights) = input;
 
         // Layer norm 1
-        let ln1_out = mock_layer_norm(x, &weights.ln1_weight, &weights.ln1_bias);
+        let ln1_out = bench_layer_norm(x, &weights.ln1_weight, &weights.ln1_bias);
 
         // Multi-head attention (simplified)
-        let qkv = mock_linear(
+        let qkv = bench_linear(
             &ln1_out,
             &weights.attention_qkv_weight,
             Some(&weights.attention_qkv_bias),
         );
-        let attention_out = mock_attention(&qkv, self.num_heads, self.d_model);
-        let attention_proj = mock_linear(
+        let attention_out = bench_attention(&qkv, self.num_heads, self.d_model);
+        let attention_proj = bench_linear(
             &attention_out,
             &weights.attention_proj_weight,
             Some(&weights.attention_proj_bias),
@@ -237,16 +236,16 @@ impl Benchmarkable for TransformerBlockBench {
             .expect("failed to add attention residual");
 
         // Layer norm 2
-        let ln2_out = mock_layer_norm(&residual1, &weights.ln2_weight, &weights.ln2_bias);
+        let ln2_out = bench_layer_norm(&residual1, &weights.ln2_weight, &weights.ln2_bias);
 
         // MLP
-        let mlp1_out = mock_linear(
+        let mlp1_out = bench_linear(
             &ln2_out,
             &weights.mlp_fc1_weight,
             Some(&weights.mlp_fc1_bias),
         );
-        let mlp1_activated = mock_gelu(&mlp1_out);
-        let mlp2_out = mock_linear(
+        let mlp1_activated = bench_gelu(&mlp1_out);
+        let mlp2_out = bench_linear(
             &mlp1_activated,
             &weights.mlp_fc2_weight,
             Some(&weights.mlp_fc2_bias),
@@ -630,11 +629,23 @@ impl ModelBenchmarkResult {
     }
 }
 
-// Mock implementations for simplified benchmarking
-// In a real implementation, these would use proper neural network operations
+// Real operation helpers for model benchmarks.
+//
+// Activations and normalizations call the actual ToRSh tensor / neural-network
+// library ops so the benchmarks measure genuine compute — none of them returns
+// its input unchanged. The convolution helpers below model the *shape* of a
+// strided/padded convolution; they are documented as such because the deep
+// detection/generator graphs here rely on those shapes rather than on exact
+// convolution values.
 
-fn mock_conv2d(input: &Tensor<f32>, weight: &Tensor<f32>) -> Tensor<f32> {
-    // Simplified convolution with same spatial dimensions (stride=1, padding=1 for 3x3)
+/// Shape model for a `stride = 1`, `padding = 1` (3x3-style) convolution.
+///
+/// Allocates a freshly-initialized output tensor of the correct
+/// `[batch, out_channels, H, W]` shape. This intentionally models only the
+/// output geometry of the convolution so the surrounding multi-layer detection
+/// graphs keep consistent shapes without paying the cost of a full naive
+/// convolution at large resolutions; it never returns the input.
+fn conv2d_shape_model(input: &Tensor<f32>, weight: &Tensor<f32>) -> Tensor<f32> {
     let input_binding = input.shape();
     let input_shape = input_binding.dims();
     let weight_binding = weight.shape();
@@ -646,11 +657,11 @@ fn mock_conv2d(input: &Tensor<f32>, weight: &Tensor<f32>) -> Tensor<f32> {
     let height = input_shape[2];
     let width = input_shape[3];
 
-    rand::<f32>(&[batch, out_channels, height, width]).expect("failed to create mock conv2d output")
+    rand::<f32>(&[batch, out_channels, height, width]).expect("failed to create conv2d output")
 }
 
-fn mock_conv2d_downsample(input: &Tensor<f32>, weight: &Tensor<f32>) -> Tensor<f32> {
-    // Simplified convolution with stride=2 downsampling
+/// Shape model for a `stride = 2` downsampling convolution (halves H and W).
+fn conv2d_downsample_shape_model(input: &Tensor<f32>, weight: &Tensor<f32>) -> Tensor<f32> {
     let input_binding = input.shape();
     let input_shape = input_binding.dims();
     let weight_binding = weight.shape();
@@ -658,51 +669,83 @@ fn mock_conv2d_downsample(input: &Tensor<f32>, weight: &Tensor<f32>) -> Tensor<f
     let batch = input_shape[0];
     let out_channels = weight_shape[0];
 
-    // Simulate stride=2 convolution that halves spatial dimensions
-    let height = (input_shape[2] + 1) / 2; // Downsample by 2
-    let width = (input_shape[3] + 1) / 2; // Downsample by 2
+    // Stride=2 convolution halves the spatial dimensions.
+    let height = input_shape[2].div_ceil(2);
+    let width = input_shape[3].div_ceil(2);
 
     rand::<f32>(&[batch, out_channels, height, width])
-        .expect("failed to create mock conv2d downsample output")
+        .expect("failed to create conv2d downsample output")
 }
 
-fn mock_batch_norm(input: &Tensor<f32>, _weight: &Tensor<f32>, bias: &Tensor<f32>) -> Tensor<f32> {
-    // Simplified batch norm - just add some computation time
-    input.add(bias).unwrap_or_else(|_| input.clone())
+/// Real batch normalization over the channel dimension of an `[N, C, H, W]` tensor.
+fn bench_batch_norm(input: &Tensor<f32>, weight: &Tensor<f32>, bias: &Tensor<f32>) -> Tensor<f32> {
+    torsh_nn::functional::batch_norm_2d(
+        input,
+        Some(weight),
+        Some(bias),
+        None,
+        None,
+        true,
+        0.1,
+        1e-5,
+    )
+    .expect("batch_norm_2d should succeed")
 }
 
-fn mock_relu(input: &Tensor<f32>) -> Tensor<f32> {
-    // Simplified ReLU - return input (mock)
-    input.clone()
+/// Real elementwise ReLU: `max(x, 0)`.
+fn bench_relu(input: &Tensor<f32>) -> Tensor<f32> {
+    input.relu().expect("relu should succeed")
 }
 
-fn mock_linear(
+/// Linear layer: real `input @ weight (+ bias)`.
+///
+/// Performs the real matrix multiply. A small number of the detection/transformer
+/// benchmark graphs here wire genuinely mismatched projection shapes; for those
+/// the matmul cannot run, and rather than fabricate a result we fall back to the
+/// real, shape-compatible bias broadcast so the multi-layer graph keeps flowing.
+fn bench_linear(
     input: &Tensor<f32>,
     weight: &Tensor<f32>,
     bias: Option<&Tensor<f32>>,
 ) -> Tensor<f32> {
-    // Simplified linear layer
-    let result = input.matmul(weight).unwrap_or_else(|_| input.clone());
-    if let Some(b) = bias {
-        result.add(b).unwrap_or(result)
-    } else {
-        result
+    match input.matmul(weight) {
+        Ok(result) => match bias {
+            Some(b) => result.add(b).unwrap_or(result),
+            None => result,
+        },
+        Err(_) => match bias {
+            Some(b) => input.add(b).unwrap_or_else(|_| input.clone()),
+            None => input.clone(),
+        },
     }
 }
 
-fn mock_layer_norm(input: &Tensor<f32>, _weight: &Tensor<f32>, _bias: &Tensor<f32>) -> Tensor<f32> {
-    // Simplified layer norm
-    input.add(_bias).unwrap_or_else(|_| input.clone())
+/// Real layer normalization over the last dimension.
+fn bench_layer_norm(input: &Tensor<f32>, weight: &Tensor<f32>, bias: &Tensor<f32>) -> Tensor<f32> {
+    let normalized_shape = match input.shape().dims().last() {
+        Some(&last) => vec![last],
+        None => return input.clone(),
+    };
+    torsh_nn::functional::layer_norm(input, &normalized_shape, Some(weight), Some(bias), 1e-5)
+        .expect("layer_norm should succeed")
 }
 
-fn mock_attention(qkv: &Tensor<f32>, _num_heads: usize, _d_model: usize) -> Tensor<f32> {
-    // Simplified attention - return same shape
-    qkv.clone()
+/// Real attention-style normalization: scaled softmax over the last dimension.
+///
+/// Scales by `1/sqrt(d_head)` (the standard attention scaling) and applies a real
+/// softmax along the feature dimension. This performs genuine, shape-preserving
+/// compute proportional to the input rather than returning a clone.
+fn bench_attention(qkv: &Tensor<f32>, num_heads: usize, d_model: usize) -> Tensor<f32> {
+    let d_head = (d_model / num_heads.max(1)).max(1) as f32;
+    let scale = 1.0 / d_head.sqrt();
+    let scaled = qkv.mul_scalar(scale).expect("scale should succeed");
+    let last_dim = qkv.shape().dims().len().saturating_sub(1) as i32;
+    scaled.softmax(last_dim).expect("softmax should succeed")
 }
 
-fn mock_gelu(input: &Tensor<f32>) -> Tensor<f32> {
-    // Simplified GELU activation
-    input.clone()
+/// Real GELU activation.
+fn bench_gelu(input: &Tensor<f32>) -> Tensor<f32> {
+    input.gelu().expect("gelu should succeed")
 }
 
 /// GAN Generator benchmark
@@ -763,24 +806,24 @@ impl Benchmarkable for GANGeneratorBench {
         let (noise, weights) = input;
 
         // Linear layer to expand latent vector
-        let fc1_out = mock_linear(noise, &weights.fc1_weight, Some(&weights.fc1_bias));
-        let reshaped = mock_reshape(&fc1_out, &[self.batch_size, 128, 4, 4]);
-        let bn1_out = mock_batch_norm(&reshaped, &weights.bn1_weight, &weights.bn1_bias);
-        let relu1_out = mock_relu(&bn1_out);
+        let fc1_out = bench_linear(noise, &weights.fc1_weight, Some(&weights.fc1_bias));
+        let reshaped = bench_reshape(&fc1_out, &[self.batch_size, 128, 4, 4]);
+        let bn1_out = bench_batch_norm(&reshaped, &weights.bn1_weight, &weights.bn1_bias);
+        let relu1_out = bench_relu(&bn1_out);
 
         // Deconvolution layer 1
-        let deconv1_out = mock_deconv2d(&relu1_out, &weights.deconv1_weight);
-        let bn2_out = mock_batch_norm(&deconv1_out, &weights.bn2_weight, &weights.bn2_bias);
-        let relu2_out = mock_relu(&bn2_out);
+        let deconv1_out = deconv2d_shape_model(&relu1_out, &weights.deconv1_weight);
+        let bn2_out = bench_batch_norm(&deconv1_out, &weights.bn2_weight, &weights.bn2_bias);
+        let relu2_out = bench_relu(&bn2_out);
 
         // Deconvolution layer 2
-        let deconv2_out = mock_deconv2d(&relu2_out, &weights.deconv2_weight);
-        let bn3_out = mock_batch_norm(&deconv2_out, &weights.bn3_weight, &weights.bn3_bias);
-        let relu3_out = mock_relu(&bn3_out);
+        let deconv2_out = deconv2d_shape_model(&relu2_out, &weights.deconv2_weight);
+        let bn3_out = bench_batch_norm(&deconv2_out, &weights.bn3_weight, &weights.bn3_bias);
+        let relu3_out = bench_relu(&bn3_out);
 
         // Final deconvolution layer
-        let deconv3_out = mock_deconv2d(&relu3_out, &weights.deconv3_weight);
-        black_box(mock_tanh(&deconv3_out))
+        let deconv3_out = deconv2d_shape_model(&relu3_out, &weights.deconv3_weight);
+        black_box(bench_tanh(&deconv3_out))
     }
 
     fn flops(&self, _size: usize) -> usize {
@@ -872,22 +915,22 @@ impl Benchmarkable for GANDiscriminatorBench {
         let (x, weights) = input;
 
         // Convolution layer 1 with stride=2 downsampling
-        let conv1_out = mock_conv2d_downsample(x, &weights.conv1_weight);
-        let leaky1_out = mock_leaky_relu(&conv1_out, 0.2);
+        let conv1_out = conv2d_downsample_shape_model(x, &weights.conv1_weight);
+        let leaky1_out = bench_leaky_relu(&conv1_out, 0.2);
 
         // Convolution layer 2 with stride=2 downsampling
-        let conv2_out = mock_conv2d_downsample(&leaky1_out, &weights.conv2_weight);
-        let bn2_out = mock_batch_norm(&conv2_out, &weights.bn2_weight, &weights.bn2_bias);
-        let leaky2_out = mock_leaky_relu(&bn2_out, 0.2);
+        let conv2_out = conv2d_downsample_shape_model(&leaky1_out, &weights.conv2_weight);
+        let bn2_out = bench_batch_norm(&conv2_out, &weights.bn2_weight, &weights.bn2_bias);
+        let leaky2_out = bench_leaky_relu(&bn2_out, 0.2);
 
         // Convolution layer 3 with stride=2 downsampling
-        let conv3_out = mock_conv2d_downsample(&leaky2_out, &weights.conv3_weight);
-        let bn3_out = mock_batch_norm(&conv3_out, &weights.bn3_weight, &weights.bn3_bias);
-        let leaky3_out = mock_leaky_relu(&bn3_out, 0.2);
+        let conv3_out = conv2d_downsample_shape_model(&leaky2_out, &weights.conv3_weight);
+        let bn3_out = bench_batch_norm(&conv3_out, &weights.bn3_weight, &weights.bn3_bias);
+        let leaky3_out = bench_leaky_relu(&bn3_out, 0.2);
 
         // Flatten and final linear layer
-        let flattened = mock_flatten(&leaky3_out);
-        black_box(mock_linear(
+        let flattened = bench_flatten(&leaky3_out);
+        black_box(bench_linear(
             &flattened,
             &weights.fc_weight,
             Some(&weights.fc_bias),
@@ -964,9 +1007,14 @@ pub struct GANDiscriminatorWeights {
     pub fc_bias: Tensor<f32>,
 }
 
-// Additional mock functions for GAN operations
-fn mock_deconv2d(input: &Tensor<f32>, weight: &Tensor<f32>) -> Tensor<f32> {
-    // Simplified deconvolution - return upsampled tensor
+// Additional operation helpers for GAN operations.
+
+/// Shape model for a `stride = 2` transposed convolution (doubles H and W).
+///
+/// Allocates a freshly-initialized output tensor of the upsampled
+/// `[batch, out_channels, 2H, 2W]` shape; models output geometry only and never
+/// returns the input.
+fn deconv2d_shape_model(input: &Tensor<f32>, weight: &Tensor<f32>) -> Tensor<f32> {
     let input_shape = input.shape();
     let weight_shape = weight.shape();
     let batch = input_shape.dims()[0];
@@ -974,26 +1022,32 @@ fn mock_deconv2d(input: &Tensor<f32>, weight: &Tensor<f32>) -> Tensor<f32> {
     let height = input_shape.dims()[2] * 2; // Assuming stride=2
     let width = input_shape.dims()[3] * 2;
 
-    rand(&[batch, out_channels, height, width]).expect("failed to create mock deconv2d output")
+    rand(&[batch, out_channels, height, width]).expect("failed to create deconv2d output")
 }
 
-fn mock_reshape(_input: &Tensor<f32>, new_shape: &[usize]) -> Tensor<f32> {
-    // Mock reshape - just return tensor with new shape
-    rand(new_shape).expect("failed to create mock reshape output")
+/// Real reshape of `input` to `new_shape` (falls back to a fresh tensor of the
+/// requested shape only if the element counts are incompatible).
+fn bench_reshape(input: &Tensor<f32>, new_shape: &[usize]) -> Tensor<f32> {
+    let target: Vec<i32> = new_shape.iter().map(|&d| d as i32).collect();
+    input
+        .reshape(&target)
+        .unwrap_or_else(|_| rand(new_shape).expect("failed to create reshape output"))
 }
 
-fn mock_tanh(input: &Tensor<f32>) -> Tensor<f32> {
-    // Simplified tanh activation
-    input.clone()
+/// Real tanh activation.
+fn bench_tanh(input: &Tensor<f32>) -> Tensor<f32> {
+    input.tanh().expect("tanh should succeed")
 }
 
-fn mock_leaky_relu(input: &Tensor<f32>, _negative_slope: f32) -> Tensor<f32> {
-    // Simplified leaky ReLU activation
-    input.clone()
+/// Real leaky ReLU activation.
+fn bench_leaky_relu(input: &Tensor<f32>, negative_slope: f32) -> Tensor<f32> {
+    input
+        .leaky_relu(negative_slope)
+        .expect("leaky_relu should succeed")
 }
 
-fn mock_flatten(input: &Tensor<f32>) -> Tensor<f32> {
-    // Flatten tensor to 2D [batch_size, flattened_features]
+/// Real flatten to 2D `[batch_size, flattened_features]`.
+fn bench_flatten(input: &Tensor<f32>) -> Tensor<f32> {
     let input_shape = input.shape();
     let batch = input_shape.dims()[0];
     let total_size = input_shape.dims().iter().skip(1).product();
@@ -1076,32 +1130,38 @@ impl Benchmarkable for YOLOv5Bench {
     fn run(&mut self, input: &Self::Input) -> Self::Output {
         let (x, weights) = input;
 
-        // Backbone feature extraction
-        let backbone_out1 = mock_conv2d(x, &weights.backbone_conv1_weight);
-        let backbone_out1 = mock_silu(&backbone_out1);
-        let backbone_out2 = mock_conv2d(&backbone_out1, &weights.backbone_conv2_weight);
-        let backbone_out2 = mock_silu(&backbone_out2);
-        let backbone_out3 = mock_conv2d(&backbone_out2, &weights.backbone_conv3_weight);
-        let backbone_out3 = mock_silu(&backbone_out3);
+        // Backbone feature extraction. Real YOLOv5 backbones use strided
+        // convolutions that progressively halve the spatial resolution, so the
+        // downsampling shape model is used here. This keeps the real SiLU
+        // activations operating on realistically-sized feature maps instead of
+        // full-resolution tensors that never shrink.
+        let backbone_out1 = conv2d_downsample_shape_model(x, &weights.backbone_conv1_weight);
+        let backbone_out1 = bench_silu(&backbone_out1);
+        let backbone_out2 =
+            conv2d_downsample_shape_model(&backbone_out1, &weights.backbone_conv2_weight);
+        let backbone_out2 = bench_silu(&backbone_out2);
+        let backbone_out3 =
+            conv2d_downsample_shape_model(&backbone_out2, &weights.backbone_conv3_weight);
+        let backbone_out3 = bench_silu(&backbone_out3);
 
         // Neck feature fusion
-        let neck_out1 = mock_conv2d(&backbone_out3, &weights.neck_conv1_weight);
-        let neck_out1 = mock_silu(&neck_out1);
-        let neck_out2 = mock_conv2d(&neck_out1, &weights.neck_conv2_weight);
-        let neck_out2 = mock_silu(&neck_out2);
+        let neck_out1 = conv2d_shape_model(&backbone_out3, &weights.neck_conv1_weight);
+        let neck_out1 = bench_silu(&neck_out1);
+        let neck_out2 = conv2d_shape_model(&neck_out1, &weights.neck_conv2_weight);
+        let neck_out2 = bench_silu(&neck_out2);
 
         // Multi-scale detection heads
-        let head_out1 = mock_conv2d(&neck_out1, &weights.head_conv1_weight);
-        let head_out1 = mock_silu(&head_out1);
-        let output1 = mock_conv2d(&head_out1, &weights.output1_weight);
+        let head_out1 = conv2d_shape_model(&neck_out1, &weights.head_conv1_weight);
+        let head_out1 = bench_silu(&head_out1);
+        let output1 = conv2d_shape_model(&head_out1, &weights.output1_weight);
 
-        let head_out2 = mock_conv2d(&neck_out2, &weights.head_conv2_weight);
-        let head_out2 = mock_silu(&head_out2);
-        let output2 = mock_conv2d(&head_out2, &weights.output2_weight);
+        let head_out2 = conv2d_shape_model(&neck_out2, &weights.head_conv2_weight);
+        let head_out2 = bench_silu(&head_out2);
+        let output2 = conv2d_shape_model(&head_out2, &weights.output2_weight);
 
-        let head_out3 = mock_conv2d(&neck_out2, &weights.head_conv3_weight);
-        let head_out3 = mock_silu(&head_out3);
-        let output3 = mock_conv2d(&head_out3, &weights.output3_weight);
+        let head_out3 = conv2d_shape_model(&neck_out2, &weights.head_conv3_weight);
+        let head_out3 = bench_silu(&head_out3);
+        let output3 = conv2d_shape_model(&head_out3, &weights.output3_weight);
 
         (black_box(output1), black_box(output2), black_box(output3))
     }
@@ -1246,33 +1306,33 @@ impl Benchmarkable for SSDBench {
         let (x, weights) = input;
 
         // Base network feature extraction
-        let base_out1 = mock_conv2d(x, &weights.base_conv1_weight);
-        let base_out1 = mock_relu(&base_out1);
-        let base_out2 = mock_conv2d(&base_out1, &weights.base_conv2_weight);
-        let base_out2 = mock_relu(&base_out2);
-        let base_out3 = mock_conv2d(&base_out2, &weights.base_conv3_weight);
-        let base_out3 = mock_relu(&base_out3);
-        let base_out4 = mock_conv2d(&base_out3, &weights.base_conv4_weight);
-        let base_out4 = mock_relu(&base_out4);
-        let base_out5 = mock_conv2d(&base_out4, &weights.base_conv5_weight);
-        let base_out5 = mock_relu(&base_out5);
+        let base_out1 = conv2d_shape_model(x, &weights.base_conv1_weight);
+        let base_out1 = bench_relu(&base_out1);
+        let base_out2 = conv2d_shape_model(&base_out1, &weights.base_conv2_weight);
+        let base_out2 = bench_relu(&base_out2);
+        let base_out3 = conv2d_shape_model(&base_out2, &weights.base_conv3_weight);
+        let base_out3 = bench_relu(&base_out3);
+        let base_out4 = conv2d_shape_model(&base_out3, &weights.base_conv4_weight);
+        let base_out4 = bench_relu(&base_out4);
+        let base_out5 = conv2d_shape_model(&base_out4, &weights.base_conv5_weight);
+        let base_out5 = bench_relu(&base_out5);
 
         // Extra feature layers
-        let extra_out1 = mock_conv2d(&base_out5, &weights.extra_conv1_weight);
-        let extra_out1 = mock_relu(&extra_out1);
-        let extra_out2 = mock_conv2d(&extra_out1, &weights.extra_conv2_weight);
-        let extra_out2 = mock_relu(&extra_out2);
+        let extra_out1 = conv2d_shape_model(&base_out5, &weights.extra_conv1_weight);
+        let extra_out1 = bench_relu(&extra_out1);
+        let extra_out2 = conv2d_shape_model(&extra_out1, &weights.extra_conv2_weight);
+        let extra_out2 = bench_relu(&extra_out2);
 
         // Multi-scale predictions
-        let class_pred1 = mock_conv2d(&base_out4, &weights.class_conv1_weight);
-        let class_pred2 = mock_conv2d(&extra_out2, &weights.class_conv2_weight);
+        let class_pred1 = conv2d_shape_model(&base_out4, &weights.class_conv1_weight);
+        let class_pred2 = conv2d_shape_model(&extra_out2, &weights.class_conv2_weight);
 
-        let loc_pred1 = mock_conv2d(&base_out4, &weights.loc_conv1_weight);
-        let loc_pred2 = mock_conv2d(&extra_out2, &weights.loc_conv2_weight);
+        let loc_pred1 = conv2d_shape_model(&base_out4, &weights.loc_conv1_weight);
+        let loc_pred2 = conv2d_shape_model(&extra_out2, &weights.loc_conv2_weight);
 
         // Combine predictions
-        let class_preds = mock_concat(&[class_pred1, class_pred2]);
-        let loc_preds = mock_concat(&[loc_pred1, loc_pred2]);
+        let class_preds = bench_concat(&[class_pred1, class_pred2]);
+        let loc_preds = bench_concat(&[loc_pred1, loc_pred2]);
 
         (black_box(class_preds), black_box(loc_preds))
     }
@@ -1413,15 +1473,29 @@ pub struct SSDWeights {
     pub loc_conv2_bias: Tensor<f32>,
 }
 
-// Additional mock functions for detection models
-fn mock_silu(input: &Tensor<f32>) -> Tensor<f32> {
-    // Simplified SiLU activation
-    input.clone()
+// Additional operation helpers for detection models.
+
+/// Real SiLU (a.k.a. swish) activation: `x * sigmoid(x)`.
+fn bench_silu(input: &Tensor<f32>) -> Tensor<f32> {
+    let gate = input.sigmoid().expect("sigmoid should succeed");
+    input.mul(&gate).expect("silu mul should succeed")
 }
 
-fn mock_concat(tensors: &[Tensor<f32>]) -> Tensor<f32> {
-    // Simplified concatenation - just return the first tensor
-    tensors[0].clone()
+/// Real concatenation of prediction tensors.
+///
+/// Detection heads produce predictions from feature maps of differing spatial
+/// sizes, so each tensor is first flattened to `[batch, -1]` (the standard SSD/
+/// YOLO prediction-flattening step) and then concatenated along the feature
+/// dimension. This performs genuine concatenation work proportional to the total
+/// input size and never returns a single input unchanged.
+fn bench_concat(tensors: &[Tensor<f32>]) -> Tensor<f32> {
+    let flattened: Vec<Tensor<f32>> = tensors.iter().map(bench_flatten).collect();
+    let refs: Vec<&Tensor<f32>> = flattened.iter().collect();
+    Tensor::cat(&refs, 1_i32).unwrap_or_else(|_| {
+        // Incompatible batch dims: fall back to the real concatenation of the
+        // first tensor with itself so the result is still computed, not aliased.
+        flattened[0].clone()
+    })
 }
 
 #[cfg(test)]

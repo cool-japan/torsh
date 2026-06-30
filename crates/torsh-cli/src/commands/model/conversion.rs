@@ -374,7 +374,8 @@ async fn convert_pytorch_to_torsh(
     let pytorch_info = parse_pytorch_model(input_path).await?;
     info!(
         "Parsed PyTorch model: version {}, {} parameters",
-        pytorch_info.pytorch_version, pytorch_info.num_parameters
+        pytorch_info.version_display(),
+        pytorch_info.num_parameters
     );
 
     // Convert to ToRSh model

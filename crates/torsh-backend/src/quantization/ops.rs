@@ -434,43 +434,193 @@ impl QuantizationOps for CpuQuantizationOps {
         Ok(result)
     }
 
-    fn qmatmul(
-        &self,
-        _a: &QuantizedTensor,
-        _b: &QuantizedTensor,
-    ) -> BackendResult<QuantizedTensor> {
-        // Placeholder implementation
-        Err(torsh_core::error::TorshError::NotImplemented(
-            "Quantized matrix multiplication not yet implemented for CPU backend".to_string(),
-        ))
+    fn qmatmul(&self, a: &QuantizedTensor, b: &QuantizedTensor) -> BackendResult<QuantizedTensor> {
+        // Validate shapes for matrix multiplication: a is [M, K], b is [K, N].
+        if a.ndim() != 2 || b.ndim() != 2 {
+            return Err(torsh_core::error::TorshError::InvalidArgument(
+                "qmatmul requires 2D tensors".to_string(),
+            ));
+        }
+        let (m, k_a) = (a.shape[0], a.shape[1]);
+        let (k_b, n) = (b.shape[0], b.shape[1]);
+        if k_a != k_b {
+            return Err(torsh_core::error::TorshError::InvalidArgument(format!(
+                "qmatmul dimension mismatch: a has K={k_a} but b has K={k_b}"
+            )));
+        }
+
+        // Dequantize-compute-requantize strategy: optimal accuracy for a CPU
+        // reference implementation without adding new dependencies.
+        let a_float = self.dequantize_f32(&a.data, &a.params)?;
+        let b_float = self.dequantize_f32(&b.data, &b.params)?;
+
+        let mut out_float = vec![0.0f32; m * n];
+        for row in 0..m {
+            for col in 0..n {
+                let mut acc = 0.0f32;
+                for k in 0..k_a {
+                    acc += a_float[row * k_a + k] * b_float[k * n + col];
+                }
+                out_float[row * n + col] = acc;
+            }
+        }
+
+        // Derive output quantization params from the result range.
+        let mut out_params = a.params.clone();
+        out_params.from_statistics(
+            out_float.iter().copied().fold(f32::INFINITY, f32::min),
+            out_float.iter().copied().fold(f32::NEG_INFINITY, f32::max),
+        )?;
+
+        let out_data = self.quantize_f32(&out_float, &out_params)?;
+        QuantizedTensor::from_data(out_data, vec![m, n], out_params, a.device.clone())
     }
 
     fn qconv2d(
         &self,
-        _input: &QuantizedTensor,
-        _weight: &QuantizedTensor,
-        _bias: Option<&QuantizedTensor>,
-        _stride: (usize, usize),
-        _padding: (usize, usize),
+        input: &QuantizedTensor,
+        weight: &QuantizedTensor,
+        bias: Option<&QuantizedTensor>,
+        stride: (usize, usize),
+        padding: (usize, usize),
     ) -> BackendResult<QuantizedTensor> {
-        // Placeholder implementation
-        Err(torsh_core::error::TorshError::NotImplemented(
-            "Quantized convolution not yet implemented for CPU backend".to_string(),
-        ))
+        // Expect input shape [N, C_in, H, W] and weight shape [C_out, C_in, kH, kW].
+        if input.ndim() != 4 || weight.ndim() != 4 {
+            return Err(torsh_core::error::TorshError::InvalidArgument(
+                "qconv2d requires 4D tensors [N, C, H, W] for input and [C_out, C_in, kH, kW] for weight".to_string(),
+            ));
+        }
+        let (n, c_in, h_in, w_in) = (
+            input.shape[0],
+            input.shape[1],
+            input.shape[2],
+            input.shape[3],
+        );
+        let (c_out, c_in_w, k_h, k_w) = (
+            weight.shape[0],
+            weight.shape[1],
+            weight.shape[2],
+            weight.shape[3],
+        );
+        if c_in != c_in_w {
+            return Err(torsh_core::error::TorshError::InvalidArgument(format!(
+                "qconv2d channel mismatch: input C_in={c_in} but weight C_in={c_in_w}"
+            )));
+        }
+
+        let (stride_h, stride_w) = stride;
+        let (pad_h, pad_w) = padding;
+        let h_out = (h_in + 2 * pad_h).saturating_sub(k_h) / stride_h + 1;
+        let w_out = (w_in + 2 * pad_w).saturating_sub(k_w) / stride_w + 1;
+
+        let input_float = self.dequantize_f32(&input.data, &input.params)?;
+        let weight_float = self.dequantize_f32(&weight.data, &weight.params)?;
+
+        // Decode optional bias.
+        let bias_float: Option<Vec<f32>> = match bias {
+            Some(b) => Some(self.dequantize_f32(&b.data, &b.params)?),
+            None => None,
+        };
+
+        let out_numel = n * c_out * h_out * w_out;
+        let mut out_float = vec![0.0f32; out_numel];
+
+        for batch in 0..n {
+            for oc in 0..c_out {
+                let bias_val = bias_float
+                    .as_ref()
+                    .map(|bf| bf.get(oc).copied().unwrap_or(0.0))
+                    .unwrap_or(0.0);
+                for oh in 0..h_out {
+                    for ow in 0..w_out {
+                        let mut acc = 0.0f32;
+                        for ic in 0..c_in {
+                            for kh in 0..k_h {
+                                let ih = oh * stride_h + kh;
+                                let ih_pad = ih.checked_sub(pad_h);
+                                for kw in 0..k_w {
+                                    let iw = ow * stride_w + kw;
+                                    let iw_pad = iw.checked_sub(pad_w);
+                                    let in_val = match (ih_pad, iw_pad) {
+                                        (Some(ih_r), Some(iw_r)) if ih_r < h_in && iw_r < w_in => {
+                                            input_float[batch * c_in * h_in * w_in
+                                                + ic * h_in * w_in
+                                                + ih_r * w_in
+                                                + iw_r]
+                                        }
+                                        _ => 0.0,
+                                    };
+                                    let w_val = weight_float
+                                        [oc * c_in * k_h * k_w + ic * k_h * k_w + kh * k_w + kw];
+                                    acc += in_val * w_val;
+                                }
+                            }
+                        }
+                        let out_idx =
+                            batch * c_out * h_out * w_out + oc * h_out * w_out + oh * w_out + ow;
+                        out_float[out_idx] = acc + bias_val;
+                    }
+                }
+            }
+        }
+
+        let mut out_params = input.params.clone();
+        out_params.from_statistics(
+            out_float.iter().copied().fold(f32::INFINITY, f32::min),
+            out_float.iter().copied().fold(f32::NEG_INFINITY, f32::max),
+        )?;
+
+        let out_data = self.quantize_f32(&out_float, &out_params)?;
+        QuantizedTensor::from_data(
+            out_data,
+            vec![n, c_out, h_out, w_out],
+            out_params,
+            input.device.clone(),
+        )
     }
 
-    fn qadd(&self, _a: &QuantizedTensor, _b: &QuantizedTensor) -> BackendResult<QuantizedTensor> {
-        // Placeholder implementation
-        Err(torsh_core::error::TorshError::NotImplemented(
-            "Quantized addition not yet implemented for CPU backend".to_string(),
-        ))
+    fn qadd(&self, a: &QuantizedTensor, b: &QuantizedTensor) -> BackendResult<QuantizedTensor> {
+        if a.shape != b.shape {
+            return Err(torsh_core::error::TorshError::InvalidArgument(format!(
+                "qadd shape mismatch: {:?} vs {:?}",
+                a.shape, b.shape
+            )));
+        }
+
+        let a_float = self.dequantize_f32(&a.data, &a.params)?;
+        let b_float = self.dequantize_f32(&b.data, &b.params)?;
+        let out_float: Vec<f32> = a_float
+            .iter()
+            .zip(b_float.iter())
+            .map(|(&x, &y)| x + y)
+            .collect();
+
+        let mut out_params = a.params.clone();
+        out_params.from_statistics(
+            out_float.iter().copied().fold(f32::INFINITY, f32::min),
+            out_float.iter().copied().fold(f32::NEG_INFINITY, f32::max),
+        )?;
+
+        let out_data = self.quantize_f32(&out_float, &out_params)?;
+        QuantizedTensor::from_data(out_data, a.shape.clone(), out_params, a.device.clone())
     }
 
-    fn qrelu(&self, _input: &QuantizedTensor) -> BackendResult<QuantizedTensor> {
-        // Placeholder implementation
-        Err(torsh_core::error::TorshError::NotImplemented(
-            "Quantized ReLU not yet implemented for CPU backend".to_string(),
-        ))
+    fn qrelu(&self, input: &QuantizedTensor) -> BackendResult<QuantizedTensor> {
+        let input_float = self.dequantize_f32(&input.data, &input.params)?;
+        let out_float: Vec<f32> = input_float.iter().map(|&v| v.max(0.0)).collect();
+
+        let max_val = out_float.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+        // After ReLU the minimum is always 0.
+        let mut out_params = input.params.clone();
+        out_params.from_statistics(0.0, max_val.max(0.0))?;
+
+        let out_data = self.quantize_f32(&out_float, &out_params)?;
+        QuantizedTensor::from_data(
+            out_data,
+            input.shape.clone(),
+            out_params,
+            input.device.clone(),
+        )
     }
 
     fn calibrate(
@@ -623,19 +773,190 @@ mod tests {
     }
 
     #[test]
-    fn test_unimplemented_operations() {
+    fn test_qmatmul_basic() {
         let ops = CpuQuantizationOps::new();
-        let params = QuantizationParams::default();
-        let tensor = QuantizedTensor::new(
-            vec![2, 2],
-            params,
-            crate::Device::cpu().expect("Quantized Tensor should succeed"),
-        );
+        let device = crate::Device::cpu().expect("cpu device should be available");
 
-        assert!(ops.qmatmul(&tensor, &tensor).is_err());
-        assert!(ops.qconv2d(&tensor, &tensor, None, (1, 1), (0, 0)).is_err());
-        assert!(ops.qadd(&tensor, &tensor).is_err());
-        assert!(ops.qrelu(&tensor).is_err());
+        // Build a 2x2 identity-ish matrix as a quantized tensor.
+        // We construct a 2x2 matrix with values [1, 0, 0, 1] quantized to Int8.
+        let mut params = QuantizationParams::int8_symmetric();
+        params
+            .from_statistics(-1.0, 1.0)
+            .expect("params from statistics should succeed");
+        let data = ops
+            .quantize_f32(&[1.0, 0.0, 0.0, 1.0], &params)
+            .expect("quantize should succeed");
+        let a =
+            QuantizedTensor::from_data(data.clone(), vec![2, 2], params.clone(), device.clone())
+                .expect("tensor from data should succeed");
+        let b = QuantizedTensor::from_data(data, vec![2, 2], params, device)
+            .expect("tensor from data should succeed");
+
+        let result = ops.qmatmul(&a, &b).expect("qmatmul should succeed");
+        assert_eq!(result.shape(), &[2, 2]);
+
+        let result_float = ops
+            .dequantize_f32(&result.data, &result.params)
+            .expect("dequantize should succeed");
+        // I * I = I, so diagonal ≈ 1 and off-diagonal ≈ 0.
+        assert!(
+            (result_float[0] - 1.0).abs() < 0.15,
+            "result[0,0]={} expected ≈1",
+            result_float[0]
+        );
+        assert!(
+            result_float[1].abs() < 0.15,
+            "result[0,1]={} expected ≈0",
+            result_float[1]
+        );
+    }
+
+    #[test]
+    fn test_qadd_basic() {
+        let ops = CpuQuantizationOps::new();
+        let device = crate::Device::cpu().expect("cpu device should be available");
+
+        let mut params = QuantizationParams::int8_symmetric();
+        params
+            .from_statistics(-4.0, 4.0)
+            .expect("params from statistics should succeed");
+
+        let a_data = ops
+            .quantize_f32(&[1.0, 2.0, 3.0, 4.0], &params)
+            .expect("quantize should succeed");
+        let b_data = ops
+            .quantize_f32(&[0.5, 0.5, 0.5, 0.5], &params)
+            .expect("quantize should succeed");
+
+        let a = QuantizedTensor::from_data(a_data, vec![2, 2], params.clone(), device.clone())
+            .expect("tensor from data should succeed");
+        let b = QuantizedTensor::from_data(b_data, vec![2, 2], params, device)
+            .expect("tensor from data should succeed");
+
+        let result = ops.qadd(&a, &b).expect("qadd should succeed");
+        assert_eq!(result.shape(), &[2, 2]);
+
+        let result_float = ops
+            .dequantize_f32(&result.data, &result.params)
+            .expect("dequantize should succeed");
+        // Expected: [1.5, 2.5, 3.5, 4.5]
+        assert!(
+            (result_float[0] - 1.5).abs() < 0.2,
+            "result[0]={} expected ≈1.5",
+            result_float[0]
+        );
+        assert!(
+            (result_float[3] - 4.5).abs() < 0.2,
+            "result[3]={} expected ≈4.5",
+            result_float[3]
+        );
+    }
+
+    #[test]
+    fn test_qrelu_basic() {
+        let ops = CpuQuantizationOps::new();
+        let device = crate::Device::cpu().expect("cpu device should be available");
+
+        let mut params = QuantizationParams::int8_symmetric();
+        params
+            .from_statistics(-2.0, 2.0)
+            .expect("params from statistics should succeed");
+
+        let data = ops
+            .quantize_f32(&[-1.0, 0.0, 1.0, 2.0], &params)
+            .expect("quantize should succeed");
+        let tensor =
+            QuantizedTensor::from_data(data, vec![4], params, device).expect("tensor should work");
+
+        let result = ops.qrelu(&tensor).expect("qrelu should succeed");
+        assert_eq!(result.shape(), &[4]);
+
+        let result_float = ops
+            .dequantize_f32(&result.data, &result.params)
+            .expect("dequantize should succeed");
+        // ReLU: [-1, 0, 1, 2] -> [0, 0, 1, 2]
+        assert!(result_float[0] >= -0.1, "negative value should be zeroed");
+        assert!(result_float[0] <= 0.15, "negative value should be zeroed");
+        assert!(
+            (result_float[3] - 2.0).abs() < 0.2,
+            "positive value should be preserved"
+        );
+    }
+
+    #[test]
+    fn test_qmatmul_shape_mismatch() {
+        let ops = CpuQuantizationOps::new();
+        let device = crate::Device::cpu().expect("cpu device should be available");
+        let mut params = QuantizationParams::int8_symmetric();
+        params
+            .from_statistics(-1.0, 1.0)
+            .expect("params from statistics should succeed");
+        let data_a = ops
+            .quantize_f32(&[1.0, 0.0, 0.0], &params)
+            .expect("quantize should succeed");
+        let data_b = ops
+            .quantize_f32(&[1.0, 0.0, 0.0, 0.0], &params)
+            .expect("quantize should succeed");
+        let a = QuantizedTensor::from_data(data_a, vec![1, 3], params.clone(), device.clone())
+            .expect("tensor should work");
+        let b = QuantizedTensor::from_data(data_b, vec![2, 2], params, device)
+            .expect("tensor should work");
+        assert!(ops.qmatmul(&a, &b).is_err());
+    }
+
+    #[test]
+    fn test_qadd_shape_mismatch() {
+        let ops = CpuQuantizationOps::new();
+        let device = crate::Device::cpu().expect("cpu device should be available");
+        let params = QuantizationParams::default();
+        let a = QuantizedTensor::new(vec![2, 2], params.clone(), device.clone());
+        let b = QuantizedTensor::new(vec![2, 3], params, device);
+        assert!(ops.qadd(&a, &b).is_err());
+    }
+
+    #[test]
+    fn test_qconv2d_basic() {
+        let ops = CpuQuantizationOps::new();
+        let device = crate::Device::cpu().expect("cpu device should be available");
+
+        // 1x1 input, 1x1 kernel (trivial convolution).
+        let mut params = QuantizationParams::int8_symmetric();
+        params
+            .from_statistics(-2.0, 2.0)
+            .expect("params from statistics should succeed");
+
+        // Input [N=1, C=1, H=3, W=3] of all 1s.
+        let input_data = ops
+            .quantize_f32(&vec![1.0f32; 9], &params)
+            .expect("quantize should succeed");
+        // Weight [C_out=1, C_in=1, kH=1, kW=1] = [1.0].
+        let weight_data = ops
+            .quantize_f32(&[1.0f32], &params)
+            .expect("quantize should succeed");
+
+        let input = QuantizedTensor::from_data(
+            input_data,
+            vec![1, 1, 3, 3],
+            params.clone(),
+            device.clone(),
+        )
+        .expect("tensor should work");
+        let weight = QuantizedTensor::from_data(weight_data, vec![1, 1, 1, 1], params, device)
+            .expect("tensor should work");
+
+        let result = ops
+            .qconv2d(&input, &weight, None, (1, 1), (0, 0))
+            .expect("qconv2d should succeed");
+        // 1x1 kernel on 3x3 input with stride 1, no padding => 3x3 output.
+        assert_eq!(result.shape(), &[1, 1, 3, 3]);
+
+        let result_float = ops
+            .dequantize_f32(&result.data, &result.params)
+            .expect("dequantize should succeed");
+        // Each output element = 1 * 1 = 1.
+        for &v in &result_float {
+            assert!((v - 1.0).abs() < 0.2, "expected ≈1.0 but got {v}");
+        }
     }
 
     #[test]

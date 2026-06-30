@@ -8,12 +8,11 @@
 //! Reference: "Lookahead Optimizer: k steps forward, 1 step back"
 //! <https://arxiv.org/abs/1907.08610>
 
-use crate::{Optimizer, OptimizerResult, OptimizerState, ParamGroup, ParamGroupState};
+use crate::{Optimizer, OptimizerError, OptimizerResult, OptimizerState, ParamGroupState};
 use parking_lot::RwLock;
 use std::collections::HashMap;
-use std::ops::Add;
 use std::sync::Arc;
-use torsh_core::error::{Result, TorshError};
+use torsh_core::error::Result;
 use torsh_tensor::Tensor;
 
 /// Lookahead optimizer wrapper
@@ -50,48 +49,49 @@ impl<O: Optimizer> Lookahead<O> {
         Self::new(base_optimizer, 0.5, 5)
     }
 
-    /// Get parameter key for slow weight storage
-    fn get_param_key(param: &Tensor) -> Result<String> {
-        // Bind data to a variable to extend lifetime before taking pointer
-        let data = param.data()?;
-        Ok(format!("param_{:p}", data.as_ptr()))
+    /// Get parameter key for slow weight storage.
+    ///
+    /// Keyed by the `Arc<RwLock<Tensor>>` handle identity, NOT the tensor's data
+    /// buffer pointer. Base optimizers update parameters by *replacing* the inner
+    /// tensor (`*param = param.sub(..)`), which allocates a new data buffer each
+    /// step; a data-pointer key would therefore change between initialization and
+    /// the slow-weight update, silently losing the mapping. The `Arc` handle, by
+    /// contrast, is stable for the lifetime of the parameter.
+    fn get_param_key(param_ref: &Arc<RwLock<Tensor>>) -> String {
+        format!("param_{:p}", Arc::as_ptr(param_ref))
     }
 
     /// Initialize slow weights if not already done
-    fn initialize_slow_weights(&mut self, param_groups: &[ParamGroup]) -> Result<()> {
-        for group in param_groups {
-            for param_ref in &group.params {
-                let param = param_ref.read();
-                let param_key = Self::get_param_key(&param)?;
+    fn initialize_slow_weights(&mut self, params: &[Arc<RwLock<Tensor>>]) -> Result<()> {
+        for param_ref in params {
+            let param_key = Self::get_param_key(param_ref);
 
-                if !self.slow_weights.contains_key(&param_key) {
-                    // Initialize slow weights as a copy of current parameters
-                    self.slow_weights.insert(param_key, param.clone());
-                }
+            if !self.slow_weights.contains_key(&param_key) {
+                // Initialize slow weights as a copy of current parameters
+                let param = param_ref.read();
+                self.slow_weights.insert(param_key, param.clone());
             }
         }
         Ok(())
     }
 
     /// Update slow weights based on fast weight trajectory
-    fn update_slow_weights(&mut self, param_groups: &[ParamGroup]) -> Result<()> {
-        for group in param_groups {
-            for param_ref in &group.params {
+    fn update_slow_weights(&mut self, params: &[Arc<RwLock<Tensor>>]) -> Result<()> {
+        for param_ref in params {
+            let param_key = Self::get_param_key(param_ref);
+
+            if let Some(slow_weight) = self.slow_weights.get_mut(&param_key) {
                 let param = param_ref.read();
-                let param_key = Self::get_param_key(&param)?;
+                // Lookahead update: φ_{t+1} = φ_t + α(θ_{t+k} - φ_t)
+                // where φ is slow weights, θ is fast weights
+                let diff = param.sub(slow_weight)?;
+                let update = diff.mul_scalar(self.alpha)?;
+                *slow_weight = slow_weight.add(&update)?;
 
-                if let Some(slow_weight) = self.slow_weights.get_mut(&param_key) {
-                    // Lookahead update: φ_{t+1} = φ_t + α(θ_{t+k} - φ_t)
-                    // where φ is slow weights, θ is fast weights
-                    let diff = param.sub(slow_weight)?;
-                    let update = diff.mul_scalar(self.alpha)?;
-                    *slow_weight = slow_weight.add(&update)?;
-
-                    // Update fast weights to slow weights
-                    drop(param); // Release read lock
-                    let mut param_mut = param_ref.write();
-                    *param_mut = slow_weight.clone();
-                }
+                // Update fast weights to slow weights
+                drop(param); // Release read lock
+                let mut param_mut = param_ref.write();
+                *param_mut = slow_weight.clone();
             }
         }
         Ok(())
@@ -135,12 +135,28 @@ impl<O: Optimizer> Lookahead<O> {
 
 impl<O: Optimizer> Optimizer for Lookahead<O> {
     fn step(&mut self) -> OptimizerResult<()> {
-        // Get parameter groups from base optimizer
-        let param_groups = self.get_param_groups_from_base();
+        // Get the parameter handles from the base optimizer. These are shared
+        // `Arc<RwLock<Tensor>>` clones pointing at the same tensors the base
+        // optimizer updates, so reading them after `base_optimizer.step()` sees
+        // the freshly-updated fast weights.
+        let params = self.base_optimizer.parameters();
+
+        // Lookahead is meaningless without access to the wrapped optimizer's
+        // parameters: the slow-weight trajectory could never be tracked. An
+        // empty list means the base optimizer does not expose its parameters,
+        // so fail loudly instead of silently degrading into the base optimizer.
+        if params.is_empty() {
+            return Err(OptimizerError::StateError(
+                "Lookahead requires access to the base optimizer's parameters, but \
+                 `Optimizer::parameters()` returned an empty list. The wrapped optimizer \
+                 must implement `parameters()` to expose its parameter tensors."
+                    .to_string(),
+            ));
+        }
 
         // Initialize slow weights if this is the first step
         if self.slow_weights.is_empty() {
-            self.initialize_slow_weights(&param_groups)?;
+            self.initialize_slow_weights(&params)?;
         }
 
         // Perform base optimizer step (fast weights update)
@@ -149,7 +165,7 @@ impl<O: Optimizer> Optimizer for Lookahead<O> {
 
         // Every k steps, update slow weights and reset fast weights
         if self.step_count % self.k == 0 {
-            self.update_slow_weights(&param_groups)?;
+            self.update_slow_weights(&params)?;
         }
 
         Ok(())
@@ -169,6 +185,10 @@ impl<O: Optimizer> Optimizer for Lookahead<O> {
 
     fn add_param_group(&mut self, params: Vec<Arc<RwLock<Tensor>>>, options: HashMap<String, f32>) {
         self.base_optimizer.add_param_group(params, options);
+    }
+
+    fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {
+        self.base_optimizer.parameters()
     }
 
     fn state_dict(&self) -> OptimizerResult<OptimizerState> {
@@ -243,36 +263,6 @@ impl<O: Optimizer> Optimizer for Lookahead<O> {
         self.base_optimizer.load_state_dict(base_state)
     }
 }
-
-// Helper methods for accessing base optimizer parameter groups
-impl<O: Optimizer> Lookahead<O> {
-    /// Extract parameter groups from base optimizer
-    /// This is a workaround since we can't directly access param_groups from the trait
-    fn get_param_groups_from_base(&self) -> Vec<ParamGroup> {
-        // In a real implementation, we'd need a way to access parameter groups
-        // from the base optimizer. For now, we'll return an empty vector
-        // and handle this in the actual step() method by working with the optimizer directly
-        vec![]
-    }
-}
-
-// Specific implementations for common optimizers to enable parameter group access
-#[allow(unused_macros)]
-macro_rules! impl_lookahead_for_optimizer {
-    ($optimizer_type:ty) => {
-        impl Lookahead<$optimizer_type> {
-            fn get_param_groups_from_base(&self) -> Vec<ParamGroup> {
-                // Access the param_groups field directly
-                // This would require making param_groups public or adding a getter method
-                vec![]
-            }
-        }
-    };
-}
-
-// We'd need to implement this for each specific optimizer type
-// impl_lookahead_for_optimizer!(crate::adam::Adam);
-// impl_lookahead_for_optimizer!(crate::sgd::SGD);
 
 /// Convenience function to create Lookahead with Adam
 pub fn lookahead_adam(params: Vec<Arc<RwLock<Tensor>>>, lr: f32) -> Lookahead<crate::adam::Adam> {
@@ -436,6 +426,55 @@ mod tests {
         let _radam_lookahead = lookahead_radam(vec![param.clone()], 0.001);
 
         // Just test that they compile and create successfully
+    }
+
+    #[test]
+    fn test_lookahead_exposes_base_parameters() {
+        let param = Arc::new(RwLock::new(ones(&[2, 3]).unwrap()));
+        let adam = Adam::new(vec![param.clone()], Some(0.001), None, None, None, false);
+        let optimizer = Lookahead::new(adam, 0.5, 5);
+
+        // Lookahead must surface the base optimizer's parameters so the slow-weight
+        // update can run; an empty list would mean the optimizer silently no-ops.
+        let params = optimizer.parameters();
+        assert_eq!(params.len(), 1);
+        assert!(Arc::ptr_eq(&params[0], &param));
+    }
+
+    #[test]
+    fn test_lookahead_updates_slow_weights() {
+        use crate::sgd::SGD;
+
+        // With k = 1 the slow-weight blend runs after every inner step. Using SGD as
+        // the base optimizer makes the fast-weight step deterministic, so we can
+        // assert the exact Lookahead update φ_new = φ_old + α(θ_fast - φ_old).
+        //
+        // SGD (lr = 0.1) on param = 1.0 with grad = 1.0 gives the fast weight
+        //   θ_fast = 1.0 - 0.1 * 1.0 = 0.9
+        // and the slow-weight blend with α = 0.5, φ_old = 1.0 gives
+        //   φ_new = 1.0 + 0.5 * (0.9 - 1.0) = 0.95
+        // which is written back onto the live parameter. This is only possible if
+        // Lookahead can reach the base optimizer's parameters via `parameters()`.
+        let param = Arc::new(RwLock::new(ones(&[2, 2]).unwrap()));
+
+        {
+            let mut p = param.write();
+            let grad = ones(&[2, 2]).unwrap();
+            p.set_grad(Some(grad));
+        }
+
+        let sgd = SGD::new(vec![param.clone()], 0.1, None, None, None, false);
+        let mut optimizer = Lookahead::new(sgd, 0.5, 1);
+
+        optimizer.step().unwrap();
+
+        let result = param.read().to_vec().unwrap();
+        for v in &result {
+            assert!(
+                (v - 0.95).abs() < 1e-5,
+                "expected blended slow weight 0.95, got {v}"
+            );
+        }
     }
 
     #[test]

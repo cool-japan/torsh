@@ -504,14 +504,17 @@ pub mod integration {
             self.apply_pooling_with_mask(&hidden_states, &mask_tensor)
         }
 
-        fn forward_model(&self, input: &Tensor) -> Result<Tensor> {
-            // This is a placeholder - in real implementation would call the actual model
-            // For now, just return dummy hidden states
-            let batch_size = input.size(0)?;
-            let seq_len = input.size(1)?;
-            let hidden_dim = self.model.hidden_dim();
-
-            Tensor::zeros(&[batch_size, seq_len, hidden_dim], DeviceType::Cpu)
+        fn forward_model(&self, _input: &Tensor) -> Result<Tensor> {
+            // TextModel trait has no forward() method — model execution requires a
+            // concrete implementation (e.g., a Module-backed encoder). Returning zeros
+            // here would silently corrupt all downstream pooling and similarity
+            // computations, so we return an honest error instead.
+            Err(crate::TextError::ModelError(
+                "forward_model: TextModel trait does not expose a forward() method. \
+                 Wrap the model in a Module-backed encoder to call model.forward(input)."
+                    .to_string(),
+            )
+            .into())
         }
 
         fn apply_pooling(&self, hidden_states: &Tensor) -> Result<Tensor> {
@@ -1065,24 +1068,29 @@ pub mod integration {
         }
 
         /// Evaluate model performance
-        pub fn evaluate(&self, test_data: &[(String, String)]) -> Result<f32> {
-            let mut correct = 0;
-            let total = test_data.len();
-
-            for (input_text, _expected_output) in test_data {
-                // Simplified evaluation
-                let _predicted = self.predict(input_text)?;
-                // Compare with expected_output
-                correct += 1; // Placeholder
-            }
-
-            Ok(correct as f32 / total as f32)
+        pub fn evaluate(&self, _test_data: &[(String, String)]) -> Result<f32> {
+            // Evaluation requires a working predict() (forward pass + vocabulary decoding).
+            // Returning a fabricated accuracy (correct += 1 unconditionally) is more
+            // dangerous than an error, so we propagate the honest not-implemented state.
+            Err(crate::TextError::ModelError(
+                "evaluate: text prediction pipeline not yet wired — \
+                 forward pass (logits) and vocabulary decoding required"
+                    .to_string(),
+            )
+            .into())
         }
 
-        fn predict(&self, input_text: &str) -> Result<String> {
-            // Placeholder prediction
-            let _tokens = self.tokenizer.encode(input_text)?;
-            Ok("placeholder_prediction".to_string())
+        fn predict(&self, _input_text: &str) -> Result<String> {
+            // A real prediction pipeline requires: forward pass to produce logits
+            // → argmax over vocabulary → token-id-to-string lookup via tokenizer.
+            // TextModel has no forward() method, so this cannot be implemented here.
+            // Return an honest error rather than a fabricated placeholder string.
+            Err(crate::TextError::ModelError(
+                "predict: text prediction pipeline not yet wired — \
+                 forward pass (logits) and vocabulary decoding required"
+                    .to_string(),
+            )
+            .into())
         }
     }
 
@@ -1473,5 +1481,130 @@ pub mod integration {
         pub max_difference: f32,
         pub pattern1_info: String,
         pub pattern2_info: String,
+    }
+}
+
+#[cfg(test)]
+mod integration_honesty_tests {
+    use super::integration::{PoolingStrategy, UniversalTextEncoder};
+    use super::TextModel;
+    use crate::tokenization::WhitespaceTokenizer;
+    use std::sync::Arc;
+    use torsh_core::device::DeviceType;
+    use torsh_tensor::Tensor;
+
+    // -----------------------------------------------------------------------
+    // Minimal stub model — only satisfies TextModel, has no forward() path
+    // -----------------------------------------------------------------------
+    struct StubModel {
+        hidden: usize,
+        vocab: usize,
+    }
+
+    impl TextModel for StubModel {
+        fn name(&self) -> &str {
+            "stub"
+        }
+        fn vocab_size(&self) -> usize {
+            self.vocab
+        }
+        fn hidden_dim(&self) -> usize {
+            self.hidden
+        }
+        fn max_seq_length(&self) -> usize {
+            128
+        }
+    }
+
+    fn make_encoder() -> UniversalTextEncoder {
+        let model = Box::new(StubModel {
+            hidden: 64,
+            vocab: 256,
+        });
+        let tokenizer = Arc::new(WhitespaceTokenizer::new());
+        UniversalTextEncoder::new(model, tokenizer, DeviceType::Cpu)
+    }
+
+    // -----------------------------------------------------------------------
+    // forward_model must return Err, not zeros
+    // -----------------------------------------------------------------------
+    #[test]
+    fn forward_model_returns_error_not_zeros() {
+        let encoder = make_encoder();
+        // Construct a small [1, 4] input tensor
+        let input = Tensor::from_vec(vec![1.0_f32, 2.0, 3.0, 4.0], &[1, 4]).expect("input tensor");
+        let result = encoder.encode_text(&["hello world test input".to_string()]);
+        // encode_text internally calls forward_model; it must propagate the error
+        assert!(
+            result.is_err(),
+            "encode_text should propagate forward_model error, got Ok"
+        );
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("forward_model") || err_msg.contains("forward()"),
+            "error message should mention forward_model, got: {err_msg}"
+        );
+        // Ensure we do NOT accidentally get a zero tensor (the old fabrication)
+        drop(input);
+    }
+
+    // -----------------------------------------------------------------------
+    // batch_encode uses forward_model; must also return Err
+    // -----------------------------------------------------------------------
+    #[test]
+    fn batch_encode_returns_error_not_zeros() {
+        let encoder = make_encoder().with_pooling(PoolingStrategy::Mean);
+        let texts = vec!["foo".to_string(), "bar baz".to_string()];
+        let result = encoder.batch_encode(&texts, Some(8));
+        assert!(
+            result.is_err(),
+            "batch_encode should propagate forward_model error"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // TextModelTrainer::predict must return Err, not "placeholder_prediction"
+    // -----------------------------------------------------------------------
+    #[test]
+    fn trainer_predict_returns_error_not_placeholder_string() {
+        use super::integration::TextModelTrainer;
+        let model = Box::new(StubModel {
+            hidden: 64,
+            vocab: 256,
+        });
+        let tokenizer = Arc::new(WhitespaceTokenizer::new());
+        let trainer = TextModelTrainer::new(model, tokenizer, DeviceType::Cpu);
+
+        // evaluate() calls predict() internally; check it errors
+        let result = trainer.evaluate(&[("hello".to_string(), "world".to_string())]);
+        assert!(
+            result.is_err(),
+            "evaluate (which calls predict) should return Err, not a fabricated accuracy"
+        );
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            !err_msg.contains("placeholder_prediction"),
+            "error must not contain the old fabricated string: {err_msg}"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // Verify TextError::ModelError variant is used (not a panic or zero-value)
+    // -----------------------------------------------------------------------
+    #[test]
+    fn forward_model_error_is_model_error_variant() {
+        let encoder = make_encoder();
+        let result = encoder.encode_text(&["test".to_string()]);
+        match result {
+            Err(torsh_core::TorshError::Other(msg)) => {
+                // TextError converts to TorshError::Other — accepted
+                assert!(!msg.is_empty(), "error message must be non-empty");
+            }
+            Err(other) => {
+                // Any real error is acceptable (not zeros / not panic)
+                let _ = other;
+            }
+            Ok(_) => panic!("forward_model returned Ok — fabricated zero tensor still active"),
+        }
     }
 }

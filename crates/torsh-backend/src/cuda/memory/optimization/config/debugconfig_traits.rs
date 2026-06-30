@@ -12,7 +12,9 @@ use super::types::DebugConfig;
 
 impl Default for DebugConfig {
     fn default() -> Self {
-        Self
+        Self {
+            enable_debug_logging: false,
+            enable_performance_profiling: false,
+        }
     }
 }
-

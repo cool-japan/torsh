@@ -906,17 +906,21 @@ impl<M: Module> DistributedDataParallel<M> {
             .collect()
     }
 
-    /// Perform a gradient consistency check across all processes
-    /// This is useful for debugging distributed training issues
+    /// Perform a gradient consistency check across all processes.
+    ///
+    /// This is useful for debugging distributed training issues. A real
+    /// implementation would compute per-parameter checksums on each rank,
+    /// gather them via `all_gather`, and compare across ranks.
+    ///
+    /// # Current status
+    ///
+    /// Not yet implemented. Returns `false` (sync check not run) rather than
+    /// fabricating a `true` result. Callers should treat `false` as "unknown"
+    /// rather than evidence of gradient divergence.
     pub async fn check_gradient_consistency(&self) -> TorshResult<bool> {
-        // In a complete implementation, this would:
-        // 1. Compute checksums of gradients on each process
-        // 2. Use all_gather to collect checksums from all processes
-        // 3. Compare checksums to detect inconsistencies
-        // 4. Report which parameters have mismatched gradients
-
-        // For now, just return true as a placeholder
-        Ok(true)
+        // Returning false is the honest answer: we cannot confirm consistency
+        // without actually communicating across ranks.
+        Ok(false)
     }
 }
 

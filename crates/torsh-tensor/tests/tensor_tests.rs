@@ -271,3 +271,36 @@ fn test_multinomial() {
     assert!(Tensor::multinomial(&zero_weights, 1, true).is_err());
 }
 */
+
+#[test]
+fn test_is_contiguous_fresh_tensor() {
+    let t = torsh_tensor::creation::zeros::<f32>(&[2, 3, 4]).unwrap();
+    assert!(t.is_contiguous(), "fresh tensor must be contiguous");
+}
+
+#[test]
+fn test_is_contiguous_transposed_view() {
+    let t = torsh_tensor::creation::zeros::<f32>(&[3, 4]).unwrap();
+    let tv = t.transpose_view(0, 1).unwrap();
+    assert!(
+        !tv.is_contiguous(),
+        "transposed view of non-square tensor must be non-contiguous"
+    );
+}
+
+#[test]
+fn test_get_item_flat_slice_view() {
+    use torsh_tensor::prelude::DeviceType;
+    // Build [3,4] tensor with values 0..12
+    let data: Vec<f32> = (0..12).map(|x| x as f32).collect();
+    let t = torsh_tensor::Tensor::from_data(data, vec![3, 4], DeviceType::Cpu).unwrap();
+    // slice_tensor(dim=0, start=1, end=3) → view of rows 1..3
+    let view = t.slice_tensor(0, 1, 3).unwrap();
+    assert_eq!(view.shape().dims(), &[2, 4]);
+    // flat index 0 in the view should be element 4 (first element of row 1)
+    let val = view.get_item_flat(0).unwrap();
+    assert_eq!(
+        val, 4.0f32,
+        "get_item_flat(0) on narrow view must return 4.0"
+    );
+}

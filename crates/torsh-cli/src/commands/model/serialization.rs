@@ -393,40 +393,181 @@ fn parse_device(s: &str) -> Result<Device> {
     anyhow::bail!("Unknown device: {}", s)
 }
 
-/// Export model to SafeTensors format
+/// Export model to SafeTensors format.
+///
+/// The SafeTensors binary format layout is:
+/// ```text
+/// [8 bytes: little-endian u64 header_len]
+/// [header_len bytes: UTF-8 JSON header]
+/// [tensor data blocks, contiguous, in the order listed in the header]
+/// ```
+///
+/// The JSON header is a map from tensor name → `{dtype, shape, data_offsets: [begin, end]}`.
+/// A special key `"__metadata__"` carries arbitrary string key–value pairs.
+///
+/// Tensor data is generated via `serialize_tensor_data` so it matches the same
+/// random-initialised format used by `save_model`.
 pub async fn export_safetensors(model: &TorshModel, path: &Path) -> Result<()> {
     info!("Exporting model to SafeTensors format: {}", path.display());
 
-    // Create SafeTensors metadata
-    let mut metadata = HashMap::new();
-    metadata.insert("format".to_string(), "torsh".to_string());
-    metadata.insert("version".to_string(), model.metadata.version.clone());
+    // ── 1. Materialise all tensor data blocks and track byte offsets ──────────
+    //
+    // We need the header JSON before we can write anything, but the header
+    // contains the data offsets, so we must compute the serialised blobs first.
 
-    // Serialize tensors (simplified)
-    let mut tensor_data = Vec::new();
-    for (name, tensor_info) in &model.weights {
-        let elements: usize = tensor_info.shape.iter().product();
-        let data_size = elements * tensor_info.dtype.size_bytes();
-
-        // Add tensor header
-        tensor_data.extend_from_slice(name.as_bytes());
-        tensor_data.push(b'\n');
-
-        // Add tensor shape
-        let shape_json = serde_json::to_string(&tensor_info.shape)?;
-        tensor_data.extend_from_slice(shape_json.as_bytes());
-        tensor_data.push(b'\n');
-
-        // Add tensor data (dummy)
-        let dummy_data = vec![0u8; data_size];
-        tensor_data.extend_from_slice(&dummy_data);
+    struct TensorBlob {
+        name: String,
+        dtype_str: &'static str,
+        shape: Vec<usize>,
+        data: Vec<u8>,
     }
 
-    tokio::fs::write(path, tensor_data)
-        .await
-        .with_context(|| format!("Failed to write SafeTensors file: {}", path.display()))?;
+    let mut blobs: Vec<TensorBlob> = Vec::with_capacity(model.weights.len());
 
-    info!("Successfully exported to SafeTensors format");
+    // Process tensors in deterministic order so round-trip is reproducible.
+    let mut sorted_names: Vec<&String> = model.weights.keys().collect();
+    sorted_names.sort();
+
+    for name in sorted_names {
+        let tensor_info = &model.weights[name];
+        let data = serialize_tensor_data(tensor_info)
+            .with_context(|| format!("Failed to serialise tensor '{}'", name))?;
+
+        blobs.push(TensorBlob {
+            name: name.clone(),
+            dtype_str: tensor_info.dtype.name(),
+            shape: tensor_info.shape.clone(),
+            data,
+        });
+    }
+
+    // ── 2. Compute data-section offsets ───────────────────────────────────────
+
+    let mut current_offset: u64 = 0;
+
+    // Temporary vec of (name, dtype, shape, begin, end) for header construction.
+    struct TensorEntry<'a> {
+        blob: &'a TensorBlob,
+        begin: u64,
+        end: u64,
+    }
+
+    let mut entries: Vec<TensorEntry<'_>> = Vec::with_capacity(blobs.len());
+    for blob in &blobs {
+        let begin = current_offset;
+        let end = current_offset + blob.data.len() as u64;
+        current_offset = end;
+        entries.push(TensorEntry { blob, begin, end });
+    }
+
+    // ── 3. Build the JSON header ───────────────────────────────────────────────
+    //
+    // Format per tensor:
+    //   "name": {"dtype": "F32", "shape": [d0,d1,...], "data_offsets": [begin, end]}
+    //
+    // The dtype strings in the SafeTensors spec use upper-case shorthand:
+    //   f32 → "F32", f64 → "F64", f16 → "F16", bf16 → "BF16",
+    //   i8  → "I8",  i16 → "I16", i32 → "I32", i64 → "I64",
+    //   u8  → "U8",  bool → "BOOL"
+
+    let safetensors_dtype = |dtype_name: &str| -> String {
+        match dtype_name {
+            "f32" => "F32".to_string(),
+            "f64" => "F64".to_string(),
+            "f16" => "F16".to_string(),
+            "bf16" => "BF16".to_string(),
+            "i8" => "I8".to_string(),
+            "i16" => "I16".to_string(),
+            "i32" => "I32".to_string(),
+            "i64" => "I64".to_string(),
+            "u8" => "U8".to_string(),
+            "bool" => "BOOL".to_string(),
+            other => other.to_string(), // pass through unknown dtypes unchanged
+        }
+    };
+
+    let mut header_map = serde_json::Map::new();
+
+    // __metadata__ block
+    let mut meta_obj = serde_json::Map::new();
+    meta_obj.insert("format".to_string(), serde_json::json!("torsh"));
+    meta_obj.insert(
+        "version".to_string(),
+        serde_json::json!(model.metadata.version),
+    );
+    meta_obj.insert(
+        "framework".to_string(),
+        serde_json::json!(model.metadata.framework),
+    );
+    header_map.insert(
+        "__metadata__".to_string(),
+        serde_json::Value::Object(meta_obj),
+    );
+
+    for entry in &entries {
+        let tensor_obj = serde_json::json!({
+            "dtype":        safetensors_dtype(entry.blob.dtype_str),
+            "shape":        entry.blob.shape,
+            "data_offsets": [entry.begin, entry.end],
+        });
+        header_map.insert(entry.blob.name.clone(), tensor_obj);
+    }
+
+    let header_json = serde_json::to_string(&serde_json::Value::Object(header_map))
+        .context("Failed to serialise SafeTensors header JSON")?;
+
+    let header_bytes = header_json.as_bytes();
+    let header_len = header_bytes.len() as u64;
+
+    debug!(
+        "SafeTensors header: {} bytes, {} tensors",
+        header_len,
+        blobs.len()
+    );
+
+    // ── 4. Assemble the complete file ─────────────────────────────────────────
+
+    let data_section_bytes: usize = blobs.iter().map(|b| b.data.len()).sum();
+    let total_size = 8 + header_bytes.len() + data_section_bytes;
+    let mut file_content = Vec::with_capacity(total_size);
+
+    // 8-byte little-endian header length prefix
+    file_content.extend_from_slice(&header_len.to_le_bytes());
+
+    // JSON header
+    file_content.extend_from_slice(header_bytes);
+
+    // Raw tensor data blocks (in the same order as the header entries)
+    for blob in &blobs {
+        file_content.extend_from_slice(&blob.data);
+    }
+
+    // ── 5. Write atomically ───────────────────────────────────────────────────
+
+    let temp_path = path.with_extension("safetensors.tmp");
+    tokio::fs::write(&temp_path, &file_content)
+        .await
+        .with_context(|| {
+            format!(
+                "Failed to write temporary SafeTensors file: {}",
+                temp_path.display()
+            )
+        })?;
+
+    tokio::fs::rename(&temp_path, path).await.with_context(|| {
+        format!(
+            "Failed to move SafeTensors file to final location: {}",
+            path.display()
+        )
+    })?;
+
+    let size_mb = file_content.len() as f64 / (1024.0 * 1024.0);
+    info!(
+        "Successfully exported {} tensors to SafeTensors format ({:.2} MB)",
+        blobs.len(),
+        size_mb
+    );
+
     Ok(())
 }
 

@@ -239,12 +239,23 @@ impl<D: Dataset<Item = torsh_tensor::Tensor>> PrivateDataset<D> {
         scale: f64,
     ) -> Result<torsh_tensor::Tensor> {
         let shape: Vec<usize> = tensor.shape().dims().to_vec();
-        let _noise = self
+        let noise = self
             .noise_generator
             .generate_laplace_tensor(&shape, scale)?;
-        // For now, return the tensor as-is since addition isn't implemented
-        // In a real implementation, you'd add the noise
-        Ok(tensor)
+        let tensor_data = tensor.to_vec().map_err(|e| {
+            DataError::tensor_creation_failed(format!("Failed to get tensor data: {}", e))
+        })?;
+        let noise_data = noise.to_vec().map_err(|e| {
+            DataError::tensor_creation_failed(format!("Failed to get noise data: {}", e))
+        })?;
+        let noisy_data: Vec<f32> = tensor_data
+            .iter()
+            .zip(noise_data.iter())
+            .map(|(t, n)| t + n)
+            .collect();
+        torsh_tensor::Tensor::from_data(noisy_data, shape, torsh_core::DeviceType::Cpu).map_err(
+            |e| DataError::tensor_creation_failed(format!("Failed to create noisy tensor: {}", e)),
+        )
     }
 
     /// Add Gaussian noise to tensor
@@ -254,12 +265,23 @@ impl<D: Dataset<Item = torsh_tensor::Tensor>> PrivateDataset<D> {
         sigma: f64,
     ) -> Result<torsh_tensor::Tensor> {
         let shape: Vec<usize> = tensor.shape().dims().to_vec();
-        let _noise = self
+        let noise = self
             .noise_generator
             .generate_gaussian_tensor(&shape, 0.0, sigma)?;
-        // For now, return the tensor as-is since addition isn't implemented
-        // In a real implementation, you'd add the noise
-        Ok(tensor)
+        let tensor_data = tensor.to_vec().map_err(|e| {
+            DataError::tensor_creation_failed(format!("Failed to get tensor data: {}", e))
+        })?;
+        let noise_data = noise.to_vec().map_err(|e| {
+            DataError::tensor_creation_failed(format!("Failed to get noise data: {}", e))
+        })?;
+        let noisy_data: Vec<f32> = tensor_data
+            .iter()
+            .zip(noise_data.iter())
+            .map(|(t, n)| t + n)
+            .collect();
+        torsh_tensor::Tensor::from_data(noisy_data, shape, torsh_core::DeviceType::Cpu).map_err(
+            |e| DataError::tensor_creation_failed(format!("Failed to create noisy tensor: {}", e)),
+        )
     }
 
     /// Get privacy budget status
@@ -828,5 +850,37 @@ mod tests {
         let (eps, delta) = basic_composition_cost(10, 0.1, 0.0);
         assert!((eps - 1.0).abs() < 1e-10);
         assert!((delta - 0.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_laplace_noise_actually_added() {
+        let mut laplace_gen = LaplaceNoise::with_seed(99);
+        let result = laplace_gen.generate_laplace_tensor(&[3, 3], 1.0).unwrap();
+        let result_data = result.to_vec().unwrap();
+        // The noise tensor should not be all zeros (Laplace with scale=1 is never identically zero)
+        assert!(
+            result_data.iter().any(|&x| (x).abs() > 1e-6),
+            "Noise tensor must contain non-zero values"
+        );
+    }
+
+    #[test]
+    fn test_differential_privacy_changes_tensor() {
+        let data = ones::<f32>(&[5, 5]).unwrap();
+        let dataset = SingleTensorDataset::new(TensorDataset::from_tensor(data));
+        let mut private_dataset = PrivacyBuilder::new(1.0)
+            .delta(1e-5)
+            .mechanism(DPMechanism::Laplace {
+                sensitivity: 1.0,
+                epsilon: 1.0,
+            })
+            .build_dataset(dataset);
+        let result = private_dataset.private_get(0).unwrap().unwrap();
+        let result_data = result.to_vec().unwrap();
+        // With Laplace noise added to all-ones tensor, at least some values must differ from 1.0
+        assert!(
+            result_data.iter().any(|&x| (x - 1.0f32).abs() > 1e-6),
+            "DP-protected tensor must differ from original (noise must be applied, not discarded)"
+        );
     }
 }

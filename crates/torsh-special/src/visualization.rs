@@ -530,11 +530,14 @@ mod tests {
         assert!(results.contains_key("erf_standard"));
         assert!(results.contains_key("erf_fast"));
 
-        // Verify all benchmarks returned positive timing values
-        assert!(results["gamma_standard"] > 0.0);
-        assert!(results["gamma_fast"] > 0.0);
-        assert!(results["erf_standard"] > 0.0);
-        assert!(results["erf_fast"] > 0.0);
+        // Verify all benchmarks returned valid, non-negative timing values.
+        // A micro-benchmark of very fast functions can round to exactly 0.0 on
+        // coarse-resolution (virtualized) monotonic clocks, so assert finiteness
+        // and non-negativity rather than strict positivity.
+        assert!(results["gamma_standard"].is_finite() && results["gamma_standard"] >= 0.0);
+        assert!(results["gamma_fast"].is_finite() && results["gamma_fast"] >= 0.0);
+        assert!(results["erf_standard"].is_finite() && results["erf_standard"] >= 0.0);
+        assert!(results["erf_fast"].is_finite() && results["erf_fast"] >= 0.0);
 
         // Fast functions should generally be faster, but allow large tolerance for system variability
         // Allow up to 10x slowdown to account for system load, cold cache, etc.

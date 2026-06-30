@@ -4,12 +4,10 @@
 //! predictive memory pooling, intelligent prefetching, memory bandwidth optimization,
 //! dynamic allocation strategies, and memory pattern analysis for maximum CUDA performance.
 
-use std::collections::{HashMap, VecDeque, BTreeMap, BTreeSet};
-use std::sync::{Arc, Mutex, RwLock, atomic::{AtomicU64, AtomicBool, AtomicUsize, Ordering}};
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, VecDeque};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime};
-use serde::{Serialize, Deserialize};
-use scirs2_core::random::{Random, rng};
-use scirs2_core::ndarray::{Array1, Array2, ArrayView1, array};
 
 /// Advanced memory optimization engine with ML-based predictions
 #[derive(Debug)]
@@ -49,7 +47,7 @@ pub struct AdvancedMemoryOptimizer {
 }
 
 /// Predictive memory pool with ML-based allocation predictions
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct PredictiveMemoryPool {
     /// Memory pools by size category
     size_pools: HashMap<MemorySizeCategory, MemoryPool>,
@@ -74,7 +72,7 @@ pub struct PredictiveMemoryPool {
 }
 
 /// Intelligent prefetching engine for memory access optimization
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct IntelligentPrefetchEngine {
     /// Access pattern tracker
     access_tracker: AccessPatternTracker,
@@ -99,7 +97,7 @@ pub struct IntelligentPrefetchEngine {
 }
 
 /// Memory bandwidth optimization system
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct MemoryBandwidthOptimizer {
     /// Memory access coalescing optimizer
     coalescing_optimizer: MemoryCoalescingOptimizer,
@@ -121,7 +119,7 @@ pub struct MemoryBandwidthOptimizer {
 }
 
 /// Memory pattern analysis system with ML insights
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct MemoryPatternAnalyzer {
     /// Temporal pattern detector
     temporal_detector: TemporalPatternDetector,
@@ -165,7 +163,7 @@ pub struct DynamicAllocationStrategy {
 }
 
 /// Memory compaction and defragmentation engine
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct MemoryCompactionEngine {
     /// Fragmentation analyzer
     fragmentation_analyzer: FragmentationAnalyzer,
@@ -184,7 +182,7 @@ pub struct MemoryCompactionEngine {
 }
 
 /// Cache hierarchy optimization system
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct CacheHierarchyOptimizer {
     /// L1 cache optimizer
     l1_optimizer: L1CacheOptimizer,
@@ -203,7 +201,7 @@ pub struct CacheHierarchyOptimizer {
 }
 
 /// Memory pressure monitoring and adaptive response
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct MemoryPressureMonitor {
     /// Memory utilization tracker
     utilization_tracker: MemoryUtilizationTracker,
@@ -225,11 +223,11 @@ pub struct MemoryPressureMonitor {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum MemorySizeCategory {
-    Small,      // < 1KB
-    Medium,     // 1KB - 1MB
-    Large,      // 1MB - 100MB
-    Huge,       // > 100MB
-    Variable,   // Dynamic sizing
+    Small,    // < 1KB
+    Medium,   // 1KB - 1MB
+    Large,    // 1MB - 100MB
+    Huge,     // > 100MB
+    Variable, // Dynamic sizing
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -322,25 +320,37 @@ impl AdvancedMemoryOptimizer {
     pub fn initialize(&self) -> Result<(), MemoryOptimizationError> {
         // Initialize predictive memory pools
         {
-            let mut pool = self.predictive_pool.lock().expect("lock should not be poisoned");
+            let mut pool = self
+                .predictive_pool
+                .lock()
+                .expect("lock should not be poisoned");
             pool.initialize_pools()?;
         }
 
         // Start memory pattern analysis
         {
-            let mut analyzer = self.pattern_analyzer.lock().expect("lock should not be poisoned");
+            let mut analyzer = self
+                .pattern_analyzer
+                .lock()
+                .expect("lock should not be poisoned");
             analyzer.start_analysis()?;
         }
 
         // Initialize bandwidth optimization
         {
-            let mut optimizer = self.bandwidth_optimizer.lock().expect("lock should not be poisoned");
+            let mut optimizer = self
+                .bandwidth_optimizer
+                .lock()
+                .expect("lock should not be poisoned");
             optimizer.initialize_optimization()?;
         }
 
         // Start pressure monitoring
         {
-            let mut monitor = self.pressure_monitor.lock().expect("lock should not be poisoned");
+            let mut monitor = self
+                .pressure_monitor
+                .lock()
+                .expect("lock should not be poisoned");
             monitor.start_monitoring()?;
         }
 
@@ -348,18 +358,29 @@ impl AdvancedMemoryOptimizer {
     }
 
     /// Optimize memory allocation with predictive pooling
-    pub fn optimized_allocate(&self, size: usize, alignment: usize, lifetime_hint: Option<Duration>) -> Result<*mut u8, MemoryOptimizationError> {
+    pub fn optimized_allocate(
+        &self,
+        size: usize,
+        alignment: usize,
+        lifetime_hint: Option<Duration>,
+    ) -> Result<*mut u8, MemoryOptimizationError> {
         let start_time = Instant::now();
 
         // Get allocation strategy recommendation
         let strategy = {
-            let strategy_mgr = self.allocation_strategy.lock().expect("lock should not be poisoned");
+            let strategy_mgr = self
+                .allocation_strategy
+                .lock()
+                .expect("lock should not be poisoned");
             strategy_mgr.get_optimal_strategy(size, alignment)?
         };
 
         // Perform predictive allocation
         let ptr = {
-            let mut pool = self.predictive_pool.lock().expect("lock should not be poisoned");
+            let mut pool = self
+                .predictive_pool
+                .lock()
+                .expect("lock should not be poisoned");
             pool.allocate_with_prediction(size, alignment, lifetime_hint, strategy)?
         };
 
@@ -377,18 +398,28 @@ impl AdvancedMemoryOptimizer {
     }
 
     /// Optimize memory deallocation
-    pub fn optimized_deallocate(&self, ptr: *mut u8, size: usize) -> Result<(), MemoryOptimizationError> {
+    pub fn optimized_deallocate(
+        &self,
+        ptr: *mut u8,
+        size: usize,
+    ) -> Result<(), MemoryOptimizationError> {
         let start_time = Instant::now();
 
         // Perform intelligent deallocation
         {
-            let mut pool = self.predictive_pool.lock().expect("lock should not be poisoned");
+            let mut pool = self
+                .predictive_pool
+                .lock()
+                .expect("lock should not be poisoned");
             pool.deallocate_with_optimization(ptr, size)?;
         }
 
         // Update memory patterns
         {
-            let mut analyzer = self.pattern_analyzer.lock().expect("lock should not be poisoned");
+            let mut analyzer = self
+                .pattern_analyzer
+                .lock()
+                .expect("lock should not be poisoned");
             analyzer.record_deallocation(ptr, size, start_time.elapsed())?;
         }
 
@@ -396,42 +427,62 @@ impl AdvancedMemoryOptimizer {
     }
 
     /// Perform comprehensive memory optimization
-    pub fn perform_comprehensive_optimization(&self) -> Result<MemoryOptimizationReport, MemoryOptimizationError> {
+    pub fn perform_comprehensive_optimization(
+        &self,
+    ) -> Result<MemoryOptimizationReport, MemoryOptimizationError> {
         let optimization_start = Instant::now();
 
         // 1. Analyze current memory patterns
         let patterns = {
-            let mut analyzer = self.pattern_analyzer.lock().expect("lock should not be poisoned");
+            let mut analyzer = self
+                .pattern_analyzer
+                .lock()
+                .expect("lock should not be poisoned");
             analyzer.analyze_current_patterns()?
         };
 
         // 2. Optimize bandwidth utilization
         let bandwidth_improvements = {
-            let mut optimizer = self.bandwidth_optimizer.lock().expect("lock should not be poisoned");
+            let mut optimizer = self
+                .bandwidth_optimizer
+                .lock()
+                .expect("lock should not be poisoned");
             optimizer.optimize_bandwidth_utilization(&patterns)?
         };
 
         // 3. Perform intelligent prefetching optimization
         let prefetch_optimizations = {
-            let mut prefetch_engine = self.prefetch_engine.lock().expect("lock should not be poisoned");
+            let mut prefetch_engine = self
+                .prefetch_engine
+                .lock()
+                .expect("lock should not be poisoned");
             prefetch_engine.optimize_prefetch_strategies(&patterns)?
         };
 
         // 4. Optimize cache hierarchy
         let cache_optimizations = {
-            let mut cache_optimizer = self.cache_optimizer.lock().expect("lock should not be poisoned");
+            let mut cache_optimizer = self
+                .cache_optimizer
+                .lock()
+                .expect("lock should not be poisoned");
             cache_optimizer.optimize_cache_utilization(&patterns)?
         };
 
         // 5. Perform memory compaction if needed
         let compaction_results = {
-            let mut compaction_engine = self.compaction_engine.lock().expect("lock should not be poisoned");
+            let mut compaction_engine = self
+                .compaction_engine
+                .lock()
+                .expect("lock should not be poisoned");
             compaction_engine.perform_intelligent_compaction()?
         };
 
         // 6. Update allocation strategies
         let strategy_optimizations = {
-            let mut strategy = self.allocation_strategy.lock().expect("lock should not be poisoned");
+            let mut strategy = self
+                .allocation_strategy
+                .lock()
+                .expect("lock should not be poisoned");
             strategy.optimize_strategies(&patterns)?
         };
 
@@ -455,7 +506,10 @@ impl AdvancedMemoryOptimizer {
 
         // Update performance history
         {
-            let mut history = self.performance_history.lock().expect("lock should not be poisoned");
+            let mut history = self
+                .performance_history
+                .lock()
+                .expect("lock should not be poisoned");
             let record = MemoryPerformanceRecord {
                 timestamp: SystemTime::now(),
                 allocation_time: Duration::from_nanos(100), // Placeholder
@@ -479,9 +533,16 @@ impl AdvancedMemoryOptimizer {
 
     /// Get real-time memory optimization status
     pub fn get_optimization_status(&self) -> MemoryOptimizationStatus {
-        let stats = self.statistics.lock().expect("lock should not be poisoned").clone();
+        let stats = self
+            .statistics
+            .lock()
+            .expect("lock should not be poisoned")
+            .clone();
         let pressure_status = {
-            let monitor = self.pressure_monitor.lock().expect("lock should not be poisoned");
+            let monitor = self
+                .pressure_monitor
+                .lock()
+                .expect("lock should not be poisoned");
             monitor.get_current_pressure_status()
         };
 
@@ -494,7 +555,10 @@ impl AdvancedMemoryOptimizer {
             prefetch_accuracy: stats.prefetch_accuracy,
             fragmentation_ratio: 0.15, // Would be calculated from compaction engine
             pressure_level: pressure_status,
-            active_optimizations: vec!["Predictive Pooling".to_string(), "Intelligent Prefetch".to_string()],
+            active_optimizations: vec![
+                "Predictive Pooling".to_string(),
+                "Intelligent Prefetch".to_string(),
+            ],
         }
     }
 
@@ -509,7 +573,9 @@ impl AdvancedMemoryOptimizer {
         Ok(1024 * 1024 * 128) // Placeholder: 128MB saved
     }
 
-    fn generate_optimization_recommendations(&self) -> Result<Vec<MemoryOptimizationRecommendation>, MemoryOptimizationError> {
+    fn generate_optimization_recommendations(
+        &self,
+    ) -> Result<Vec<MemoryOptimizationRecommendation>, MemoryOptimizationError> {
         Ok(vec![
             MemoryOptimizationRecommendation {
                 category: OptimizationCategory::MemoryPooling,
@@ -688,7 +754,7 @@ pub trait AllocationStrategy: std::fmt::Debug + Send + Sync {
 
 // Implementations for placeholder types
 impl PredictiveMemoryPool {
-    fn new(config: &AdvancedMemoryConfig) -> Self {
+    fn new(_config: &AdvancedMemoryConfig) -> Self {
         Self::default()
     }
 
@@ -696,28 +762,41 @@ impl PredictiveMemoryPool {
         Ok(())
     }
 
-    fn allocate_with_prediction(&mut self, size: usize, alignment: usize, lifetime_hint: Option<Duration>, strategy: AllocationStrategyType) -> Result<*mut u8, MemoryOptimizationError> {
+    fn allocate_with_prediction(
+        &mut self,
+        _size: usize,
+        _alignment: usize,
+        _lifetime_hint: Option<Duration>,
+        _strategy: AllocationStrategyType,
+    ) -> Result<*mut u8, MemoryOptimizationError> {
         // Placeholder implementation
         Ok(std::ptr::null_mut())
     }
 
-    fn deallocate_with_optimization(&mut self, ptr: *mut u8, size: usize) -> Result<(), MemoryOptimizationError> {
+    fn deallocate_with_optimization(
+        &mut self,
+        _ptr: *mut u8,
+        _size: usize,
+    ) -> Result<(), MemoryOptimizationError> {
         Ok(())
     }
 }
 
 impl IntelligentPrefetchEngine {
-    fn new(config: &AdvancedMemoryConfig) -> Self {
+    fn new(_config: &AdvancedMemoryConfig) -> Self {
         Self::default()
     }
 
-    fn optimize_prefetch_strategies(&mut self, patterns: &PatternAnalysisResults) -> Result<PrefetchOptimizationResults, MemoryOptimizationError> {
+    fn optimize_prefetch_strategies(
+        &mut self,
+        _patterns: &PatternAnalysisResults,
+    ) -> Result<PrefetchOptimizationResults, MemoryOptimizationError> {
         Ok(PrefetchOptimizationResults::default())
     }
 }
 
 impl MemoryBandwidthOptimizer {
-    fn new(config: &AdvancedMemoryConfig) -> Self {
+    fn new(_config: &AdvancedMemoryConfig) -> Self {
         Self::default()
     }
 
@@ -725,13 +804,16 @@ impl MemoryBandwidthOptimizer {
         Ok(())
     }
 
-    fn optimize_bandwidth_utilization(&mut self, patterns: &PatternAnalysisResults) -> Result<BandwidthOptimizationResults, MemoryOptimizationError> {
+    fn optimize_bandwidth_utilization(
+        &mut self,
+        _patterns: &PatternAnalysisResults,
+    ) -> Result<BandwidthOptimizationResults, MemoryOptimizationError> {
         Ok(BandwidthOptimizationResults::default())
     }
 }
 
 impl MemoryPatternAnalyzer {
-    fn new(config: &AdvancedMemoryConfig) -> Self {
+    fn new(_config: &AdvancedMemoryConfig) -> Self {
         Self::default()
     }
 
@@ -739,17 +821,24 @@ impl MemoryPatternAnalyzer {
         Ok(())
     }
 
-    fn analyze_current_patterns(&mut self) -> Result<PatternAnalysisResults, MemoryOptimizationError> {
+    fn analyze_current_patterns(
+        &mut self,
+    ) -> Result<PatternAnalysisResults, MemoryOptimizationError> {
         Ok(PatternAnalysisResults::default())
     }
 
-    fn record_deallocation(&mut self, ptr: *mut u8, size: usize, duration: Duration) -> Result<(), MemoryOptimizationError> {
+    fn record_deallocation(
+        &mut self,
+        _ptr: *mut u8,
+        _size: usize,
+        _duration: Duration,
+    ) -> Result<(), MemoryOptimizationError> {
         Ok(())
     }
 }
 
 impl DynamicAllocationStrategy {
-    fn new(config: &AdvancedMemoryConfig) -> Self {
+    fn new(_config: &AdvancedMemoryConfig) -> Self {
         Self {
             strategies: HashMap::new(),
             performance_tracker: StrategyPerformanceTracker::default(),
@@ -759,37 +848,49 @@ impl DynamicAllocationStrategy {
         }
     }
 
-    fn get_optimal_strategy(&self, size: usize, alignment: usize) -> Result<AllocationStrategyType, MemoryOptimizationError> {
+    fn get_optimal_strategy(
+        &self,
+        _size: usize,
+        _alignment: usize,
+    ) -> Result<AllocationStrategyType, MemoryOptimizationError> {
         Ok(self.current_strategy.clone())
     }
 
-    fn optimize_strategies(&mut self, patterns: &PatternAnalysisResults) -> Result<StrategyOptimizationResults, MemoryOptimizationError> {
+    fn optimize_strategies(
+        &mut self,
+        _patterns: &PatternAnalysisResults,
+    ) -> Result<StrategyOptimizationResults, MemoryOptimizationError> {
         Ok(StrategyOptimizationResults::default())
     }
 }
 
 impl MemoryCompactionEngine {
-    fn new(config: &AdvancedMemoryConfig) -> Self {
+    fn new(_config: &AdvancedMemoryConfig) -> Self {
         Self::default()
     }
 
-    fn perform_intelligent_compaction(&mut self) -> Result<CompactionResults, MemoryOptimizationError> {
+    fn perform_intelligent_compaction(
+        &mut self,
+    ) -> Result<CompactionResults, MemoryOptimizationError> {
         Ok(CompactionResults::default())
     }
 }
 
 impl CacheHierarchyOptimizer {
-    fn new(config: &AdvancedMemoryConfig) -> Self {
+    fn new(_config: &AdvancedMemoryConfig) -> Self {
         Self::default()
     }
 
-    fn optimize_cache_utilization(&mut self, patterns: &PatternAnalysisResults) -> Result<CacheOptimizationResults, MemoryOptimizationError> {
+    fn optimize_cache_utilization(
+        &mut self,
+        _patterns: &PatternAnalysisResults,
+    ) -> Result<CacheOptimizationResults, MemoryOptimizationError> {
         Ok(CacheOptimizationResults::default())
     }
 }
 
 impl MemoryPressureMonitor {
-    fn new(config: &AdvancedMemoryConfig) -> Self {
+    fn new(_config: &AdvancedMemoryConfig) -> Self {
         Self::default()
     }
 
@@ -851,7 +952,10 @@ mod tests {
         let config = AdvancedMemoryConfig::default();
         assert!(config.enable_predictive_pooling);
         assert!(config.enable_intelligent_prefetch);
-        assert_eq!(config.optimization_aggressiveness, OptimizationAggressiveness::Moderate);
+        assert_eq!(
+            config.optimization_aggressiveness,
+            OptimizationAggressiveness::Moderate
+        );
     }
 
     #[test]

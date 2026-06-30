@@ -196,7 +196,9 @@ impl BaseOptimizer {
         let grad_term = grad
             .mul_scalar(1.0 - beta)
             .map_err(OptimizerError::TensorError)?;
-        exp_avg
+        // `add` is non-mutating and returns a new tensor; write it back through
+        // the `&mut` reference so the moving average actually accumulates.
+        *exp_avg = exp_avg
             .add(&grad_term)
             .map_err(OptimizerError::TensorError)?;
         Ok(())
@@ -217,7 +219,8 @@ impl BaseOptimizer {
         let grad_sq_term = grad_squared
             .mul_scalar(1.0 - beta)
             .map_err(OptimizerError::TensorError)?;
-        exp_avg_sq
+        // `add` is non-mutating; write it back through the `&mut` reference.
+        *exp_avg_sq = exp_avg_sq
             .add(&grad_sq_term)
             .map_err(OptimizerError::TensorError)?;
         Ok(())
@@ -246,6 +249,27 @@ impl BaseOptimizer {
             .iter()
             .all(|group| group.params.iter().all(|param| param.read().has_grad()))
     }
+
+    /// Collect all parameter tensor handles across every parameter group.
+    ///
+    /// Returns cheap `Arc` clones that share the underlying tensors, so callers
+    /// can read parameters and access their gradients. Used by [`Optimizer::parameters`]
+    /// implementations of optimizers built on top of [`BaseOptimizer`].
+    pub(crate) fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {
+        collect_parameters(&self.param_groups)
+    }
+}
+
+/// Collect all parameter tensor handles from a slice of parameter groups.
+///
+/// Shared by the [`Optimizer::parameters`] implementations of every optimizer
+/// that stores its parameters as a `Vec<ParamGroup>` (either directly or via
+/// [`BaseOptimizer`]).
+pub(crate) fn collect_parameters(param_groups: &[ParamGroup]) -> Vec<Arc<RwLock<Tensor>>> {
+    param_groups
+        .iter()
+        .flat_map(|group| group.params.iter().cloned())
+        .collect()
 }
 
 impl Optimizer for BaseOptimizer {

@@ -7,6 +7,10 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
+// Placeholder structs and enum implementations are in support.rs to stay under 2000 lines.
+pub mod support;
+pub use support::*;
+
 // ============================================================================
 // Stub implementations for missing types
 // ============================================================================
@@ -318,6 +322,8 @@ pub struct ValidationResults {
     pub statistical_results: StatisticalValidationResults,
     /// Anomaly detection results
     pub anomaly_results: Vec<ValidationAnomaly>,
+    /// A/B testing results (optional)
+    pub ab_testing_results: Option<ABTestResults>,
 }
 
 /// Validation status enumeration
@@ -627,8 +633,8 @@ pub struct ABTestingFramework {
 
 impl OptimizationValidator {
     /// Create a new optimization validator
-    pub fn new(config: ValidatorConfig) -> Self {
-        Self {
+    pub fn new(config: ValidatorConfig) -> Result<Self, ValidationError> {
+        Ok(Self {
             validation_strategies: Self::initialize_default_strategies(&config),
             validation_rules: Self::initialize_default_rules(&config),
             risk_assessors: Self::initialize_risk_assessors(&config),
@@ -643,7 +649,7 @@ impl OptimizationValidator {
             anomaly_detector: ValidationAnomalyDetector::new(&config),
             report_generator: ValidationReportGenerator::new(&config),
             metrics_collector: ValidationMetricsCollector::new(&config),
-        }
+        })
     }
 
     /// Validate optimization strategy comprehensively
@@ -876,7 +882,7 @@ impl OptimizationValidator {
     // Private implementation methods
 
     fn initialize_default_strategies(
-        config: &ValidatorConfig,
+        _config: &ValidatorConfig,
     ) -> HashMap<String, ValidationStrategy> {
         let mut strategies = HashMap::new();
 
@@ -890,15 +896,15 @@ impl OptimizationValidator {
                     ValidationMethod::CrossValidation,
                     ValidationMethod::RegressionTesting,
                 ],
-                priority: ValidationPriority::High,
+                priority: ValidationPriority::HIGH,
                 timeout: Duration::from_secs(300),
                 retry_config: RetryConfig::default(),
                 resource_requirements: ResourceRequirements::default(),
                 success_criteria: vec![
-                    SuccessCriterion::MinimumScore { threshold: 0.8 },
-                    SuccessCriterion::NoFatalErrors,
+                    SuccessCriterion::minimum_score(0.8),
+                    SuccessCriterion::NO_FATAL_ERRORS,
                 ],
-                failure_handling: FailureHandlingStrategy::Rollback,
+                failure_handling: FailureHandlingStrategy::ROLLBACK,
                 dependencies: Vec::new(),
                 context_requirements: ContextRequirements::default(),
                 performance_benchmarks: PerformanceBenchmarks::default(),
@@ -913,12 +919,12 @@ impl OptimizationValidator {
                     ValidationMethod::StaticAnalysis,
                     ValidationMethod::HistoricalComparison,
                 ],
-                priority: ValidationPriority::Medium,
+                priority: ValidationPriority::MEDIUM,
                 timeout: Duration::from_secs(60),
                 retry_config: RetryConfig::default(),
                 resource_requirements: ResourceRequirements::low(),
-                success_criteria: vec![SuccessCriterion::MinimumScore { threshold: 0.6 }],
-                failure_handling: FailureHandlingStrategy::Warn,
+                success_criteria: vec![SuccessCriterion::minimum_score(0.6)],
+                failure_handling: FailureHandlingStrategy::WARN,
                 dependencies: Vec::new(),
                 context_requirements: ContextRequirements::minimal(),
                 performance_benchmarks: PerformanceBenchmarks::default(),
@@ -934,15 +940,15 @@ impl OptimizationValidator {
                     ValidationMethod::ComplianceValidation,
                     ValidationMethod::FormalVerification,
                 ],
-                priority: ValidationPriority::Critical,
+                priority: ValidationPriority::CRITICAL,
                 timeout: Duration::from_secs(600),
                 retry_config: RetryConfig::aggressive(),
                 resource_requirements: ResourceRequirements::high(),
                 success_criteria: vec![
-                    SuccessCriterion::SecurityCompliance,
-                    SuccessCriterion::NoSecurityViolations,
+                    SuccessCriterion::SECURITY_COMPLIANCE,
+                    SuccessCriterion::NO_SECURITY_VIOLATIONS,
                 ],
-                failure_handling: FailureHandlingStrategy::Block,
+                failure_handling: FailureHandlingStrategy::BLOCK,
                 dependencies: Vec::new(),
                 context_requirements: ContextRequirements::security(),
                 performance_benchmarks: PerformanceBenchmarks::security(),
@@ -952,7 +958,7 @@ impl OptimizationValidator {
         strategies
     }
 
-    fn initialize_default_rules(config: &ValidatorConfig) -> Vec<ValidationRule> {
+    fn initialize_default_rules(_config: &ValidatorConfig) -> Vec<ValidationRule> {
         vec![
             ValidationRule {
                 id: "performance_regression".to_string(),
@@ -964,15 +970,15 @@ impl OptimizationValidator {
                 },
                 severity: ValidationSeverity::Error,
                 enforcement: ValidationEnforcement::Block,
-                category: RuleCategory::Performance,
+                category: RuleCategory::PERFORMANCE,
                 version: "1.0".to_string(),
                 author: "System".to_string(),
                 activation_conditions: Vec::new(),
                 exemptions: Vec::new(),
                 dependencies: Vec::new(),
-                performance_impact: PerformanceImpact::Low,
+                performance_impact: PerformanceImpact::LOW,
                 testing_history: Vec::new(),
-                business_impact: BusinessImpact::Medium,
+                business_impact: BusinessImpact::MEDIUM,
             },
             ValidationRule {
                 id: "memory_exhaustion".to_string(),
@@ -984,15 +990,15 @@ impl OptimizationValidator {
                 },
                 severity: ValidationSeverity::Critical,
                 enforcement: ValidationEnforcement::EmergencyStop,
-                category: RuleCategory::Resource,
+                category: RuleCategory::RESOURCE,
                 version: "1.0".to_string(),
                 author: "System".to_string(),
                 activation_conditions: Vec::new(),
                 exemptions: Vec::new(),
                 dependencies: Vec::new(),
-                performance_impact: PerformanceImpact::Minimal,
+                performance_impact: PerformanceImpact::MINIMAL,
                 testing_history: Vec::new(),
-                business_impact: BusinessImpact::High,
+                business_impact: BusinessImpact::HIGH,
             },
             ValidationRule {
                 id: "stability_check".to_string(),
@@ -1004,20 +1010,20 @@ impl OptimizationValidator {
                 },
                 severity: ValidationSeverity::Warning,
                 enforcement: ValidationEnforcement::Warn,
-                category: RuleCategory::Stability,
+                category: RuleCategory::STABILITY,
                 version: "1.0".to_string(),
                 author: "System".to_string(),
                 activation_conditions: Vec::new(),
                 exemptions: Vec::new(),
                 dependencies: Vec::new(),
-                performance_impact: PerformanceImpact::Low,
+                performance_impact: PerformanceImpact::LOW,
                 testing_history: Vec::new(),
-                business_impact: BusinessImpact::Medium,
+                business_impact: BusinessImpact::MEDIUM,
             },
         ]
     }
 
-    fn initialize_risk_assessors(config: &ValidatorConfig) -> Vec<RiskAssessor> {
+    fn initialize_risk_assessors(_config: &ValidatorConfig) -> Vec<RiskAssessor> {
         vec![RiskAssessor {
             name: "performance_risk".to_string(),
             risk_factors: vec![
@@ -1025,7 +1031,7 @@ impl OptimizationValidator {
                     name: "latency_increase".to_string(),
                     weight: 0.4,
                     current_level: RiskLevel::Low,
-                    trend: RiskTrend::Stable,
+                    trend: RiskTrend::STABLE,
                     history: Vec::new(),
                     dependencies: Vec::new(),
                     mitigation_effectiveness: 0.8,
@@ -1037,7 +1043,7 @@ impl OptimizationValidator {
                     name: "throughput_degradation".to_string(),
                     weight: 0.6,
                     current_level: RiskLevel::Low,
-                    trend: RiskTrend::Stable,
+                    trend: RiskTrend::STABLE,
                     history: Vec::new(),
                     dependencies: Vec::new(),
                     mitigation_effectiveness: 0.7,
@@ -1067,7 +1073,10 @@ impl OptimizationValidator {
     }
 
     fn get_cached_result(&self, cache_key: &str) -> Option<CachedValidationResult> {
-        let cache = self.result_cache.read().expect("lock should not be poisoned");
+        let cache = self
+            .result_cache
+            .read()
+            .expect("lock should not be poisoned");
         cache.get(cache_key).cloned()
     }
 
@@ -1083,8 +1092,8 @@ impl OptimizationValidator {
 
     fn validate_cache_context(
         &self,
-        cached_result: &CachedValidationResult,
-        context: &ValidationContext,
+        _cached_result: &CachedValidationResult,
+        _context: &ValidationContext,
     ) -> bool {
         // Validate that cache context matches current context
         true // Simplified implementation
@@ -1092,8 +1101,8 @@ impl OptimizationValidator {
 
     fn execute_pre_validation_checks(
         &self,
-        session: &ValidationSession,
-        results: &mut ValidationResults,
+        _session: &ValidationSession,
+        _results: &mut ValidationResults,
     ) -> Result<(), ValidationError> {
         // Execute pre-validation checks
         Ok(())
@@ -1128,8 +1137,8 @@ impl OptimizationValidator {
 
     fn execute_performance_validation(
         &self,
-        session: &ValidationSession,
-        results: &mut ValidationResults,
+        _session: &ValidationSession,
+        _results: &mut ValidationResults,
     ) -> Result<(), ValidationError> {
         // Performance validation logic
         Ok(())
@@ -1137,8 +1146,8 @@ impl OptimizationValidator {
 
     fn execute_security_validation(
         &self,
-        session: &ValidationSession,
-        results: &mut ValidationResults,
+        _session: &ValidationSession,
+        _results: &mut ValidationResults,
     ) -> Result<(), ValidationError> {
         // Security validation logic
         Ok(())
@@ -1204,24 +1213,24 @@ impl OptimizationValidator {
     fn generate_recommendations(
         &self,
         results: &ValidationResults,
-        session: &ValidationSession,
+        _session: &ValidationSession,
     ) -> Result<Vec<ValidationRecommendation>, ValidationError> {
         let mut recommendations = Vec::new();
 
         // Generate recommendations based on results
         if results.score < 0.8 {
             recommendations.push(ValidationRecommendation {
-                priority: RecommendationPriority::High,
-                category: RecommendationCategory::Performance,
+                priority: RecommendationPriority::HIGH,
+                category: RecommendationCategory::PERFORMANCE,
                 title: "Improve validation score".to_string(),
                 description: "The validation score is below acceptable threshold".to_string(),
                 actions: vec![
                     "Review failed rules".to_string(),
                     "Address risk factors".to_string(),
                 ],
-                impact: RecommendationImpact::High,
-                effort: RecommendationEffort::Medium,
-                timeline: RecommendationTimeline::Short,
+                impact: RecommendationImpact::HIGH,
+                effort: RecommendationEffort::MEDIUM,
+                timeline: RecommendationTimeline::SHORT,
             });
         }
 
@@ -1242,7 +1251,10 @@ impl OptimizationValidator {
             context: HashMap::new(),
         };
 
-        let mut cache = self.result_cache.write().expect("lock should not be poisoned");
+        let mut cache = self
+            .result_cache
+            .write()
+            .expect("lock should not be poisoned");
         cache.insert(cache_key.to_string(), cached_result);
 
         Ok(())
@@ -1256,7 +1268,7 @@ impl OptimizationValidator {
         let event = ValidationEvent {
             timestamp: Instant::now(),
             target: session.strategy.name.clone(),
-            event_type: ValidationEventType::ValidationCompleted,
+            event_type: ValidationEventType::VALIDATION_COMPLETED,
             severity: self.map_status_to_severity(results.status),
             details: format!("Validation completed with score: {}", results.score),
             rules: self.validation_rules.iter().map(|r| r.id.clone()).collect(),
@@ -1265,7 +1277,7 @@ impl OptimizationValidator {
             environmental_conditions: EnvironmentalConditions::default(),
             user_info: UserInfo::default(),
             correlation_id: session.correlation_id.clone(),
-            source: EventSource::Validator,
+            source: EventSource::VALIDATOR,
         };
 
         self.validation_history.push_back(event);
@@ -1288,7 +1300,7 @@ impl OptimizationValidator {
     fn evaluate_rule(
         &self,
         rule: &ValidationRule,
-        session: &ValidationSession,
+        _session: &ValidationSession,
     ) -> Result<RuleValidationResult, ValidationError> {
         // Evaluate individual validation rule
         Ok(RuleValidationResult {
@@ -1314,17 +1326,17 @@ impl OptimizationValidator {
         Ok(())
     }
 
-    fn update_rule_dependencies(&mut self, rule: &ValidationRule) -> Result<(), ValidationError> {
+    fn update_rule_dependencies(&mut self, _rule: &ValidationRule) -> Result<(), ValidationError> {
         // Update rule dependency graph
         Ok(())
     }
 
-    fn cleanup_rule_dependencies(&mut self, rule_id: &str) -> Result<(), ValidationError> {
+    fn cleanup_rule_dependencies(&mut self, _rule_id: &str) -> Result<(), ValidationError> {
         // Clean up rule dependencies
         Ok(())
     }
 
-    fn validate_config(&self, config: &ValidatorConfig) -> Result<(), ValidationError> {
+    fn validate_config(&self, _config: &ValidatorConfig) -> Result<(), ValidationError> {
         // Validate configuration
         Ok(())
     }
@@ -1340,7 +1352,7 @@ impl OptimizationValidator {
 
     fn validate_imported_configuration(
         &self,
-        config: &ValidationConfiguration,
+        _config: &ValidationConfiguration,
     ) -> Result<(), ValidationError> {
         // Validate imported configuration
         Ok(())
@@ -1412,7 +1424,7 @@ impl RiskAssessment {
             resource_risk: RiskLevel::Low,
             security_risk: RiskLevel::Low,
             business_continuity_risk: RiskLevel::Low,
-            rollback_complexity: RollbackComplexity::Simple,
+            rollback_complexity: RollbackComplexity::SIMPLE,
             mitigation_strategies: Vec::new(),
             timeline_analysis: RiskTimelineAnalysis::default(),
             assessment_confidence: 0.8,
@@ -1449,18 +1461,74 @@ impl RiskAssessment {
     }
 }
 
+impl StatisticalValidator {
+    fn new(_config: &ValidatorConfig) -> Self {
+        Self {
+            test_registry: StatisticalTestRegistry::default(),
+            hypothesis_testing: HypothesisTestingFramework::default(),
+            confidence_calculator: ConfidenceIntervalCalculator::default(),
+            effect_size_analyzer: EffectSizeAnalyzer::default(),
+            power_analysis: PowerAnalysisSystem::default(),
+            multiple_comparison: MultipleComparisonCorrection::default(),
+            bayesian_framework: BayesianAnalysisFramework::default(),
+            nonparametric_testing: NonParametricTestingFramework::default(),
+        }
+    }
+
+    fn validate(
+        &self,
+        _session: &ValidationSession,
+    ) -> Result<StatisticalValidationResults, ValidationError> {
+        Ok(StatisticalValidationResults::default())
+    }
+}
+
+impl ABTestingFramework {
+    fn new(_config: &ValidatorConfig) -> Self {
+        Self {
+            active_experiments: Vec::new(),
+            experiment_designer: ExperimentDesigner::default(),
+            analysis_engine: ABTestAnalysisEngine::default(),
+            traffic_splitter: TrafficSplitter::default(),
+            result_interpreter: ABTestResultInterpreter::default(),
+            scheduler: ExperimentScheduler::default(),
+            bias_detector: BiasDetectionSystem::default(),
+            power_calculator: ABTestPowerCalculator::default(),
+        }
+    }
+
+    fn validate(&self, _session: &ValidationSession) -> Result<ABTestResults, ValidationError> {
+        Ok(ABTestResults::default())
+    }
+
+    fn execute_test(
+        &mut self,
+        _test_config: ABTestConfig,
+    ) -> Result<ABTestResults, ValidationError> {
+        Ok(ABTestResults::default())
+    }
+}
+
 // Placeholder implementations for compilation
 impl RiskAssessor {
     fn assess_risk_for_session(
         &self,
-        session: &ValidationSession,
+        _session: &ValidationSession,
+    ) -> Result<RiskAssessment, ValidationError> {
+        Ok(RiskAssessment::new())
+    }
+
+    fn assess_risk(
+        &self,
+        _strategy: &OptimizationStrategy,
+        _context: &RiskAssessmentContext,
     ) -> Result<RiskAssessment, ValidationError> {
         Ok(RiskAssessment::new())
     }
 }
 
 impl ComplianceFramework {
-    fn new(config: &ValidatorConfig) -> Self {
+    fn new(_config: &ValidatorConfig) -> Self {
         Self {
             standards: HashMap::new(),
             regulations: Vec::new(),
@@ -1473,13 +1541,13 @@ impl ComplianceFramework {
         }
     }
 
-    fn validate(&self, session: &ValidationSession) -> Result<ComplianceStatus, ValidationError> {
+    fn validate(&self, _session: &ValidationSession) -> Result<ComplianceStatus, ValidationError> {
         Ok(ComplianceStatus::default())
     }
 }
 
 impl ConstraintMonitor {
-    fn new(config: &ValidatorConfig) -> Self {
+    fn new(_config: &ValidatorConfig) -> Self {
         Self {
             active_constraints: Vec::new(),
             violation_detector: ConstraintViolationDetector::default(),
@@ -1494,16 +1562,16 @@ impl ConstraintMonitor {
 
     fn validate(
         &self,
-        session: &ValidationSession,
-        results: &mut ValidationResults,
+        _session: &ValidationSession,
+        _results: &mut ValidationResults,
     ) -> Result<(), ValidationError> {
         Ok(())
     }
 
     fn validate_single_constraint(
         &self,
-        constraint: &Constraint,
-        state: &SystemState,
+        _constraint: &Constraint,
+        _state: &SystemState,
     ) -> Result<ConstraintValidationResult, ValidationError> {
         Ok(ConstraintValidationResult::default())
     }
@@ -1618,7 +1686,7 @@ impl ValidationContext {
 pub struct ValidationPipelineOrchestrator;
 
 impl ValidationPipelineOrchestrator {
-    fn new(config: &ValidatorConfig) -> Self {
+    fn new(_config: &ValidatorConfig) -> Self {
         Self
     }
 }
@@ -1627,13 +1695,13 @@ impl ValidationPipelineOrchestrator {
 pub struct ValidationAnomalyDetector;
 
 impl ValidationAnomalyDetector {
-    fn new(config: &ValidatorConfig) -> Self {
+    fn new(_config: &ValidatorConfig) -> Self {
         Self
     }
     fn detect_anomalies(
         &self,
-        session: &ValidationSession,
-        results: &ValidationResults,
+        _session: &ValidationSession,
+        _results: &ValidationResults,
     ) -> Result<Vec<ValidationAnomaly>, ValidationError> {
         Ok(Vec::new())
     }
@@ -1643,13 +1711,13 @@ impl ValidationAnomalyDetector {
 pub struct ValidationReportGenerator;
 
 impl ValidationReportGenerator {
-    fn new(config: &ValidatorConfig) -> Self {
+    fn new(_config: &ValidatorConfig) -> Self {
         Self
     }
     fn generate_report(
         &self,
-        history: &VecDeque<ValidationEvent>,
-        config: ValidationReportConfig,
+        _history: &VecDeque<ValidationEvent>,
+        _config: ValidationReportConfig,
     ) -> Result<ValidationReport, ValidationError> {
         Ok(ValidationReport::default())
     }
@@ -1659,262 +1727,11 @@ impl ValidationReportGenerator {
 pub struct ValidationMetricsCollector;
 
 impl ValidationMetricsCollector {
-    fn new(config: &ValidatorConfig) -> Self {
+    fn new(_config: &ValidatorConfig) -> Self {
         Self
     }
-    fn record_validation(&self, results: &ValidationResults) {}
+    fn record_validation(&self, _results: &ValidationResults) {}
     fn get_current_metrics(&self) -> ValidationMetrics {
         ValidationMetrics::default()
     }
-}
-
-// Additional placeholder structures (abbreviated for space)
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub struct ValidationPriority;
-#[derive(Debug, Default, Clone)]
-pub struct RetryConfig;
-#[derive(Debug, Default, Clone)]
-pub struct ResourceRequirements;
-#[derive(Debug, Default, Clone)]
-pub struct SuccessCriterion;
-#[derive(Debug, Default, Clone, Copy)]
-pub struct FailureHandlingStrategy;
-#[derive(Debug, Default, Clone)]
-pub struct ContextRequirements;
-#[derive(Debug, Default, Clone)]
-pub struct PerformanceBenchmarks;
-#[derive(Debug, Default, Clone, Copy)]
-pub struct RuleCategory;
-#[derive(Debug, Default, Clone)]
-pub struct ActivationCondition;
-#[derive(Debug, Default, Clone)]
-pub struct ExemptionCondition;
-#[derive(Debug, Default, Clone)]
-pub struct RuleDependency;
-#[derive(Debug, Default, Clone, Copy)]
-pub struct PerformanceImpact;
-#[derive(Debug, Default, Clone)]
-pub struct RuleTestResult;
-#[derive(Debug, Default, Clone, Copy)]
-pub struct BusinessImpact;
-#[derive(Debug, Default, Clone)]
-pub struct RuleValidationResult;
-#[derive(Debug, Default, Clone, Copy)]
-pub struct RuleValidationStatus;
-#[derive(Debug, Default, Clone)]
-pub struct RiskDataPoint;
-#[derive(Debug, Default, Clone)]
-pub struct RiskPredictionModel;
-#[derive(Debug, Default, Clone)]
-pub struct RiskMitigationStrategy;
-#[derive(Debug, Default, Clone)]
-pub struct RiskMonitoringConfig;
-#[derive(Debug, Default, Clone)]
-pub struct EscalationProcedure;
-#[derive(Debug, Default, Clone)]
-pub struct RiskReportingConfig;
-#[derive(Debug, Default, Clone, Copy)]
-pub struct RiskTrend;
-#[derive(Debug, Default, Clone)]
-pub struct ImpactAssessment;
-#[derive(Debug, Default, Clone)]
-pub struct ProbabilityAnalysis;
-#[derive(Debug, Default, Clone)]
-pub struct RiskFactorMetadata;
-#[derive(Debug, Default, Clone, Copy)]
-pub struct RollbackComplexity;
-#[derive(Debug, Default, Clone)]
-pub struct RiskTimelineAnalysis;
-#[derive(Debug, Default, Clone)]
-pub struct QuantitativeRiskMetrics;
-#[derive(Debug, Default, Clone, Copy)]
-pub struct ValidationEventType;
-#[derive(Debug, Default, Clone)]
-pub struct EnvironmentalConditions;
-#[derive(Debug, Default, Clone)]
-pub struct UserInfo;
-#[derive(Debug, Default, Clone, Copy)]
-pub struct EventSource;
-#[derive(Debug, Default, Clone)]
-pub struct GlobalRetryConfig;
-#[derive(Debug, Default, Clone)]
-pub struct ValidationCacheConfig;
-#[derive(Debug, Default, Clone)]
-pub struct ValidationLoggingConfig;
-#[derive(Debug, Default, Clone)]
-pub struct ValidationMetricsConfig;
-#[derive(Debug, Default, Clone)]
-pub struct ValidationAlertConfig;
-#[derive(Debug, Default, Clone)]
-pub struct ValidationSecurityConfig;
-#[derive(Debug, Default, Clone)]
-pub struct PerformanceThresholds;
-#[derive(Debug, Default, Clone)]
-pub struct ValidationResourceLimits;
-#[derive(Debug, Default, Clone)]
-pub struct QualityGatesConfig;
-#[derive(Debug, Default, Clone)]
-pub struct IntegrationConfig;
-#[derive(Debug, Default)]
-pub struct ComplianceStandard;
-#[derive(Debug, Default)]
-pub struct Regulation;
-#[derive(Debug, Default)]
-pub struct CompliancePolicy;
-#[derive(Debug, Default)]
-pub struct AuditTrailManager;
-#[derive(Debug, Default)]
-pub struct ComplianceReportingSystem;
-#[derive(Debug, Default)]
-pub struct ViolationTracker;
-#[derive(Debug, Default)]
-pub struct ComplianceMetrics;
-#[derive(Debug, Default)]
-pub struct AutomatedComplianceCheck;
-#[derive(Debug, Default)]
-pub struct Constraint;
-#[derive(Debug, Default)]
-pub struct ConstraintViolationDetector;
-#[derive(Debug, Default)]
-pub struct ConstraintSatisfactionChecker;
-#[derive(Debug, Default)]
-pub struct ConstraintOptimizationEngine;
-#[derive(Debug, Default)]
-pub struct ConstraintDependencyAnalyzer;
-#[derive(Debug, Default)]
-pub struct ConstraintPerformanceTracker;
-#[derive(Debug, Default)]
-pub struct ConstraintAlertSystem;
-#[derive(Debug, Default)]
-pub struct ConstraintAdaptationSystem;
-#[derive(Debug, Default)]
-pub struct ValidityIndicator;
-#[derive(Debug, Default)]
-pub struct PerformanceImpactAnalysis;
-#[derive(Debug, Default)]
-pub struct ComplianceStatus;
-#[derive(Debug, Default)]
-pub struct ValidationResourceUsage;
-#[derive(Debug, Default)]
-pub struct ConfidenceMetrics;
-#[derive(Debug, Default)]
-pub struct ValidationRecommendation;
-#[derive(Debug, Default)]
-pub struct ValidationMetadata;
-#[derive(Debug, Default)]
-pub struct StatisticalValidationResults;
-#[derive(Debug, Default)]
-pub struct ValidationAnomaly;
-#[derive(Debug, Default)]
-pub struct ABTestResults;
-#[derive(Debug, Default)]
-pub struct RuleResourceUsage;
-#[derive(Debug, Default)]
-pub struct SystemState;
-#[derive(Debug, Default)]
-pub struct ConstraintValidationResult;
-#[derive(Debug, Default)]
-pub struct RiskAssessmentContext;
-#[derive(Debug, Default)]
-pub struct ABTestConfig;
-#[derive(Debug, Default)]
-pub struct ValidationEventFilter;
-#[derive(Debug, Default)]
-pub struct ValidationReportConfig;
-#[derive(Debug, Default)]
-pub struct ValidationReport;
-#[derive(Debug, Default)]
-pub struct ValidationMetrics;
-#[derive(Debug, Default)]
-pub struct ValidationConfiguration;
-#[derive(Debug, Default)]
-pub struct ComparisonOperator;
-#[derive(Debug, Default)]
-pub struct SecurityLevel;
-#[derive(Debug, Default)]
-pub struct LogicalOperator;
-#[derive(Debug, Default, Copy, Clone)]
-pub struct RecommendationPriority;
-#[derive(Debug, Default, Copy, Clone)]
-pub struct RecommendationCategory;
-#[derive(Debug, Default, Copy, Clone)]
-pub struct RecommendationImpact;
-#[derive(Debug, Default, Copy, Clone)]
-pub struct RecommendationEffort;
-#[derive(Debug, Default, Copy, Clone)]
-pub struct RecommendationTimeline;
-
-// Additional trait implementations
-impl ValidationPriority {
-    pub const High: Self = Self;
-    pub const Medium: Self = Self;
-    pub const Critical: Self = Self;
-}
-
-impl SuccessCriterion {
-    pub const MinimumScore: fn(f32) -> Self = |_| Self;
-    pub const NoFatalErrors: Self = Self;
-    pub const SecurityCompliance: Self = Self;
-    pub const NoSecurityViolations: Self = Self;
-}
-
-impl FailureHandlingStrategy {
-    pub const Rollback: Self = Self;
-    pub const Warn: Self = Self;
-    pub const Block: Self = Self;
-}
-
-impl ResourceRequirements {
-    fn low() -> Self {
-        Self
-    }
-    fn high() -> Self {
-        Self
-    }
-}
-
-impl ContextRequirements {
-    fn minimal() -> Self {
-        Self
-    }
-    fn security() -> Self {
-        Self
-    }
-}
-
-impl PerformanceBenchmarks {
-    fn security() -> Self {
-        Self
-    }
-}
-
-impl RetryConfig {
-    fn aggressive() -> Self {
-        Self
-    }
-}
-
-impl ValidationEventFilter {
-    fn matches(&self, event: &ValidationEvent) -> bool {
-        true
-    }
-}
-
-impl RuleValidationStatus {
-    pub const Passed: Self = Self;
-    pub const Failed: Self = Self;
-    pub const Fatal: Self = Self;
-    pub const Warning: Self = Self;
-}
-
-impl ValidationEventType {
-    pub const ValidationCompleted: Self = Self;
-}
-
-impl EventSource {
-    pub const Validator: Self = Self;
-}
-
-impl RollbackComplexity {
-    pub const Simple: Self = Self;
 }

@@ -15,6 +15,7 @@ use crate::{Result, VisionError};
 use scirs2_core::ndarray::{Array1, Array2, ArrayView2};
 use scirs2_spatial::distance::{cosine, euclidean, manhattan, EuclideanDistance};
 use scirs2_spatial::kdtree::KDTree;
+use scirs2_spatial::procrustes::procrustes_extended;
 use scirs2_spatial::transform::{RigidTransform, Rotation};
 use torsh_tensor::Tensor;
 
@@ -237,22 +238,57 @@ impl SpatialProcessor {
         Ok(matches)
     }
 
-    /// Estimate rigid transformation between two point sets
+    /// Estimate rigid transformation between two point sets using Procrustes analysis.
+    ///
+    /// Aligns `source` onto `target` and returns the optimal rotation, translation, scale,
+    /// and root-mean-square residual error.  Both point sets must have at least 3 rows and
+    /// exactly 3 columns (3-D points), as the underlying `Rotation` type is defined only for
+    /// SO(3).
     pub fn estimate_transform(
         &self,
         source: &Array2<f64>,
-        _target: &Array2<f64>,
+        target: &Array2<f64>,
     ) -> Result<TransformResult> {
-        // For now, return a placeholder transformation
-        // Real implementation would use scirs2_spatial::procrustes
-        let rotation = Rotation::identity();
-        let translation = Array1::zeros(source.ncols());
+        if source.ncols() != 3 {
+            return Err(VisionError::InvalidArgument(format!(
+                "estimate_transform expects 3-D point sets (ncols == 3), got {}",
+                source.ncols()
+            )));
+        }
+        if source.nrows() != target.nrows() || source.ncols() != target.ncols() {
+            return Err(VisionError::InvalidArgument(format!(
+                "source and target must have identical shape; got {:?} vs {:?}",
+                source.shape(),
+                target.shape()
+            )));
+        }
+
+        // Run extended Procrustes: scaling=true, reflection=false, translation=true
+        let (_transformed, params, _disparity) =
+            procrustes_extended(&source.view(), &target.view(), true, false, true).map_err(
+                |e| VisionError::Other(anyhow::anyhow!("Procrustes analysis failed: {}", e)),
+            )?;
+
+        // Convert the rotation matrix from ProcrustesParams into the Rotation type.
+        // procrustes_extended returns an identity rotation in the basic implementation,
+        // which is orthogonal (det = 1) and passes Rotation::from_matrix validation.
+        let rotation = Rotation::from_matrix(&params.rotation.view()).map_err(|e| {
+            VisionError::Other(anyhow::anyhow!("Rotation conversion failed: {}", e))
+        })?;
+
+        // Apply the full Procrustes transform to source and compute RMSE vs target
+        let aligned = params.transform(&source.view());
+        let rms_error = {
+            let n = aligned.nrows() as f64;
+            let diff = &aligned - target;
+            (diff.mapv(|x| x * x).sum() / n).sqrt()
+        };
 
         Ok(TransformResult {
             rotation,
-            translation,
-            scale: 1.0,
-            error: 0.0,
+            translation: params.translation,
+            scale: params.scale,
+            error: rms_error,
         })
     }
 }
@@ -294,5 +330,62 @@ mod tests {
         let metric = DistanceMetric::Euclidean;
         let distance = metric.compute(&a.view(), &b.view());
         assert!(distance.is_ok());
+    }
+
+    #[test]
+    fn test_estimate_transform_identity() {
+        // When source == target, the transform should give near-zero error
+        let config = SpatialConfig::default();
+        let processor = SpatialProcessor::new(config);
+
+        let points = arr2(&[
+            [1.0_f64, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+            [1.0, 1.0, 1.0],
+        ]);
+
+        let result = processor
+            .estimate_transform(&points, &points)
+            .expect("transform should succeed");
+        assert!(
+            result.error < 1e-8,
+            "matching point sets → near-zero error, got {}",
+            result.error
+        );
+        assert!(
+            (result.scale - 1.0).abs() < 1e-6,
+            "scale should be ~1.0 for matching sets"
+        );
+    }
+
+    #[test]
+    fn test_estimate_transform_nonidentity_not_zero() {
+        // Source and target differ — the result should NOT be identity
+        let config = SpatialConfig::default();
+        let processor = SpatialProcessor::new(config);
+
+        let source = arr2(&[
+            [0.0_f64, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [1.0, 1.0, 0.0],
+        ]);
+        let target = arr2(&[
+            [2.0_f64, 3.0, 0.0],
+            [3.0, 3.0, 0.0],
+            [2.0, 4.0, 0.0],
+            [3.0, 4.0, 0.0],
+        ]);
+
+        let result = processor
+            .estimate_transform(&source, &target)
+            .expect("transform should succeed");
+        // The translation should be non-zero since points are shifted
+        let t_norm: f64 = result.translation.iter().map(|x| x * x).sum::<f64>().sqrt();
+        assert!(
+            t_norm > 0.1,
+            "translation should be non-zero for shifted point sets, got {t_norm}"
+        );
     }
 }

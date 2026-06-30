@@ -281,7 +281,6 @@ pub struct DashboardDataProvider {
 // === Core Types and Structures ===
 
 /// Metric source for data collection
-#[derive(Debug, Clone)]
 pub struct MetricSource {
     /// Source identifier
     pub source_id: String,
@@ -289,8 +288,8 @@ pub struct MetricSource {
     /// Source type
     pub source_type: MetricSourceType,
 
-    /// Data collection function
-    pub collector: Box<dyn Fn() -> MetricValue + Send + Sync>,
+    /// Data collection function (optional - None for placeholder sources)
+    pub collector: Option<Box<dyn Fn() -> MetricValue + Send + Sync>>,
 
     /// Collection interval
     pub collection_interval: Duration,
@@ -303,6 +302,35 @@ pub struct MetricSource {
 
     /// Collection history
     pub history: VecDeque<MetricDataPoint>,
+}
+
+impl std::fmt::Debug for MetricSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MetricSource")
+            .field("source_id", &self.source_id)
+            .field("source_type", &self.source_type)
+            .field("collector", &"<dyn Fn>")
+            .field("collection_interval", &self.collection_interval)
+            .field("last_collected", &self.last_collected)
+            .field("config", &self.config)
+            .field("history", &self.history)
+            .finish()
+    }
+}
+
+impl Clone for MetricSource {
+    fn clone(&self) -> Self {
+        // Note: collector cannot be cloned, so create a no-op replacement
+        Self {
+            source_id: self.source_id.clone(),
+            source_type: self.source_type.clone(),
+            collector: None,
+            collection_interval: self.collection_interval,
+            last_collected: self.last_collected,
+            config: self.config.clone(),
+            history: self.history.clone(),
+        }
+    }
 }
 
 /// Performance metric data point
@@ -679,6 +707,20 @@ pub struct OptimizationRecommenderConfig {
     pub analysis_window: Duration,
 }
 
+impl Default for PerformanceMonitoringConfig {
+    fn default() -> Self {
+        Self {
+            enable_realtime_monitoring: true,
+            metrics_config: MetricsConfig::default(),
+            profiling_config: ProfilingConfig::default(),
+            alert_config: AlertSystemConfig::default(),
+            dashboard_config: DashboardConfig::default(),
+            analysis_config: AnalysisConfig::default(),
+            data_retention: DataRetentionConfig::default(),
+        }
+    }
+}
+
 // === Implementation ===
 
 impl PerformanceMonitoringManager {
@@ -712,19 +754,28 @@ impl PerformanceMonitoringManager {
     pub fn start_monitoring(&self) -> Result<(), PerformanceMonitoringError> {
         // Start metrics collection
         {
-            let mut collector = self.metrics_collector.lock().expect("lock should not be poisoned");
+            let mut collector = self
+                .metrics_collector
+                .lock()
+                .expect("lock should not be poisoned");
             collector.start_collection()?;
         }
 
         // Start bottleneck detection
         {
-            let mut detector = self.bottleneck_detector.lock().expect("lock should not be poisoned");
+            let mut detector = self
+                .bottleneck_detector
+                .lock()
+                .expect("lock should not be poisoned");
             detector.start_detection()?;
         }
 
         // Start resource monitoring
         {
-            let mut monitor = self.resource_monitor.lock().expect("lock should not be poisoned");
+            let mut monitor = self
+                .resource_monitor
+                .lock()
+                .expect("lock should not be poisoned");
             monitor.start_monitoring()?;
         }
 
@@ -740,13 +791,19 @@ impl PerformanceMonitoringManager {
 
     /// Collect current performance metrics
     pub fn collect_metrics(&self) -> Result<Vec<MetricDataPoint>, PerformanceMonitoringError> {
-        let collector = self.metrics_collector.lock().expect("lock should not be poisoned");
+        let collector = self
+            .metrics_collector
+            .lock()
+            .expect("lock should not be poisoned");
         collector.collect_current_metrics()
     }
 
     /// Detect performance bottlenecks
     pub fn detect_bottlenecks(&self) -> Result<Vec<BottleneckRecord>, PerformanceMonitoringError> {
-        let mut detector = self.bottleneck_detector.lock().expect("lock should not be poisoned");
+        let mut detector = self
+            .bottleneck_detector
+            .lock()
+            .expect("lock should not be poisoned");
         detector.analyze_and_detect()
     }
 
@@ -754,7 +811,10 @@ impl PerformanceMonitoringManager {
     pub fn get_optimization_recommendations(
         &self,
     ) -> Result<Vec<OptimizationRecommendation>, PerformanceMonitoringError> {
-        let mut recommender = self.optimization_recommender.lock().expect("lock should not be poisoned");
+        let mut recommender = self
+            .optimization_recommender
+            .lock()
+            .expect("lock should not be poisoned");
         recommender.generate_recommendations()
     }
 
@@ -778,7 +838,10 @@ impl PerformanceMonitoringManager {
 
     /// Get system performance status
     pub fn get_performance_status(&self) -> SystemPerformanceStatus {
-        let state = self.system_performance_state.read().expect("lock should not be poisoned");
+        let state = self
+            .system_performance_state
+            .read()
+            .expect("lock should not be poisoned");
         state.get_current_status()
     }
 
@@ -794,7 +857,10 @@ impl PerformanceMonitoringManager {
         chart_type: ChartType,
         time_range: Duration,
     ) -> Result<DashboardData, PerformanceMonitoringError> {
-        let provider = self.dashboard_provider.lock().expect("lock should not be poisoned");
+        let provider = self
+            .dashboard_provider
+            .lock()
+            .expect("lock should not be poisoned");
         provider.generate_dashboard_data(chart_type, time_range)
     }
 }
@@ -828,7 +894,11 @@ impl MetricsCollector {
         let mut metrics = Vec::new();
 
         for (source_id, source) in &self.metric_sources {
-            let value = (source.collector)();
+            let value = if let Some(ref collector) = source.collector {
+                (collector)()
+            } else {
+                MetricValue::Integer(0)
+            };
             let data_point = MetricDataPoint {
                 timestamp: SystemTime::now(),
                 value,
@@ -884,7 +954,7 @@ impl MetricsCollector {
         let source = MetricSource {
             source_id: source_id.to_string(),
             source_type,
-            collector,
+            collector: Some(collector),
             collection_interval: Duration::from_secs(1),
             last_collected: Instant::now(),
             config: MetricSourceConfig::default(),
@@ -897,8 +967,8 @@ impl MetricsCollector {
 
     fn start_source_collection(
         &self,
-        source_id: &str,
-        source: &MetricSource,
+        _source_id: &str,
+        _source: &MetricSource,
     ) -> Result<(), PerformanceMonitoringError> {
         // Implementation would start background collection thread
         Ok(())
@@ -906,7 +976,7 @@ impl MetricsCollector {
 }
 
 impl BottleneckDetector {
-    fn new(config: &PerformanceMonitoringConfig) -> Self {
+    fn new(_config: &PerformanceMonitoringConfig) -> Self {
         Self {
             bottleneck_scanners: HashMap::new(),
             dependency_analyzer: DependencyGraphAnalyzer::new(),
@@ -928,7 +998,7 @@ impl BottleneckDetector {
         let mut bottlenecks = Vec::new();
 
         // Analyze different bottleneck types
-        for (scanner_id, scanner) in &self.bottleneck_scanners {
+        for (_scanner_id, scanner) in &self.bottleneck_scanners {
             if let Some(bottleneck) = scanner.scan_for_bottlenecks()? {
                 bottlenecks.push(bottleneck);
             }
@@ -1099,7 +1169,7 @@ pub struct PerformanceHistoryEntry {
 
 // Implement constructors and methods
 impl MetricContext {
-    fn new(source_id: String) -> Self {
+    fn new(_source_id: String) -> Self {
         Self::default()
     }
 }
@@ -1111,7 +1181,7 @@ impl MetricsAggregator {
 }
 
 impl MetricsStorageEngine {
-    fn new(config: &MetricsConfig) -> Self {
+    fn new(_config: &MetricsConfig) -> Self {
         Self::default()
     }
 }
@@ -1143,7 +1213,7 @@ impl PerformanceAnalyzer {
 }
 
 impl ResourceUtilizationMonitor {
-    fn new(config: &PerformanceMonitoringConfig) -> Self {
+    fn new(_config: &PerformanceMonitoringConfig) -> Self {
         Self {
             gpu_monitors: HashMap::new(),
             memory_monitors: HashMap::new(),
@@ -1199,7 +1269,7 @@ impl PerformanceProfiler {
 }
 
 impl OptimizationRecommender {
-    fn new(config: &PerformanceMonitoringConfig) -> Self {
+    fn new(_config: &PerformanceMonitoringConfig) -> Self {
         Self {
             recommendation_engines: HashMap::new(),
             model_analyzer: PerformanceModelAnalyzer::new(),
@@ -1292,8 +1362,8 @@ impl DashboardDataProvider {
 
     fn generate_dashboard_data(
         &self,
-        chart_type: ChartType,
-        time_range: Duration,
+        _chart_type: ChartType,
+        _time_range: Duration,
     ) -> Result<DashboardData, PerformanceMonitoringError> {
         // Implementation would generate dashboard data based on chart type and time range
         Ok(DashboardData::default())
@@ -1301,7 +1371,7 @@ impl DashboardDataProvider {
 }
 
 impl BottleneckScanner {
-    fn new(bottleneck_type: BottleneckType) -> Self {
+    fn new(_bottleneck_type: BottleneckType) -> Self {
         Self::default()
     }
 
@@ -1576,7 +1646,9 @@ mod tests {
             )
             .expect("operation should succeed");
 
-        let metrics = collector.collect_current_metrics().expect("metrics collection should succeed");
+        let metrics = collector
+            .collect_current_metrics()
+            .expect("metrics collection should succeed");
         assert!(!metrics.is_empty());
     }
 
@@ -1585,7 +1657,9 @@ mod tests {
         let config = PerformanceMonitoringConfig::default();
         let mut detector = BottleneckDetector::new(&config);
 
-        let bottlenecks = detector.analyze_and_detect().expect("analysis and detection should succeed");
+        let bottlenecks = detector
+            .analyze_and_detect()
+            .expect("analysis and detection should succeed");
         assert!(bottlenecks.is_empty()); // No bottlenecks initially
     }
 
@@ -1594,7 +1668,9 @@ mod tests {
         let config = PerformanceMonitoringConfig::default();
         let mut recommender = OptimizationRecommender::new(&config);
 
-        let recommendations = recommender.generate_recommendations().expect("recommendation generation should succeed");
+        let recommendations = recommender
+            .generate_recommendations()
+            .expect("recommendation generation should succeed");
         assert!(!recommendations.is_empty());
     }
 

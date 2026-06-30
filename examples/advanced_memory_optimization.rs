@@ -116,15 +116,15 @@ impl MemoryMonitor {
     }
 
     pub fn update_usage(&self, usage_mb: f64) {
-        let mut current = self.current_usage.lock().unwrap();
+        let mut current = self.current_usage.lock().unwrap_or_else(|e| e.into_inner());
         *current = usage_mb;
 
-        let mut peak = self.peak_usage.lock().unwrap();
+        let mut peak = self.peak_usage.lock().unwrap_or_else(|e| e.into_inner());
         if usage_mb > *peak {
             *peak = usage_mb;
         }
 
-        let mut history = self.allocation_history.lock().unwrap();
+        let mut history = self.allocation_history.lock().unwrap_or_else(|e| e.into_inner());
         history.push((std::time::Instant::now(), usage_mb));
 
         // Keep only last 1000 entries
@@ -143,15 +143,15 @@ impl MemoryMonitor {
     }
 
     pub fn record_gc_event(&self) {
-        let mut gc_events = self.gc_events.lock().unwrap();
+        let mut gc_events = self.gc_events.lock().unwrap_or_else(|e| e.into_inner());
         gc_events.push(std::time::Instant::now());
     }
 
     pub fn get_memory_stats(&self) -> MemoryStats {
-        let current = *self.current_usage.lock().unwrap();
-        let peak = *self.peak_usage.lock().unwrap();
-        let history = self.allocation_history.lock().unwrap();
-        let gc_count = self.gc_events.lock().unwrap().len();
+        let current = *self.current_usage.lock().unwrap_or_else(|e| e.into_inner());
+        let peak = *self.peak_usage.lock().unwrap_or_else(|e| e.into_inner());
+        let history = self.allocation_history.lock().unwrap_or_else(|e| e.into_inner());
+        let gc_count = self.gc_events.lock().unwrap_or_else(|e| e.into_inner()).len();
 
         let avg_usage = if !history.is_empty() {
             history.iter().map(|(_, usage)| usage).sum::<f64>() / history.len() as f64
@@ -321,7 +321,7 @@ impl MemoryMappedDataLoader {
                 }
 
                 // Add batch to queue
-                let mut queue = queue.lock().unwrap();
+                let mut queue = queue.lock().unwrap_or_else(|e| e.into_inner());
                 let batch_refs: Vec<&Tensor> = batch_data.iter().collect();
                 queue.push(Tensor::cat(&batch_refs, 0).unwrap());
 
@@ -334,7 +334,7 @@ impl MemoryMappedDataLoader {
     }
 
     pub fn next_batch(&mut self) -> Option<Tensor> {
-        let mut queue = self.prefetch_queue.lock().unwrap();
+        let mut queue = self.prefetch_queue.lock().unwrap_or_else(|e| e.into_inner());
         if !queue.is_empty() {
             Some(queue.remove(0))
         } else {

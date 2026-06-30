@@ -60,7 +60,7 @@ pub mod utils;
 pub use algorithms::{
     dbscan::{DBSCANConfig, DBSCANResult, HDBSCANConfig, HDBSCANResult, DBSCAN, HDBSCAN},
     gaussian_mixture::{GMConfig, GMResult, GaussianMixture},
-    hierarchical::{AgglomerativeClustering, HierarchicalResult, Linkage},
+    hierarchical::{AgglomerativeClustering, HierarchicalResult, Linkage, LinkageStep},
     incremental::{
         IncrementalClustering, OnlineKMeans, OnlineKMeansConfig, OnlineKMeansResult,
         SlidingWindowConfig, SlidingWindowKMeans, SlidingWindowResult,
@@ -91,7 +91,7 @@ pub use traits::{ClusteringAlgorithm, ClusteringResult, Fit, FitPredict, Transfo
 
 // Re-export utilities
 pub use utils::{
-    adaptive::{suggest_dbscan_params, suggest_epsilon},
+    adaptive::{optimize_epsilon, suggest_dbscan_params, suggest_epsilon},
     distance::{cosine_distance, euclidean_distance, manhattan_distance, DistanceMetric},
     drift_detection::{CompositeDriftDetector, DriftStatus, PageHinkleyTest, ADWIN, DDM},
     memory_efficient::{ChunkedDataProcessor, IncrementalCentroidUpdater, MemoryEfficientConfig},

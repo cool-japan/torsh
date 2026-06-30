@@ -1,6 +1,6 @@
 # torsh-tensor
 
-[![version](https://img.shields.io/badge/version-0.1.2-blue)](https://crates.io/crates/torsh-tensor)
+[![version](https://img.shields.io/badge/version-0.1.3-blue)](https://crates.io/crates/torsh-tensor)
 
 PyTorch-compatible tensor implementation for ToRSh, built on top of scirs2.
 
@@ -121,6 +121,11 @@ torsh-tensor routes hot arithmetic paths through SIMD automatically when the `si
 No special build flags are needed on supported targets; the feature-detection is done at runtime by scirs2_core.
 
 ## Recent Changes
+
+### v0.1.3 — 2026-06-30
+
+- GPU dispatch via oxicuda 0.3: real CUDA execution replaces stub path.
+- PTX kernels implemented for `relu`, `sigmoid`, `tanh`, and element-wise `add`; verified on NVIDIA A4000.
 
 ### v0.1.2 — 2026-04-26
 

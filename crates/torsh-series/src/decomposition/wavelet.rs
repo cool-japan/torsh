@@ -3,17 +3,132 @@
 //! Wavelets provide a time-frequency representation of signals, making them ideal
 //! for analyzing non-stationary time series with features at different scales.
 //!
-//! NOTE: This module provides the structure for wavelet analysis.
-//! Full implementation will use scirs2-signal when the wavelet API is available.
+//! This module implements Discrete Wavelet Transform (DWT) using Haar and Daubechies-4
+//! filter banks in pure Rust, and a Morlet-based Continuous Wavelet Transform (CWT).
 
-// Framework infrastructure - components designed for future use
 #![allow(dead_code)]
 use crate::TimeSeries;
-use scirs2_core::ndarray::Array1;
-// TODO: Uncomment when scirs2-signal wavelet API is available
-// use scirs2_signal::wavelets::{dwt, idwt, wavelet_decompose, wavelet_reconstruct, WaveletType};
 use torsh_core::error::{Result, TorshError};
 use torsh_tensor::Tensor;
+
+// ============================================================
+// Filter bank coefficients
+// ============================================================
+
+/// Low-pass (scaling) and high-pass (wavelet) filter coefficients for each wavelet type.
+/// Following the convention: h0 = low-pass, h1 = high-pass (mirror filter).
+fn filter_coefficients(wavelet: WaveletType) -> (&'static [f64], &'static [f64]) {
+    match wavelet {
+        WaveletType::Haar => (
+            // Haar low-pass
+            &[0.7071067811865476, 0.7071067811865476],
+            // Haar high-pass
+            &[0.7071067811865476, -0.7071067811865476],
+        ),
+        WaveletType::Daubechies4 => {
+            // Daubechies 4 (db2) scaling/wavelet coefficients
+            const DB4_LO: &[f64] = &[
+                0.4829629131_445_341,
+                0.8365163037_378_079,
+                0.2241438680_420_134,
+                -0.1294095225_512_604,
+            ];
+            const DB4_HI: &[f64] = &[
+                -0.1294095225_512_604,
+                -0.2241438680_420_134,
+                0.8365163037_378_079,
+                -0.4829629131_445_341,
+            ];
+            (DB4_LO, DB4_HI)
+        }
+        WaveletType::Symlet4 => {
+            // Symlet 4 (sym4) coefficients
+            const SYM4_LO: &[f64] = &[
+                -0.075_765_714_789_273_32,
+                -0.029_635_527_645_954_27,
+                0.497_618_667_632_032_54,
+                0.803_738_751_805_916_4,
+                0.297_857_795_605_515_27,
+                -0.099_219_543_576_847_21,
+                -0.012_603_967_262_037_73,
+                0.032_223_100_604_042_70,
+            ];
+            const SYM4_HI: &[f64] = &[
+                -0.032_223_100_604_042_70,
+                -0.012_603_967_262_037_73,
+                0.099_219_543_576_847_21,
+                0.297_857_795_605_515_27,
+                -0.803_738_751_805_916_4,
+                0.497_618_667_632_032_54,
+                0.029_635_527_645_954_27,
+                -0.075_765_714_789_273_32,
+            ];
+            (SYM4_LO, SYM4_HI)
+        }
+        WaveletType::Morlet => {
+            // Morlet is continuous – use Haar for discrete approximation
+            (
+                &[0.7071067811865476, 0.7071067811865476],
+                &[0.7071067811865476, -0.7071067811865476],
+            )
+        }
+    }
+}
+
+/// Apply a discrete filter with periodic (circular) boundary extension and downsample by 2.
+fn convolve_downsample(signal: &[f64], filter: &[f64]) -> Vec<f64> {
+    let n = signal.len();
+    let _flen = filter.len();
+    let out_len = (n + 1) / 2;
+    let mut out = vec![0.0f64; out_len];
+    for k in 0..out_len {
+        let start = 2 * k;
+        let mut acc = 0.0;
+        for (j, &fj) in filter.iter().enumerate() {
+            let idx = (start + j) % n; // periodic boundary
+            acc += signal[idx] * fj;
+        }
+        out[k] = acc;
+    }
+    out
+}
+
+/// Upsample by 2 (insert zeros) and apply synthesis filter (transpose convolution).
+fn upsample_convolve(signal: &[f64], filter: &[f64], target_len: usize) -> Vec<f64> {
+    let _flen = filter.len();
+    let _n = signal.len();
+    // Upsampled (insert zeros)
+    let mut up = vec![0.0f64; target_len];
+    for (k, &sk) in signal.iter().enumerate() {
+        if 2 * k < target_len {
+            up[2 * k] = sk;
+        }
+    }
+    // Convolve with synthesis filter
+    let mut out = vec![0.0f64; target_len];
+    for i in 0..target_len {
+        let mut acc = 0.0;
+        for (j, &fj) in filter.iter().enumerate() {
+            // Periodic boundary
+            let idx = if i >= j {
+                i - j
+            } else {
+                target_len - (j - i) % target_len
+            };
+            acc += up[idx % target_len] * fj;
+        }
+        out[i] = acc;
+    }
+    out
+}
+
+/// Morlet wavelet at scale `s` and translation `tau` evaluated on the sample at index `t`.
+/// ψ(t) = π^{-1/4} * exp(iω₀t) * exp(-t²/2)  — real part only.
+fn morlet_real(t_sample: f64, tau: f64, scale: f64, omega0: f64) -> f64 {
+    let t = (t_sample - tau) / scale;
+    let norm = std::f64::consts::PI.powf(-0.25) / scale.sqrt();
+    norm * (omega0 * t).cos() * (-t * t / 2.0).exp()
+}
 
 /// Wavelet type enumeration (placeholder until scirs2-signal provides it)
 #[derive(Debug, Clone, Copy)]
@@ -80,37 +195,45 @@ impl WaveletDecomposer {
         self
     }
 
-    /// Perform Discrete Wavelet Transform (DWT) decomposition
+    /// Perform Discrete Wavelet Transform (DWT) decomposition.
+    ///
+    /// Uses the filter bank for the selected wavelet type.  Boundary conditions
+    /// are handled with periodic extension.
     pub fn decompose(&self, series: &TimeSeries) -> Result<WaveletDecomposition> {
-        // Convert TimeSeries to Array1
-        let data = series.values.to_vec().map_err(|e| {
+        let raw: Vec<f32> = series.values.to_vec().map_err(|e| {
             TorshError::InvalidArgument(format!("Failed to convert tensor to vec: {}", e))
         })?;
-        let _ts_array = Array1::from_vec(data.clone());
+        let mut current: Vec<f64> = raw.iter().map(|&v| v as f64).collect();
 
-        // Determine decomposition level if not specified
         let level = self
             .level
             .unwrap_or_else(|| Self::max_decomposition_level(series.len()));
+        let level = level.max(1);
 
-        // TODO: Use scirs2-signal wavelet_decompose when available
-        // For now, return placeholder decomposition
-        let n = series.len();
-        let mut current_len = n;
-        let mut details = Vec::with_capacity(level);
+        let (lo, hi) = filter_coefficients(self.wavelet_type);
+        let mut details: Vec<Tensor> = Vec::with_capacity(level);
+        let mut level_lens: Vec<usize> = Vec::with_capacity(level);
 
-        // Create placeholder detail coefficients (simplified Haar-like decomposition)
         for _lev in 0..level {
-            let detail_len = current_len / 2;
-            let detail_data = vec![0.0f32; detail_len];
-            let detail_tensor = Tensor::from_vec(detail_data, &[detail_len])?;
-            details.push(detail_tensor);
-            current_len = detail_len;
+            if current.len() < 2 {
+                // Signal too short to decompose further
+                let t = Tensor::from_vec(vec![0.0f32], &[1])?;
+                details.push(t);
+                level_lens.push(current.len());
+                break;
+            }
+            level_lens.push(current.len());
+            let approx = convolve_downsample(&current, lo);
+            let detail = convolve_downsample(&current, hi);
+            let detail_len = detail.len();
+            let detail_f32: Vec<f32> = detail.iter().map(|&v| v as f32).collect();
+            details.push(Tensor::from_vec(detail_f32, &[detail_len])?);
+            current = approx;
         }
 
-        // Approximation coefficients (same length as last detail level)
-        let approx_data = vec![0.0f32; current_len];
-        let approximation = Tensor::from_vec(approx_data, &[current_len])?;
+        let approx_f32: Vec<f32> = current.iter().map(|&v| v as f32).collect();
+        let approx_len = approx_f32.len();
+        let approximation = Tensor::from_vec(approx_f32, &[approx_len])?;
 
         Ok(WaveletDecomposition {
             approximation,
@@ -120,16 +243,43 @@ impl WaveletDecomposer {
         })
     }
 
-    /// Reconstruct time series from wavelet decomposition
+    /// Reconstruct time series from wavelet decomposition.
+    ///
+    /// Uses the inverse filter bank (transpose convolution) to reconstruct the signal
+    /// from its approximation and detail coefficients.
     pub fn reconstruct(&self, decomposition: &WaveletDecomposition) -> Result<TimeSeries> {
-        // TODO: Use scirs2-signal wavelet_reconstruct when available
-        // For now, return placeholder reconstruction
-        let approx_len = decomposition.approximation.shape().dims()[0];
-        let total_len = approx_len * (2_usize.pow(decomposition.level as u32));
+        let (lo, hi) = filter_coefficients(self.wavelet_type);
 
-        let recon_data = vec![0.0f32; total_len];
-        let tensor = Tensor::from_vec(recon_data, &[total_len])?;
+        // Start from the coarsest approximation
+        let mut current: Vec<f64> = decomposition
+            .approximation
+            .to_vec()
+            .map_err(|e| TorshError::InvalidArgument(format!("tensor to_vec: {}", e)))?
+            .iter()
+            .map(|&v| v as f64)
+            .collect();
 
+        // Traverse detail levels from coarsest to finest
+        for detail_tensor in decomposition.details.iter().rev() {
+            let detail: Vec<f64> = detail_tensor
+                .to_vec()
+                .map_err(|e| TorshError::InvalidArgument(format!("tensor to_vec: {}", e)))?
+                .iter()
+                .map(|&v| v as f64)
+                .collect();
+            let target_len = detail.len() * 2;
+            let rec_lo = upsample_convolve(&current, lo, target_len);
+            let rec_hi = upsample_convolve(&detail, hi, target_len);
+            current = rec_lo
+                .iter()
+                .zip(rec_hi.iter())
+                .map(|(&a, &b)| a + b)
+                .collect();
+        }
+
+        let out: Vec<f32> = current.iter().map(|&v| v as f32).collect();
+        let out_len = out.len();
+        let tensor = Tensor::from_vec(out, &[out_len])?;
         Ok(TimeSeries::new(tensor))
     }
 
@@ -139,46 +289,44 @@ impl WaveletDecomposer {
         ((n as f64).log2().floor() as usize).max(1)
     }
 
-    /// Perform single-level DWT
+    /// Perform single-level DWT using the filter bank for the selected wavelet type.
     pub fn single_level_dwt(&self, series: &TimeSeries) -> Result<(Tensor, Tensor)> {
-        let data = series.values.to_vec()?;
-        let n = data.len();
+        let raw: Vec<f32> = series.values.to_vec()?;
+        let data: Vec<f64> = raw.iter().map(|&v| v as f64).collect();
 
-        // TODO: Use scirs2-signal dwt when available
-        // Placeholder implementation (simplified Haar transform)
-        let half_n = n / 2;
-        let mut approx_data = vec![0.0f32; half_n];
-        let mut detail_data = vec![0.0f32; half_n];
+        let (lo, hi) = filter_coefficients(self.wavelet_type);
+        let approx = convolve_downsample(&data, lo);
+        let detail = convolve_downsample(&data, hi);
 
-        for i in 0..half_n {
-            if 2 * i + 1 < n {
-                approx_data[i] = (data[2 * i] + data[2 * i + 1]) / 2.0;
-                detail_data[i] = (data[2 * i] - data[2 * i + 1]) / 2.0;
-            }
-        }
+        let approx_len = approx.len();
+        let detail_len = detail.len();
+        let approx_f32: Vec<f32> = approx.iter().map(|&v| v as f32).collect();
+        let detail_f32: Vec<f32> = detail.iter().map(|&v| v as f32).collect();
 
-        let approx_tensor = Tensor::from_vec(approx_data, &[half_n])?;
-        let detail_tensor = Tensor::from_vec(detail_data, &[half_n])?;
-
-        Ok((approx_tensor, detail_tensor))
+        Ok((
+            Tensor::from_vec(approx_f32, &[approx_len])?,
+            Tensor::from_vec(detail_f32, &[detail_len])?,
+        ))
     }
 
-    /// Perform single-level inverse DWT
+    /// Perform single-level inverse DWT.
     pub fn single_level_idwt(&self, approx: &Tensor, detail: &Tensor) -> Result<TimeSeries> {
-        let approx_data = approx.to_vec()?;
-        let detail_data = detail.to_vec()?;
+        let approx_data: Vec<f64> = approx.to_vec()?.iter().map(|&v: &f32| v as f64).collect();
+        let detail_data: Vec<f64> = detail.to_vec()?.iter().map(|&v: &f32| v as f64).collect();
 
-        // TODO: Use scirs2-signal idwt when available
-        // Placeholder implementation (simplified inverse Haar transform)
-        let half_n = approx_data.len();
-        let mut recon_data = vec![0.0f32; half_n * 2];
+        let (lo, hi) = filter_coefficients(self.wavelet_type);
+        let target_len = detail_data.len() * 2;
 
-        for i in 0..half_n {
-            recon_data[2 * i] = approx_data[i] + detail_data[i];
-            recon_data[2 * i + 1] = approx_data[i] - detail_data[i];
-        }
+        let rec_lo = upsample_convolve(&approx_data, lo, target_len);
+        let rec_hi = upsample_convolve(&detail_data, hi, target_len);
 
-        let tensor = Tensor::from_vec(recon_data.clone(), &[recon_data.len()])?;
+        let recon: Vec<f32> = rec_lo
+            .iter()
+            .zip(rec_hi.iter())
+            .map(|(&a, &b)| (a + b) as f32)
+            .collect();
+        let recon_len = recon.len();
+        let tensor = Tensor::from_vec(recon, &[recon_len])?;
         Ok(TimeSeries::new(tensor))
     }
 }
@@ -212,24 +360,38 @@ impl CWTAnalyzer {
         self
     }
 
-    /// Perform Continuous Wavelet Transform
+    /// Perform Continuous Wavelet Transform.
+    ///
+    /// Uses the real part of the Morlet wavelet ψ(t) = π^{-1/4} cos(ω₀t) e^{-t²/2}
+    /// with ω₀ = 6 (the standard central frequency for time-frequency localisation).
+    /// For Haar/Daubechies wavelet types the DWT filter bank is used instead.
     pub fn analyze(&self, series: &TimeSeries) -> Result<CWTResult> {
-        let _data = series.values.to_vec()?;
+        let raw: Vec<f32> = series.values.to_vec()?;
+        let data: Vec<f64> = raw.iter().map(|&v| v as f64).collect();
+        let n_time = data.len();
 
-        // Generate scales if not provided
         let scales = self
             .scales
             .clone()
-            .unwrap_or_else(|| Self::generate_scales(series.len(), 1.0, 128.0, 64));
+            .unwrap_or_else(|| Self::generate_scales(n_time, 1.0, 64.0, 32));
 
-        // TODO: Use scirs2-signal cwt when available
-        // Placeholder implementation
         let n_scales = scales.len();
-        let n_time = series.len();
-        let coef_data = vec![0.0f32; n_scales * n_time];
-        let coefficients = Tensor::from_vec(coef_data, &[n_scales, n_time])?;
+        let omega0 = 6.0f64; // Standard Morlet central frequency
 
-        // Calculate frequencies from scales
+        // Compute CWT by direct convolution with real Morlet wavelet at each scale
+        let mut coef_data = vec![0.0f32; n_scales * n_time];
+        for (si, &scale) in scales.iter().enumerate() {
+            for t in 0..n_time {
+                let mut sum = 0.0f64;
+                for tau_idx in 0..n_time {
+                    let morlet = morlet_real(tau_idx as f64, t as f64, scale, omega0);
+                    sum += data[tau_idx] * morlet;
+                }
+                coef_data[si * n_time + t] = sum as f32;
+            }
+        }
+
+        let coefficients = Tensor::from_vec(coef_data, &[n_scales, n_time])?;
         let frequencies = self.scales_to_frequencies(&scales);
 
         Ok(CWTResult {
@@ -277,18 +439,38 @@ impl WaveletPacketDecomposer {
         }
     }
 
-    /// Decompose into wavelet packet tree
+    /// Decompose into wavelet packet tree.
+    ///
+    /// Each node in the tree is identified by a binary string path (e.g. "ad" means
+    /// approximation of the first level, then detail of the second level).
+    /// An empty path "" denotes the root (original signal).
     pub fn decompose(&self, series: &TimeSeries) -> Result<WaveletPacketTree> {
-        let _data = series.values.to_vec()?;
+        let raw: Vec<f32> = series.values.to_vec()?;
+        let root: Vec<f64> = raw.iter().map(|&v| v as f64).collect();
 
-        // TODO: Use scirs2-signal wavelet_packet_decompose when available
-        // Placeholder implementation
-        let mut nodes = std::collections::HashMap::new();
+        let (lo, hi) = filter_coefficients(self.wavelet_type);
+        let mut nodes: std::collections::HashMap<String, Tensor> = std::collections::HashMap::new();
 
-        // Create root node
-        let root_data = vec![0.0f32; series.len()];
-        let root_tensor = Tensor::from_vec(root_data, &[series.len()])?;
-        nodes.insert("".to_string(), root_tensor);
+        // BFS expansion of the wavelet packet tree up to `self.level` levels
+        // Queue: (path, signal)
+        let mut queue: Vec<(String, Vec<f64>)> = vec![("".to_string(), root)];
+
+        while let Some((path, signal)) = queue.pop() {
+            let n = signal.len();
+            let path_level = path.len();
+
+            // Store this node
+            let f32_sig: Vec<f32> = signal.iter().map(|&v| v as f32).collect();
+            let t = Tensor::from_vec(f32_sig, &[n])?;
+            nodes.insert(path.clone(), t);
+
+            if path_level < self.level && n >= 2 {
+                let approx = convolve_downsample(&signal, lo);
+                let detail = convolve_downsample(&signal, hi);
+                queue.push((format!("{}a", path), approx));
+                queue.push((format!("{}d", path), detail));
+            }
+        }
 
         Ok(WaveletPacketTree {
             nodes,

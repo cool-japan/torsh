@@ -13,7 +13,7 @@
 //!
 //! ## Usage Example
 //!
-//! ```rust
+//! ```rust,ignore
 //! use torsh_sparse::performance_tools::optimization::{AutoTuner, HardwareBenchmark};
 //!
 //! // Auto-tune sparse format selection

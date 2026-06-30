@@ -10,21 +10,9 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use torsh_core::{device::DeviceType, dtype::TensorElement, error::Result};
 
-// 🚀 SciRS2 GPU integration for breakthrough performance
-// TODO: scirs2_core::gpu module not available yet
-// #[cfg(feature = "gpu")]
-// use scirs2_core::gpu::{
-//     GpuBuffer, GpuContext, GpuKernel,
-//     // TODO: These types are not yet available in scirs2_core
-//     // CudaBackend, GpuMemoryManager, MetalBackend, OpenClBackend,
-//     // RocmBackend, UnifiedMemory, WebGpuBackend,
-// };
-
-// TODO: Tensor cores not yet available in scirs2_core
-// #[cfg(feature = "gpu")]
-// use scirs2_core::tensor_cores::{AutoTuning, MixedPrecision, TensorCore};
-
-// Placeholder GPU types until scirs2_core::gpu module is available
+// GPU compute is provided by oxicuda via `crate::gpu_dispatch` (the real device
+// dispatch path).  The lightweight placeholder types below are this module's own
+// device-orchestration scaffolding and are independent of the compute backend.
 #[cfg(feature = "gpu")]
 pub struct GpuContext;
 

@@ -112,6 +112,10 @@ impl Optimizer for OnlineGradientDescent {
         self.params.extend(params);
     }
 
+    fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {
+        self.params.clone()
+    }
+
     fn state_dict(&self) -> OptimizerResult<OptimizerState> {
         let param_group = ParamGroupState {
             lr: self.lr,
@@ -305,6 +309,10 @@ impl Optimizer for SVRG {
         _options: HashMap<String, f32>,
     ) {
         self.params.extend(params);
+    }
+
+    fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {
+        self.params.clone()
     }
 
     fn state_dict(&self) -> OptimizerResult<OptimizerState> {
@@ -536,6 +544,10 @@ impl Optimizer for SAGA {
         _options: HashMap<String, f32>,
     ) {
         self.params.extend(params);
+    }
+
+    fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {
+        self.params.clone()
     }
 
     fn state_dict(&self) -> OptimizerResult<OptimizerState> {
@@ -786,6 +798,10 @@ impl Optimizer for ProximalGradient {
         _options: HashMap<String, f32>,
     ) {
         self.params.extend(params);
+    }
+
+    fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {
+        self.params.clone()
     }
 
     fn state_dict(&self) -> OptimizerResult<OptimizerState> {

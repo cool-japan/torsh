@@ -26,9 +26,6 @@ use scirs2_core::memory::metrics::{
     format_bytes, take_snapshot, MemoryMetricsCollector, MemorySnapshot,
 };
 
-#[cfg(feature = "gpu")]
-use scirs2_core::gpu::{GpuBuffer, GpuContext};
-
 // Additional advanced SciRS2-core imports for enhanced profiling
 use scirs2_core::{
     metrics::{Counter, Gauge, Histogram, MetricsRegistry, Timer},
@@ -50,9 +47,6 @@ pub struct ScirS2EnhancedProfiler {
     /// Memory metrics collector
     #[cfg(feature = "memory_metrics")]
     memory_metrics: Arc<Mutex<MemoryMetricsCollector>>,
-    /// GPU context if available
-    #[cfg(feature = "gpu")]
-    gpu_context: Option<Arc<GpuContext>>,
     /// SCIRS2 core profiler for advanced profiling
     scirs2_profiler: SciRS2Profiler,
     /// Metrics registry for comprehensive metrics collection
@@ -110,8 +104,6 @@ impl ScirS2EnhancedProfiler {
             rng: Random::default(), // Use default ThreadRng
             #[cfg(feature = "memory_metrics")]
             memory_metrics: Arc::new(Mutex::new(MemoryMetricsCollector::new())),
-            #[cfg(feature = "gpu")]
-            gpu_context: None,
             scirs2_profiler,
             metric_registry,
             timers: Arc::new(Mutex::new(std::collections::HashMap::new())),
@@ -126,20 +118,6 @@ impl ScirS2EnhancedProfiler {
         // Enable SCIRS2 profiling configuration
         set_config_value("profiling_enabled", ConfigValue::Bool(true));
         set_config_value("memory_tracking", ConfigValue::Bool(true));
-
-        // Initialize GPU context if available
-        #[cfg(feature = "gpu")]
-        {
-            match GpuContext::new() {
-                Ok(ctx) => {
-                    self.gpu_context = Some(Arc::new(ctx));
-                    println!("GPU context initialized for enhanced profiling");
-                }
-                Err(_) => {
-                    println!("GPU not available, continuing with CPU-only profiling");
-                }
-            }
-        }
 
         Ok(())
     }
@@ -199,28 +177,6 @@ impl ScirS2EnhancedProfiler {
         {
             self.record_operation(name, duration);
         }
-
-        Ok(result)
-    }
-
-    /// Profile GPU operations if GPU context is available
-    #[cfg(feature = "gpu")]
-    pub fn profile_gpu_operation<F, T>(&self, name: &str, operation: F) -> Result<T, CoreError>
-    where
-        F: FnOnce(&GpuContext) -> T,
-    {
-        let start = Instant::now();
-
-        let result = if let Some(ref gpu_ctx) = self.gpu_context {
-            operation(gpu_ctx)
-        } else {
-            return Err(CoreError::ValidationError(ErrorContext::new(
-                "GPU context not available".to_string(),
-            )));
-        };
-
-        let duration = start.elapsed();
-        self.record_gpu_operation(name, duration);
 
         Ok(result)
     }
@@ -370,16 +326,16 @@ impl ScirS2EnhancedProfiler {
         }
         drop(gauges);
 
-        // Collect histogram data
+        // Collect histogram data from the real scirs2-core Histogram via get_stats()
         let histograms = self.histograms.lock();
         for (name, histogram) in histograms.iter() {
-            // Use available histogram methods or simulate the stats
+            let stats = histogram.get_stats();
             summary.histogram_stats.insert(
                 name.clone(),
                 HistogramStats {
-                    count: 1,  // Simplified for now since actual count method may not exist
-                    sum: 0.0,  // Simplified for now
-                    mean: 0.0, // Simplified for now
+                    count: stats.count,
+                    sum: stats.sum,
+                    mean: stats.mean,
                 },
             );
         }

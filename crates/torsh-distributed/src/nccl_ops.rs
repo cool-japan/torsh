@@ -54,6 +54,24 @@ use torsh_tensor::Tensor;
 #[cfg(feature = "nccl")]
 use crate::backend::NcclBackend;
 
+/// Emit the NCCL simulation warning exactly once per process lifetime.
+///
+/// Real NCCL requires the `cudarc` crate with the `nccl` feature and a
+/// compatible GPU driver. Until that integration is wired in, all collective
+/// ops in this module perform in-process simulation only — data is NOT
+/// exchanged across ranks.
+#[cfg(feature = "nccl")]
+fn warn_nccl_simulated_once() {
+    use std::sync::OnceLock;
+    static WARNED: OnceLock<()> = OnceLock::new();
+    WARNED.get_or_init(|| {
+        tracing::warn!(
+            "NCCL backend is simulated — collective ops are local; \
+             real NCCL requires cudarc+nccl feature"
+        );
+    });
+}
+
 /// NCCL-optimized all-reduce operation
 ///
 /// This function automatically detects if NCCL backend is available and uses
@@ -170,6 +188,7 @@ where
         + std::ops::Mul<Output = T>
         + std::ops::Div<Output = T>,
 {
+    warn_nccl_simulated_once();
     let backend = group.backend();
 
     // Check backend readiness and get info without holding the lock across await

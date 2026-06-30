@@ -274,65 +274,20 @@ impl HardwareQuantizer {
         Ok(quantizer)
     }
 
-    /// Detect hardware capabilities
+    /// Detect hardware capabilities.
+    ///
+    /// SIMD feature detection is performed at runtime via the standard library's
+    /// CPU feature-detection macros and is genuine. GPU and NPU enumeration
+    /// requires linking against vendor runtimes (CUDA driver API, OpenCL ICD,
+    /// Metal, the Apple Neural Engine / CoreML stack, etc.), none of which are
+    /// wired into this crate. Rather than fabricate plausible-looking device
+    /// specifications, those lists are reported as empty until real probing is
+    /// implemented. See [`Self::detect_gpu_devices`] and
+    /// [`Self::detect_npu_devices`].
     fn detect_hardware_capabilities() -> TorshResult<HardwareCapabilities> {
-        let mut simd_features = Vec::new();
-        let mut gpu_devices = Vec::new();
-        let mut npu_devices = Vec::new();
-
-        // Detect SIMD features (simplified detection)
-        if Self::has_simd_support("sse") {
-            simd_features.push(SimdFeature::Sse);
-        }
-        if Self::has_simd_support("sse2") {
-            simd_features.push(SimdFeature::Sse2);
-        }
-        if Self::has_simd_support("avx") {
-            simd_features.push(SimdFeature::Avx);
-        }
-        if Self::has_simd_support("avx2") {
-            simd_features.push(SimdFeature::Avx2);
-        }
-        if Self::has_simd_support("avx512f") {
-            simd_features.push(SimdFeature::Avx512f);
-        }
-        if Self::has_simd_support("neon") {
-            simd_features.push(SimdFeature::ArmNeon);
-        }
-
-        // Detect GPU devices (mock implementation)
-        if Self::has_gpu_support("cuda") {
-            gpu_devices.push(GpuDevice {
-                name: "NVIDIA GPU".to_string(),
-                device_type: GpuType::Cuda,
-                memory_size: 8 * 1024 * 1024 * 1024, // 8GB
-                compute_capability: "8.6".to_string(),
-                num_sm: 68,
-                clock_speed: 1770,
-            });
-        }
-
-        if Self::has_gpu_support("opencl") {
-            gpu_devices.push(GpuDevice {
-                name: "OpenCL GPU".to_string(),
-                device_type: GpuType::OpenCl,
-                memory_size: 4 * 1024 * 1024 * 1024, // 4GB
-                compute_capability: "2.0".to_string(),
-                num_sm: 32,
-                clock_speed: 1500,
-            });
-        }
-
-        // Detect NPU devices (mock implementation)
-        if Self::has_npu_support("apple_ne") {
-            npu_devices.push(NpuDevice {
-                name: "Apple Neural Engine".to_string(),
-                npu_type: NpuType::AppleNe,
-                tops_rating: 15.8,
-                supported_dtypes: vec![DType::F16, DType::I8],
-                power_consumption: 2.0,
-            });
-        }
+        let simd_features = Self::detect_simd_features();
+        let gpu_devices = Self::detect_gpu_devices();
+        let npu_devices = Self::detect_npu_devices();
 
         // Estimate memory bandwidth and compute score
         let memory_bandwidth = Self::estimate_memory_bandwidth(&simd_features, &gpu_devices);
@@ -348,36 +303,80 @@ impl HardwareQuantizer {
         })
     }
 
-    /// Check if SIMD support is available (simplified)
-    fn has_simd_support(feature: &str) -> bool {
-        // In a real implementation, this would use CPU feature detection
-        match feature {
-            "sse" | "sse2" => cfg!(target_arch = "x86_64"),
-            "avx" | "avx2" => cfg!(target_arch = "x86_64"),
-            "avx512f" => cfg!(target_arch = "x86_64"),
-            "neon" => cfg!(target_arch = "aarch64"),
-            _ => false,
+    /// Detect the SIMD instruction sets supported by the current CPU at runtime.
+    ///
+    /// On x86/x86-64 this uses `is_x86_feature_detected!`, which queries CPUID
+    /// at runtime, so the reported features reflect the actual host rather than
+    /// just the compile-time target. On AArch64, NEON is mandatory in the base
+    /// architecture, so its presence is implied by the target architecture.
+    fn detect_simd_features() -> Vec<SimdFeature> {
+        let mut simd_features = Vec::new();
+
+        #[cfg(target_arch = "x86_64")]
+        {
+            if std::arch::is_x86_feature_detected!("sse") {
+                simd_features.push(SimdFeature::Sse);
+            }
+            if std::arch::is_x86_feature_detected!("sse2") {
+                simd_features.push(SimdFeature::Sse2);
+            }
+            if std::arch::is_x86_feature_detected!("sse3") {
+                simd_features.push(SimdFeature::Sse3);
+            }
+            if std::arch::is_x86_feature_detected!("sse4.1") {
+                simd_features.push(SimdFeature::Sse41);
+            }
+            if std::arch::is_x86_feature_detected!("sse4.2") {
+                simd_features.push(SimdFeature::Sse42);
+            }
+            if std::arch::is_x86_feature_detected!("avx") {
+                simd_features.push(SimdFeature::Avx);
+            }
+            if std::arch::is_x86_feature_detected!("avx2") {
+                simd_features.push(SimdFeature::Avx2);
+            }
+            if std::arch::is_x86_feature_detected!("avx512f") {
+                simd_features.push(SimdFeature::Avx512f);
+            }
+            if std::arch::is_x86_feature_detected!("avx512cd") {
+                simd_features.push(SimdFeature::Avx512cd);
+            }
+            if std::arch::is_x86_feature_detected!("avx512bw") {
+                simd_features.push(SimdFeature::Avx512bw);
+            }
+            if std::arch::is_x86_feature_detected!("avx512dq") {
+                simd_features.push(SimdFeature::Avx512dq);
+            }
         }
+
+        // NEON is part of the mandatory baseline for AArch64.
+        #[cfg(target_arch = "aarch64")]
+        {
+            simd_features.push(SimdFeature::ArmNeon);
+        }
+
+        simd_features
     }
 
-    /// Check if GPU support is available (simplified)
-    fn has_gpu_support(gpu_type: &str) -> bool {
-        // In a real implementation, this would check for GPU drivers/runtime
-        match gpu_type {
-            "cuda" => false,   // Assume no CUDA for now
-            "opencl" => false, // Assume no OpenCL for now
-            _ => false,
-        }
+    /// Enumerate available GPU devices.
+    ///
+    /// Real enumeration requires the CUDA driver API, an OpenCL ICD loader, or
+    /// Apple Metal, none of which are linked by this crate. No GPU runtime
+    /// integration exists yet, so no devices are reported. This returns an
+    /// empty list rather than a fabricated device description.
+    fn detect_gpu_devices() -> Vec<GpuDevice> {
+        Vec::new()
     }
 
-    /// Check if NPU support is available (simplified)
-    fn has_npu_support(npu_type: &str) -> bool {
-        // In a real implementation, this would check for NPU drivers
-        match npu_type {
-            "apple_ne" => cfg!(target_os = "macos"),
-            "intel_vpu" => false, // Assume no Intel VPU for now
-            _ => false,
-        }
+    /// Enumerate available NPU devices.
+    ///
+    /// Real enumeration requires vendor stacks (CoreML / the Apple Neural
+    /// Engine, Intel's NPU runtime, the Qualcomm Hexagon SDK, etc.), none of
+    /// which are linked by this crate. No NPU runtime integration exists yet,
+    /// so no devices are reported. This returns an empty list rather than a
+    /// fabricated device description.
+    fn detect_npu_devices() -> Vec<NpuDevice> {
+        Vec::new()
     }
 
     /// Estimate memory bandwidth

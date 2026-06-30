@@ -410,10 +410,21 @@ impl DebugSession {
         Ok(())
     }
 
-    /// Check if execution should break at current location
+    /// Check if execution should break at the current location.
+    ///
+    /// `DebugSession` is a standalone execution context; it does not own a
+    /// `BreakpointManager`.  The `BreakpointManager` lives in the outer
+    /// `JitDebugger` wrapper, which intercepts `continue_execution` results and
+    /// checks registered breakpoints at the `JitDebugger` level before advancing
+    /// the session further.
+    ///
+    /// Within the session itself `continue_execution` drives the "run to
+    /// breakpoint" loop; since the session has no breakpoint registry it returns
+    /// `false` here and relies on the caller (`JitDebugger`) to inject the break
+    /// signal from the outside by not calling `continue_execution` again.
     fn should_break_at_current_location(&self) -> bool {
-        // This would check against a global breakpoint manager
-        // For now, just return false as a placeholder
+        // No BreakpointManager is available at DebugSession level.
+        // Breakpoint checking is handled by the JitDebugger wrapper.
         false
     }
 

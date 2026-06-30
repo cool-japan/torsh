@@ -353,15 +353,20 @@ impl SparseTensor for DsrTensor {
     }
 
     fn to_dense(&self) -> TorshResult<Tensor> {
-        use torsh_tensor::creation::zeros;
+        let rows = self.shape.dims()[0];
+        let cols = self.shape.dims()[1];
 
-        let dense = zeros::<f32>(self.shape.dims())?;
+        // Build a dense buffer initialized to zero, then scatter the stored
+        // non-zero values into their (row, col) positions.
+        let mut dense_data = vec![0.0f32; rows * cols];
 
-        // Note: This is a simplified implementation
-        // In practice, you'd want to efficiently set values in the dense tensor
-        // For now, we return a zero tensor as placeholder
+        for (row_idx, row) in self.rows.iter().enumerate() {
+            for (&col_idx, &value) in row.iter() {
+                dense_data[row_idx * cols + col_idx] = value;
+            }
+        }
 
-        Ok(dense)
+        Tensor::from_data(dense_data, vec![rows, cols], self.device)
     }
 
     fn to_coo(&self) -> TorshResult<CooTensor> {

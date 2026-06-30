@@ -91,13 +91,13 @@ pub fn watershed(
     // Generate or use provided markers
     let marker_array = match markers {
         WatershedMarkers::Automatic { min_distance } => {
-            generate_watershed_markers(&array, *min_distance)?
+            generate_watershed_markers(&array.view(), *min_distance)?
         }
         WatershedMarkers::Manual(m) => m.clone(),
     };
 
     // Perform watershed segmentation
-    let result = watershed_segmentation(&array, &marker_array, config)?;
+    let result = watershed_segmentation(&array.view(), &marker_array, config)?;
 
     // Convert back to tensor (convert i32 to f32)
     let result_f32 = result.mapv(|x| x as f32);
@@ -505,7 +505,7 @@ pub fn region_growing(
             let _current_value = array[[i, j]];
             let threshold = if config.adaptive {
                 // Adaptive threshold based on local statistics
-                let local_mean = compute_local_mean(&array.to_owned(), i, j, 3);
+                let local_mean = compute_local_mean(&array, i, j, 3);
                 config.intensity_threshold * (local_mean / 128.0).max(0.5)
             } else {
                 config.intensity_threshold
@@ -563,46 +563,38 @@ fn compute_local_mean(array: &Array2<f32>, i: usize, j: usize, radius: usize) ->
 
 // Helper functions for tensor conversion
 
-fn tensor_to_array2(tensor: &Tensor) -> Result<ArrayView2<'_, f32>> {
-    // Convert tensor to ndarray view
-    // Note: This is a simplified placeholder - actual implementation would use proper tensor API
+fn tensor_to_array2(tensor: &Tensor) -> Result<Array2<f32>> {
     let shape = tensor.shape();
-    if shape.len() != 2 {
+    let dims = shape.dims();
+    if dims.len() != 2 {
         return Err(VisionError::InvalidParameter(format!(
             "Expected 2D tensor, got {}D",
-            shape.len()
+            dims.len()
         )));
     }
-
-    // TODO: Implement proper tensor-to-array conversion
-    // For now, return error indicating this needs tensor API implementation
-    Err(VisionError::InvalidParameter(
-        "Tensor-to-array conversion not yet implemented".to_string(),
-    ))
+    let data = tensor.to_vec().map_err(|e| VisionError::TensorError(e))?;
+    Array2::from_shape_vec((dims[0], dims[1]), data)
+        .map_err(|e| VisionError::Other(anyhow::anyhow!("Array2 reshape failed: {}", e)))
 }
 
 fn tensor_to_array3(tensor: &Tensor) -> Result<Array3<f32>> {
-    // Convert tensor to ndarray view
     let shape = tensor.shape();
-    if shape.len() != 3 {
+    let dims = shape.dims();
+    if dims.len() != 3 {
         return Err(VisionError::InvalidParameter(format!(
             "Expected 3D tensor, got {}D",
-            shape.len()
+            dims.len()
         )));
     }
-
-    // TODO: Implement proper tensor-to-array conversion
-    Err(VisionError::InvalidParameter(
-        "Tensor-to-array conversion not yet implemented".to_string(),
-    ))
+    let data = tensor.to_vec().map_err(|e| VisionError::TensorError(e))?;
+    Array3::from_shape_vec((dims[0], dims[1], dims[2]), data)
+        .map_err(|e| VisionError::Other(anyhow::anyhow!("Array3 reshape failed: {}", e)))
 }
 
-fn array2_to_tensor(_array: &Array2<f32>) -> Result<Tensor> {
-    // Convert ndarray to tensor
-    // TODO: Implement proper array-to-tensor conversion
-    Err(VisionError::InvalidParameter(
-        "Array-to-tensor conversion not yet implemented".to_string(),
-    ))
+fn array2_to_tensor(array: &Array2<f32>) -> Result<Tensor> {
+    let shape = vec![array.nrows(), array.ncols()];
+    let data: Vec<f32> = array.iter().copied().collect();
+    Tensor::from_vec(data, &shape).map_err(|e| VisionError::TensorError(e))
 }
 
 #[cfg(test)]
@@ -674,5 +666,68 @@ mod tests {
         let array = Array2::from_elem((10, 10), 5.0);
         let mean = compute_local_mean(&array, 5, 5, 2);
         assert!((mean - 5.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_tensor_to_array2_roundtrip() {
+        use scirs2_core::ndarray::Array2;
+        use torsh_tensor::Tensor;
+
+        let data: Vec<f32> = (0..12).map(|x| x as f32).collect();
+        let tensor =
+            Tensor::from_vec(data.clone(), &[3, 4]).expect("tensor creation should succeed");
+
+        let arr = tensor_to_array2(&tensor).expect("tensor_to_array2 should succeed");
+        assert_eq!(arr.dim(), (3, 4));
+
+        // Verify values match
+        for (idx, &v) in data.iter().enumerate() {
+            let row = idx / 4;
+            let col = idx % 4;
+            assert!((arr[[row, col]] - v).abs() < 1e-6);
+        }
+    }
+
+    #[test]
+    fn test_tensor_to_array2_rejects_wrong_dims() {
+        use torsh_tensor::Tensor;
+
+        let data: Vec<f32> = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+        let tensor = Tensor::from_vec(data, &[2, 3, 1]).expect("tensor creation should succeed");
+
+        let result = tensor_to_array2(&tensor);
+        assert!(result.is_err(), "Should reject 3D tensor");
+    }
+
+    #[test]
+    fn test_tensor_to_array3_roundtrip() {
+        use torsh_tensor::Tensor;
+
+        let data: Vec<f32> = (0..24).map(|x| x as f32).collect();
+        let tensor =
+            Tensor::from_vec(data.clone(), &[2, 3, 4]).expect("tensor creation should succeed");
+
+        let arr = tensor_to_array3(&tensor).expect("tensor_to_array3 should succeed");
+        assert_eq!(arr.dim(), (2, 3, 4));
+    }
+
+    #[test]
+    fn test_array2_to_tensor_roundtrip() {
+        use scirs2_core::ndarray::Array2;
+
+        let arr: Array2<f32> = Array2::from_shape_fn((3, 4), |(i, j)| (i * 4 + j) as f32);
+        let tensor = array2_to_tensor(&arr).expect("array2_to_tensor should succeed");
+
+        let shape = tensor.shape();
+        let dims = shape.dims();
+        assert_eq!(dims[0], 3);
+        assert_eq!(dims[1], 4);
+
+        let roundtrip = tensor_to_array2(&tensor).expect("roundtrip should succeed");
+        for i in 0..3 {
+            for j in 0..4 {
+                assert!((roundtrip[[i, j]] - arr[[i, j]]).abs() < 1e-6);
+            }
+        }
     }
 }

@@ -2,35 +2,33 @@
 //!
 //! 🤖 Generated with [SplitRS](https://github.com/cool-japan/splitrs)
 
-use std::collections::{HashMap, VecDeque};
-use std::time::{Duration, Instant};
-
-use super::types::{AdaptationAction, AdaptationStrategy, AdaptationTrigger, AdaptiveExperience, AdaptiveOptimizationController, AdaptiveResult, AggregationMethod, ApplicabilityCondition, DegradationSeverity, ExperienceContext, FeatureExtractionConfig, FeatureType, LifecycleStage, NormalizationStrategy, ParameterAdjustment, ParameterBounds, PressureTrend, ResultQualityMetrics, RiskLevel, StrategyComplexity, StrategyLearningConfig, StrategyLifecycle, StrategyResourceRequirements, SystemState, TransitionMode};
-
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::super::*;
+    use std::collections::HashMap;
+    use std::time::{Duration, Instant};
     #[test]
     fn test_adaptive_controller_creation() {
         let controller = AdaptiveOptimizationController::new();
-        assert!(! controller.adaptation_strategies.is_empty());
-        assert!(
-            controller.adaptation_strategies
-            .contains_key("performance_degradation_response")
-        );
-        assert!(
-            controller.adaptation_strategies.contains_key("resource_pressure_response")
-        );
+        assert!(!controller.adaptation_strategies.is_empty());
+        assert!(controller
+            .adaptation_strategies
+            .contains_key("performance_degradation_response"));
+        assert!(controller
+            .adaptation_strategies
+            .contains_key("resource_pressure_response"));
     }
     #[test]
     fn test_strategy_trigger_evaluation() {
         let controller = AdaptiveOptimizationController::new();
         let mut state = SystemState::default();
-        state.performance_metrics.insert("overall_performance".to_string(), 0.7);
+        state
+            .performance_metrics
+            .insert("overall_performance".to_string(), 0.7);
         state.resource_utilization.insert("cpu".to_string(), 0.5);
         state.resource_utilization.insert("memory".to_string(), 0.6);
-        let recommendations = controller.get_recommendations();
-        assert!(! recommendations.is_empty());
+        let recommendations = controller.get_recommendations(&state);
+        assert!(!recommendations.is_empty());
         let perf_rec = recommendations
             .iter()
             .find(|r| r.strategy_name == "performance_degradation_response");
@@ -42,7 +40,7 @@ mod tests {
         let mut state = SystemState::default();
         state.resource_utilization.insert("memory".to_string(), 0.9);
         state.resource_utilization.insert("cpu".to_string(), 0.3);
-        let recommendations = controller.get_recommendations();
+        let recommendations = controller.get_recommendations(&state);
         let resource_rec = recommendations
             .iter()
             .find(|r| r.strategy_name == "resource_pressure_response");
@@ -52,12 +50,11 @@ mod tests {
     fn test_strategy_application() {
         let mut controller = AdaptiveOptimizationController::new();
         let state = SystemState::default();
-        let result = controller
-            .apply_strategy("performance_degradation_response", &state);
+        let result = controller.apply_strategy("performance_degradation_response", &state);
         assert!(result.is_ok());
         let event = result.expect("operation should succeed");
         assert_eq!(event.strategy, "performance_degradation_response");
-        assert!(! event.actions.is_empty());
+        assert!(!event.actions.is_empty());
         assert_eq!(controller.adaptation_history.len(), 1);
     }
     #[test]
@@ -91,10 +88,15 @@ mod tests {
         };
         let initial_rules = controller.learning_mechanism.knowledge_base.rules.len();
         controller.learn_from_experience(experience);
-        assert_eq!(controller.learning_mechanism.knowledge_base.experiences.len(), 1);
-        assert!(
-            controller.learning_mechanism.knowledge_base.rules.len() >= initial_rules
+        assert_eq!(
+            controller
+                .learning_mechanism
+                .knowledge_base
+                .experiences
+                .len(),
+            1
         );
+        assert!(controller.learning_mechanism.knowledge_base.rules.len() >= initial_rules);
     }
     #[test]
     fn test_priority_calculation() {
@@ -144,21 +146,16 @@ mod tests {
     fn test_applicability_conditions() {
         let controller = AdaptiveOptimizationController::new();
         let mut state = SystemState::default();
-        let condition = ApplicabilityCondition::SystemLoad {
-            min: 0.0,
-            max: 0.5,
-        };
+        let condition = ApplicabilityCondition::SystemLoad { min: 0.0, max: 0.5 };
         state.resource_utilization.insert("cpu".to_string(), 0.3);
-        assert!(controller.check_applicability_condition(& condition, & state));
+        assert!(controller.check_applicability_condition(&condition, &state));
         state.resource_utilization.insert("cpu".to_string(), 0.8);
-        assert!(! controller.check_applicability_condition(& condition, & state));
-        let condition = ApplicabilityCondition::MemoryPressure {
-            threshold: 0.7,
-        };
+        assert!(!controller.check_applicability_condition(&condition, &state));
+        let condition = ApplicabilityCondition::MemoryPressure { threshold: 0.7 };
         state.resource_utilization.insert("memory".to_string(), 0.5);
-        assert!(controller.check_applicability_condition(& condition, & state));
+        assert!(controller.check_applicability_condition(&condition, &state));
         state.resource_utilization.insert("memory".to_string(), 0.9);
-        assert!(! controller.check_applicability_condition(& condition, & state));
+        assert!(!controller.check_applicability_condition(&condition, &state));
     }
     #[test]
     fn test_trigger_conditions() {
@@ -169,28 +166,30 @@ mod tests {
             duration: Duration::from_secs(30),
             severity: DegradationSeverity::Moderate,
         };
-        state.performance_metrics.insert("overall_performance".to_string(), 0.7);
-        assert!(controller.check_trigger(& trigger, & state));
-        state.performance_metrics.insert("overall_performance".to_string(), 0.9);
-        assert!(! controller.check_trigger(& trigger, & state));
+        state
+            .performance_metrics
+            .insert("overall_performance".to_string(), 0.7);
+        assert!(controller.check_trigger(&trigger, &state));
+        state
+            .performance_metrics
+            .insert("overall_performance".to_string(), 0.9);
+        assert!(!controller.check_trigger(&trigger, &state));
         let trigger = AdaptationTrigger::ResourcePressure {
             resource: "memory".to_string(),
             threshold: 0.8,
             trend: PressureTrend::Increasing,
         };
         state.resource_utilization.insert("memory".to_string(), 0.9);
-        assert!(controller.check_trigger(& trigger, & state));
+        assert!(controller.check_trigger(&trigger, &state));
         state.resource_utilization.insert("memory".to_string(), 0.6);
-        assert!(! controller.check_trigger(& trigger, & state));
+        assert!(!controller.check_trigger(&trigger, &state));
     }
     #[test]
     fn test_action_execution() {
         let controller = AdaptiveOptimizationController::new();
         let action = AdaptationAction::ParameterAdjustment {
             parameter: "test_param".to_string(),
-            adjustment: ParameterAdjustment::Relative {
-                factor: 1.5,
-            },
+            adjustment: ParameterAdjustment::Relative { factor: 1.5 },
             bounds: Some(ParameterBounds {
                 min: 0.0,
                 max: 100.0,
@@ -199,7 +198,9 @@ mod tests {
         };
         let result = controller.execute_action(&action);
         assert!(result.is_ok());
-        assert!(result.expect("operation should succeed").contains("test_param"));
+        assert!(result
+            .expect("operation should succeed")
+            .contains("test_param"));
         let action = AdaptationAction::StrategySwitch {
             from_strategy: "old_strategy".to_string(),
             to_strategy: "new_strategy".to_string(),
@@ -207,7 +208,9 @@ mod tests {
         };
         let result = controller.execute_action(&action);
         assert!(result.is_ok());
-        assert!(result.expect("operation should succeed").contains("Switch from old_strategy to new_strategy"));
+        assert!(result
+            .expect("operation should succeed")
+            .contains("Switch from old_strategy to new_strategy"));
     }
     #[test]
     fn test_strategy_lifecycle() {
@@ -252,10 +255,14 @@ mod tests {
             },
         };
         controller.add_strategy("custom_test_strategy".to_string(), custom_strategy);
-        assert!(controller.adaptation_strategies.contains_key("custom_test_strategy"));
+        assert!(controller
+            .adaptation_strategies
+            .contains_key("custom_test_strategy"));
         let removed = controller.remove_strategy("custom_test_strategy");
         assert!(removed.is_some());
-        assert!(! controller.adaptation_strategies.contains_key("custom_test_strategy"));
+        assert!(!controller
+            .adaptation_strategies
+            .contains_key("custom_test_strategy"));
     }
     #[test]
     fn test_learning_performance_update() {

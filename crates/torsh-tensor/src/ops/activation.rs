@@ -10,10 +10,155 @@
 use crate::{FloatElement, Tensor, TensorElement};
 use torsh_core::error::{Result, TorshError};
 
+/// Try to execute a unary activation on the GPU (f32 + CUDA only).
+///
+/// Returns `Some(result)` when the GPU dispatch succeeds end-to-end,
+/// or `None` if the tensor is not an f32 CUDA tensor, the GPU context
+/// cannot be initialised, the kernel call fails, or the resulting
+/// tensor cannot be reconstructed.  Callers fall through to the
+/// existing CPU implementation in that case.
+///
+/// The closure receives the live `GpuContext` and the input `GpuBuffer<f32>`
+/// and returns the produced output buffer.
+#[cfg(feature = "gpu")]
+fn try_gpu_unary_f32<T, F>(input: &Tensor<T>, gpu_fn: F) -> Option<Tensor<T>>
+where
+    T: FloatElement + 'static,
+    F: FnOnce(
+        &scirs2_core::gpu::GpuContext,
+        &scirs2_core::gpu::GpuBuffer<f32>,
+    ) -> std::result::Result<
+        scirs2_core::gpu::GpuBuffer<f32>,
+        scirs2_core::gpu::GpuError,
+    >,
+{
+    use scirs2_core::gpu::{GpuBackend, GpuContext};
+    use std::any::TypeId;
+    use std::sync::OnceLock;
+
+    // Bail out unless T == f32 and the tensor lives on a CUDA device.
+    if TypeId::of::<T>() != TypeId::of::<f32>() {
+        return None;
+    }
+    if !matches!(input.device, crate::DeviceType::Cuda(_)) {
+        return None;
+    }
+
+    static GPU_CTX: OnceLock<Option<GpuContext>> = OnceLock::new();
+    let ctx = GPU_CTX
+        .get_or_init(|| GpuContext::new(GpuBackend::Cuda).ok())
+        .as_ref()?;
+
+    let data = input.data().ok()?;
+    // SAFETY: TypeId guard above guarantees T == f32, so &[T] is &[f32].
+    let f32_slice: &[f32] = unsafe {
+        std::slice::from_raw_parts(data.as_ptr().cast::<f32>(), data.len())
+    };
+    let input_buf = ctx.create_buffer_from_slice(f32_slice);
+    let output_buf = gpu_fn(ctx, &input_buf).ok()?;
+    let result_f32: Vec<f32> = output_buf.to_vec();
+    // SAFETY: T == f32 (confirmed by TypeId), so Vec<f32> == Vec<T>.
+    let result_t: Vec<T> = unsafe {
+        let mut v = std::mem::ManuallyDrop::new(result_f32);
+        Vec::from_raw_parts(v.as_mut_ptr().cast::<T>(), v.len(), v.capacity())
+    };
+    Tensor::<T>::from_data(result_t, input.shape().dims().to_vec(), input.device).ok()
+}
+
+/// Try to execute a parameterised unary activation on the GPU using the
+/// generic `execute_kernel` dispatch path (f32 + CUDA only).
+///
+/// Unlike [`try_gpu_unary_f32`] (which uses pre-baked `GpuContext::*` methods
+/// such as `gelu` / `relu`), this helper drives kernels that take auxiliary
+/// scalar parameters (e.g. `negative_slope` for LeakyReLU) and that have no
+/// dedicated convenience method on `GpuContext`.  It mirrors the architectural
+/// pattern used by `ElementwiseAddKernel` in `ops/arithmetic.rs`.
+///
+/// Returns `Some(result)` when the GPU dispatch succeeds end-to-end, otherwise
+/// `None` so the caller can fall back to the CPU path.
+///
+/// * `input`            — input tensor (must be f32 and on a CUDA device).
+/// * `min_numel`        — threshold below which CPU is preferred.
+/// * `source_for_backend` — closure producing the kernel source string for the
+///                          selected backend.  Receives the GPU context's
+///                          backend so the caller can pull the proper variant
+///                          (CUDA / WGPU / Metal / OpenCL) from the kernel.
+/// * `float_params`     — scalar parameters fed into the kernel as `f32`.
+#[cfg(feature = "gpu")]
+fn try_gpu_kernel_unary_f32<T, S>(
+    input: &Tensor<T>,
+    min_numel: usize,
+    source_for_backend: S,
+    float_params: &[f32],
+) -> Option<Tensor<T>>
+where
+    T: FloatElement + 'static,
+    S: FnOnce(scirs2_core::gpu::GpuBackend) -> Option<String>,
+{
+    use scirs2_core::gpu::{GpuBackend, GpuContext};
+    use std::any::TypeId;
+    use std::sync::OnceLock;
+
+    if TypeId::of::<T>() != TypeId::of::<f32>() {
+        return None;
+    }
+    if !matches!(input.device, crate::DeviceType::Cuda(_)) {
+        return None;
+    }
+    let numel = input.shape().numel();
+    if numel < min_numel {
+        return None;
+    }
+
+    static GPU_CTX: OnceLock<Option<GpuContext>> = OnceLock::new();
+    let ctx = GPU_CTX
+        .get_or_init(|| GpuContext::new(GpuBackend::Cuda).ok())
+        .as_ref()?;
+
+    let source = source_for_backend(ctx.backend())?;
+    let data = input.data().ok()?;
+    // SAFETY: TypeId guard above guarantees T == f32, so &[T] is &[f32].
+    let f32_slice: &[f32] = unsafe {
+        std::slice::from_raw_parts(data.as_ptr().cast::<f32>(), data.len())
+    };
+    let input_buf = ctx.create_buffer_from_slice(f32_slice);
+    let output_buf = ctx.create_buffer::<f32>(data.len());
+    let n = data.len() as u32;
+    let workgroups = (n.div_ceil(256), 1, 1);
+
+    ctx.execute_kernel(
+        &source,
+        &[input_buf, output_buf.clone()],
+        workgroups,
+        &[n],
+        float_params,
+    )
+    .ok()?;
+
+    let result_f32: Vec<f32> = output_buf.to_vec();
+    // SAFETY: T == f32 (confirmed by TypeId), so Vec<f32> == Vec<T>.
+    let result_t: Vec<T> = unsafe {
+        let mut v = std::mem::ManuallyDrop::new(result_f32);
+        Vec::from_raw_parts(v.as_mut_ptr().cast::<T>(), v.len(), v.capacity())
+    };
+    Tensor::<T>::from_data(result_t, input.shape().dims().to_vec(), input.device).ok()
+}
+
 /// Activation functions for float tensors
 impl<T: FloatElement> Tensor<T> {
     /// ReLU activation: f(x) = max(0, x)
+    ///
+    /// When compiled with `feature = "gpu"` and the tensor is an f32 CUDA
+    /// tensor, computation is dispatched to `scirs2_core::gpu::GpuContext::relu`
+    /// (which routes to the GPU when CUDA hardware is present and falls
+    /// back to an optimised CPU implementation otherwise).  Any failure
+    /// silently falls through to the standard CPU path below.
     pub fn relu(&self) -> Result<Self> {
+        #[cfg(feature = "gpu")]
+        if let Some(result) = try_gpu_unary_f32(self, |ctx, buf| ctx.relu(buf)) {
+            return Ok(result);
+        }
+
         let data = self.data()?;
         let result_data: Vec<T> = data
             .iter()
@@ -50,7 +195,31 @@ impl<T: FloatElement> Tensor<T> {
     }
 
     /// Leaky ReLU activation: f(x) = max(negative_slope * x, x)
+    ///
+    /// When compiled with `feature = "gpu"` and the tensor is an f32 CUDA
+    /// tensor with at least 65 536 elements, computation is dispatched to
+    /// `scirs2_core::gpu::kernels::ml::activation::LeakyReluKernel` via the
+    /// generic `execute_kernel` path (the architectural pattern shared with
+    /// `ElementwiseAddKernel` in `ops/arithmetic.rs`).  Any GPU failure
+    /// silently falls through to the standard CPU path below.
     pub fn leaky_relu(&self, negative_slope: f64) -> Result<Self> {
+        // ── GPU fast path (f32 on CUDA, large tensors only) ──────────────────
+        #[cfg(feature = "gpu")]
+        {
+            use scirs2_core::gpu::kernels::{ml::activation::LeakyReluKernel, GpuKernel};
+            let slope_f32 = negative_slope as f32;
+            let kernel = LeakyReluKernel::new(slope_f32);
+            if let Some(result) = try_gpu_kernel_unary_f32(
+                self,
+                65_536,
+                |backend| kernel.source_for_backend(backend).ok(),
+                &[slope_f32],
+            ) {
+                return Ok(result);
+            }
+        }
+
+        // ── CPU path (generic fallback) ──────────────────────────────────────
         let data = self.data()?;
         let slope = T::from_f64(negative_slope).unwrap_or_else(|| <T as TensorElement>::zero());
         let zero = <T as TensorElement>::zero();
@@ -66,7 +235,18 @@ impl<T: FloatElement> Tensor<T> {
     }
 
     /// Sigmoid activation: f(x) = 1 / (1 + exp(-x))
+    ///
+    /// When compiled with `feature = "gpu"` and the tensor is an f32 CUDA
+    /// tensor, computation is dispatched to `scirs2_core::gpu::GpuContext::sigmoid`
+    /// (which routes to the GPU when CUDA hardware is present and falls
+    /// back to an optimised CPU implementation otherwise).  Any failure
+    /// silently falls through to the standard CPU path below.
     pub fn sigmoid(&self) -> Result<Self> {
+        #[cfg(feature = "gpu")]
+        if let Some(result) = try_gpu_unary_f32(self, |ctx, buf| ctx.sigmoid(buf)) {
+            return Ok(result);
+        }
+
         let data = self.data()?;
         let result_data: Vec<T> = data
             .iter()
@@ -94,7 +274,18 @@ impl<T: FloatElement> Tensor<T> {
     }
 
     /// Hyperbolic tangent activation: f(x) = tanh(x)
+    ///
+    /// When compiled with `feature = "gpu"` and the tensor is an f32 CUDA
+    /// tensor, computation is dispatched to `scirs2_core::gpu::GpuContext::tanh`
+    /// (which routes to the GPU when CUDA hardware is present and falls
+    /// back to an optimised CPU implementation otherwise).  Any failure
+    /// silently falls through to the standard CPU path below.
     pub fn tanh(&self) -> Result<Self> {
+        #[cfg(feature = "gpu")]
+        if let Some(result) = try_gpu_unary_f32(self, |ctx, buf| ctx.tanh(buf)) {
+            return Ok(result);
+        }
+
         let data = self.data()?;
         let result_data: Vec<T> = data.iter().map(|&x| x.tanh()).collect();
         Self::from_data(
@@ -115,7 +306,20 @@ impl<T: FloatElement> Tensor<T> {
 
     /// GELU (Gaussian Error Linear Unit) activation
     /// GELU(x) ≈ 0.5 * x * (1 + tanh(sqrt(2/π) * (x + 0.044715 * x^3)))
+    ///
+    /// When compiled with `feature = "gpu"` and the tensor is on a CUDA device
+    /// with element type f32, computation is dispatched to `scirs2_core::gpu::GpuContext::gelu`
+    /// which routes to the GPU when CUDA hardware is present and falls back to an
+    /// optimised CPU implementation otherwise.  Any GPU initialisation failure
+    /// silently falls through to the standard CPU path.
     pub fn gelu(&self) -> Result<Self> {
+        // ── GPU fast path (f32 on CUDA only) ──────────────────────────────────
+        #[cfg(feature = "gpu")]
+        if let Some(result) = try_gpu_unary_f32(self, |ctx, buf| ctx.gelu(buf)) {
+            return Ok(result);
+        }
+
+        // ── CPU path (generic fallback) ───────────────────────────────────────
         let data = self.data()?;
         // GELU(x) = x * Φ(x) where Φ(x) is the CDF of standard normal distribution
         // Approximation: GELU(x) ≈ 0.5 * x * (1 + tanh(sqrt(2/π) * (x + 0.044715 * x^3)))

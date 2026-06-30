@@ -1083,42 +1083,97 @@ pub fn cuda_is_available() -> bool {
         .unwrap_or(false)
 }
 
-/// Get CUDA architectures available on the system
+/// Get CUDA architectures available on the system.
+///
+/// Queries `nvidia-smi` to enumerate the compute capabilities of GPUs actually present.
+/// Returns an empty `Vec` when `nvidia-smi` is unavailable or fails — never fabricates
+/// a list of architectures.
 pub fn get_cuda_arch_list() -> Vec<String> {
-    // This would ideally query the actual GPUs on the system
-    // For now, return common architectures
-    vec![
-        "sm_70".to_string(), // V100
-        "sm_75".to_string(), // T4, RTX 20xx
-        "sm_80".to_string(), // A100
-        "sm_86".to_string(), // RTX 30xx
-        "sm_89".to_string(), // RTX 40xx
-    ]
+    let output = Command::new("nvidia-smi")
+        .args(["--query-gpu=compute_cap", "--format=csv,noheader,nounits"])
+        .output();
+
+    match output {
+        Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout)
+            .lines()
+            .filter_map(|line| {
+                let cap = line.trim().replace('.', "_");
+                if cap.is_empty() {
+                    None
+                } else {
+                    Some(format!("sm_{}", cap))
+                }
+            })
+            .collect(),
+        // nvidia-smi unavailable or failed — honest empty list
+        _ => vec![],
+    }
 }
 
-/// Query CUDA devices on the system
+/// Query CUDA devices on the system.
+///
+/// Attempts to enumerate real GPUs via `nvidia-smi`. Returns an empty `Vec` when the CUDA
+/// toolchain is absent or `nvidia-smi` cannot be executed — never fabricates device info.
+///
+/// Fields that require the CUDA driver API to query (`multiprocessor_count`,
+/// `shared_memory_per_block`) are set to `0` (honest "unknown") rather than invented values.
+/// `max_threads_per_block`, `max_grid_size`, and `max_block_size` are set to the CUDA
+/// specification minimum guaranteed values, which are safe conservative lower bounds.
 fn query_cuda_devices() -> Result<Vec<CudaDeviceInfo>, String> {
-    // In a real implementation, this would use CUDA Driver API to query devices
-    // For now, return mock data based on CUDA availability
     if !cuda_is_available() {
-        return Err("CUDA is not available on this system".to_string());
+        // CUDA toolchain not detected — return empty list (no devices confirmed)
+        return Ok(vec![]);
     }
 
-    // Mock device information (in real implementation, would query actual devices)
-    let mock_device = CudaDeviceInfo {
-        device_id: 0,
-        name: "NVIDIA GPU".to_string(),
-        compute_capability: "8.0".to_string(),
-        total_memory: 8 * 1024 * 1024 * 1024, // 8GB
-        max_threads_per_block: 1024,
-        max_grid_size: [65535, 65535, 65535],
-        max_block_size: [1024, 1024, 64],
-        warp_size: 32,
-        multiprocessor_count: 80,
-        shared_memory_per_block: 48 * 1024, // 48KB
+    // Try nvidia-smi to get the real device list
+    let output = Command::new("nvidia-smi")
+        .args([
+            "--query-gpu=index,name,memory.total,compute_cap",
+            "--format=csv,noheader,nounits",
+        ])
+        .output();
+
+    let output = match output {
+        Ok(o) if o.status.success() => o,
+        // nvidia-smi not available or failed — cannot enumerate devices
+        _ => return Ok(vec![]),
     };
 
-    Ok(vec![mock_device])
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut devices = Vec::new();
+
+    for line in stdout.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        // Format: "index, name, memory_MiB, compute_cap"
+        let parts: Vec<&str> = line.splitn(4, ',').map(str::trim).collect();
+        if parts.len() < 4 {
+            continue;
+        }
+        let device_id: u32 = parts[0].parse().unwrap_or(0);
+        let name = parts[1].to_string();
+        let total_memory_mib: u64 = parts[2].parse().unwrap_or(0);
+        let compute_capability = parts[3].to_string();
+
+        devices.push(CudaDeviceInfo {
+            device_id,
+            name,
+            compute_capability,
+            total_memory: (total_memory_mib * 1024 * 1024) as usize, // MiB → bytes
+            // CUDA spec minimum guaranteed values (safe conservative lower bounds, not invented)
+            max_threads_per_block: 1024,
+            max_grid_size: [65535, 65535, 65535],
+            max_block_size: [1024, 1024, 64],
+            warp_size: 32,
+            // Unknown without CUDA driver API — honest zero
+            multiprocessor_count: 0,
+            shared_memory_per_block: 0,
+        });
+    }
+
+    Ok(devices)
 }
 
 /// Configure CUDA JIT compilation options
@@ -1378,13 +1433,53 @@ mod tests {
 
     #[test]
     fn test_cuda_detection() {
-        // This test might fail on systems without CUDA
+        // cuda_is_available() checks for nvcc in PATH — passes or fails depending on system
         let available = cuda_is_available();
         println!("CUDA available: {}", available);
 
-        if available {
-            let archs = get_cuda_arch_list();
-            assert!(!archs.is_empty());
+        // get_cuda_arch_list queries nvidia-smi; may return empty even when nvcc is present
+        let archs = get_cuda_arch_list();
+        println!("CUDA arch list: {:?}", archs);
+        // All returned entries must be well-formed sm_XX strings
+        for arch in &archs {
+            assert!(
+                arch.starts_with("sm_"),
+                "arch should start with sm_, got: {}",
+                arch
+            );
+        }
+    }
+
+    #[test]
+    fn test_query_cuda_devices_no_panic() {
+        // Should not panic even when CUDA is absent
+        let result = query_cuda_devices();
+        assert!(
+            result.is_ok(),
+            "query_cuda_devices should return Ok on all platforms"
+        );
+        let devices = result.unwrap();
+        // Entries sourced from nvidia-smi: names must be non-empty, memory reasonable
+        for dev in &devices {
+            assert!(!dev.name.is_empty(), "device name should not be empty");
+            assert!(
+                !dev.compute_capability.is_empty(),
+                "compute_capability should not be empty"
+            );
+        }
+    }
+
+    #[test]
+    fn test_get_cuda_arch_list_no_panic() {
+        // Should not panic even when nvidia-smi is absent; just returns empty vec
+        let archs = get_cuda_arch_list();
+        // If non-empty, all entries should start with "sm_"
+        for arch in &archs {
+            assert!(
+                arch.starts_with("sm_"),
+                "arch should start with sm_, got: {}",
+                arch
+            );
         }
     }
 

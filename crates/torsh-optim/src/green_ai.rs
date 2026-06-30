@@ -270,6 +270,10 @@ impl<O: Optimizer> Optimizer for EnergyAwareOptimizer<O> {
         self.base_optimizer.add_param_group(params, options);
     }
 
+    fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {
+        self.base_optimizer.parameters()
+    }
+
     fn state_dict(&self) -> OptimizerResult<OptimizerState> {
         let mut state = self.base_optimizer.state_dict()?;
         state.optimizer_type = format!("EnergyAware({})", state.optimizer_type);
@@ -459,6 +463,10 @@ impl<O: Optimizer> Optimizer for CarbonConsciousOptimizer<O> {
         self.base_optimizer.add_param_group(params, options);
     }
 
+    fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {
+        self.base_optimizer.parameters()
+    }
+
     fn state_dict(&self) -> OptimizerResult<OptimizerState> {
         let mut state = self.base_optimizer.state_dict()?;
         state.optimizer_type = format!("CarbonConscious({})", state.optimizer_type);
@@ -610,6 +618,10 @@ impl<O: Optimizer> Optimizer for PowerCappedOptimizer<O> {
 
     fn add_param_group(&mut self, params: Vec<Arc<RwLock<Tensor>>>, options: HashMap<String, f32>) {
         self.base_optimizer.add_param_group(params, options);
+    }
+
+    fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {
+        self.base_optimizer.parameters()
     }
 
     fn state_dict(&self) -> OptimizerResult<OptimizerState> {

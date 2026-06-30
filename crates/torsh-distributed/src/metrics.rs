@@ -467,27 +467,164 @@ impl MetricsCollector {
         Ok(())
     }
 
-    /// Collect system metrics (simplified implementation)
+    /// Collect real system metrics from /proc on Linux; returns zeros on other platforms.
     fn collect_system_metrics() -> SystemMetrics {
-        // This is a simplified implementation. In a real system, you would
-        // use platform-specific APIs to get actual system metrics.
-        SystemMetrics {
-            cpu_usage_pct: 50.0,                                  // Placeholder
-            memory_usage_bytes: 1024 * 1024 * 1024,               // 1GB placeholder
-            memory_available_bytes: 8 * 1024 * 1024 * 1024,       // 8GB placeholder
-            memory_usage_pct: 12.5,                               // Calculated from above
-            gpu_memory_usage_bytes: Some(512 * 1024 * 1024),      // 512MB placeholder
-            gpu_memory_total_bytes: Some(4 * 1024 * 1024 * 1024), // 4GB placeholder
-            gpu_usage_pct: Some(75.0),                            // Placeholder
-            network_bytes_rx: 1024 * 1024,                        // 1MB placeholder
-            network_bytes_tx: 2 * 1024 * 1024,                    // 2MB placeholder
-            disk_bytes_read: 10 * 1024 * 1024,                    // 10MB placeholder
-            disk_bytes_write: 5 * 1024 * 1024,                    // 5MB placeholder
-            timestamp: SystemTime::now(),
-            #[cfg(feature = "scirs2-profiling")]
-            scirs2_profile: None,
-            #[cfg(feature = "scirs2-profiling")]
-            memory_profile: None,
+        #[cfg(target_os = "linux")]
+        {
+            // --- CPU utilisation via two /proc/stat samples 100 ms apart ---
+            fn read_cpu_jiffies() -> Option<(u64, u64)> {
+                let content = std::fs::read_to_string("/proc/stat").ok()?;
+                let first_line = content.lines().next()?;
+                // "cpu  user nice system idle iowait irq softirq steal guest guest_nice"
+                let mut parts = first_line.split_whitespace();
+                parts.next(); // skip "cpu"
+                let values: Vec<u64> = parts.filter_map(|s| s.parse().ok()).collect();
+                if values.len() < 4 {
+                    return None;
+                }
+                let idle = values[3];
+                let total: u64 = values.iter().sum();
+                Some((idle, total))
+            }
+
+            let cpu_usage_pct = if let (Some((idle0, total0)), _) = (read_cpu_jiffies(), ()) {
+                std::thread::sleep(Duration::from_millis(100));
+                if let Some((idle1, total1)) = read_cpu_jiffies() {
+                    let d_total = total1.saturating_sub(total0) as f64;
+                    let d_idle = idle1.saturating_sub(idle0) as f64;
+                    if d_total > 0.0 {
+                        (1.0 - d_idle / d_total) * 100.0
+                    } else {
+                        0.0
+                    }
+                } else {
+                    0.0
+                }
+            } else {
+                0.0
+            };
+
+            // --- Memory via /proc/meminfo ---
+            let (memory_usage_bytes, memory_available_bytes, memory_usage_pct) = {
+                let mut mem_total: u64 = 0;
+                let mut mem_available: u64 = 0;
+                if let Ok(content) = std::fs::read_to_string("/proc/meminfo") {
+                    for line in content.lines() {
+                        let mut parts = line.split_whitespace();
+                        match parts.next() {
+                            Some("MemTotal:") => {
+                                mem_total = parts.next().and_then(|s| s.parse().ok()).unwrap_or(0);
+                                mem_total *= 1024; // kB -> bytes
+                            }
+                            Some("MemAvailable:") => {
+                                mem_available =
+                                    parts.next().and_then(|s| s.parse().ok()).unwrap_or(0);
+                                mem_available *= 1024;
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                let usage = mem_total.saturating_sub(mem_available);
+                let pct = if mem_total > 0 {
+                    usage as f64 / mem_total as f64 * 100.0
+                } else {
+                    0.0
+                };
+                (usage, mem_available, pct)
+            };
+
+            // --- Network via /proc/net/dev (cumulative counters) ---
+            let (network_bytes_rx, network_bytes_tx) = {
+                let mut rx: u64 = 0;
+                let mut tx: u64 = 0;
+                if let Ok(content) = std::fs::read_to_string("/proc/net/dev") {
+                    for line in content.lines().skip(2) {
+                        // skip header lines
+                        // Format: iface: rx_bytes rx_pkts ... tx_bytes ...
+                        if let Some(colon_pos) = line.find(':') {
+                            let iface = line[..colon_pos].trim();
+                            // Skip loopback
+                            if iface == "lo" {
+                                continue;
+                            }
+                            let fields: Vec<u64> = line[colon_pos + 1..]
+                                .split_whitespace()
+                                .filter_map(|s| s.parse().ok())
+                                .collect();
+                            // columns: rx_bytes(0) rx_pkts(1)...tx_bytes(8) tx_pkts(9)...
+                            if fields.len() >= 9 {
+                                rx = rx.saturating_add(fields[0]);
+                                tx = tx.saturating_add(fields[8]);
+                            }
+                        }
+                    }
+                }
+                (rx, tx)
+            };
+
+            // --- Disk via /proc/diskstats (sectors read/written × 512) ---
+            let (disk_bytes_read, disk_bytes_write) = {
+                let mut reads: u64 = 0;
+                let mut writes: u64 = 0;
+                if let Ok(content) = std::fs::read_to_string("/proc/diskstats") {
+                    for line in content.lines() {
+                        let parts: Vec<&str> = line.split_whitespace().collect();
+                        // Only count whole-disk devices (no partition numbers in name)
+                        if parts.len() >= 14 {
+                            let name = parts[2];
+                            // Skip loop, ram, partition entries (ends with digit after letter)
+                            let is_partition = name
+                                .chars()
+                                .last()
+                                .map(|c| c.is_ascii_digit())
+                                .unwrap_or(false)
+                                && name
+                                    .chars()
+                                    .rev()
+                                    .skip(1)
+                                    .next()
+                                    .map(|c| !c.is_ascii_digit())
+                                    .unwrap_or(false);
+                            if !is_partition
+                                && !name.starts_with("loop")
+                                && !name.starts_with("ram")
+                            {
+                                let sectors_read: u64 = parts[5].parse().unwrap_or(0);
+                                let sectors_written: u64 = parts[9].parse().unwrap_or(0);
+                                reads = reads.saturating_add(sectors_read * 512);
+                                writes = writes.saturating_add(sectors_written * 512);
+                            }
+                        }
+                    }
+                }
+                (reads, writes)
+            };
+
+            SystemMetrics {
+                cpu_usage_pct,
+                memory_usage_bytes,
+                memory_available_bytes,
+                memory_usage_pct,
+                // GPU metrics require NVML/cust bindings; report None without CUDA feature.
+                gpu_memory_usage_bytes: None,
+                gpu_memory_total_bytes: None,
+                gpu_usage_pct: None,
+                network_bytes_rx,
+                network_bytes_tx,
+                disk_bytes_read,
+                disk_bytes_write,
+                timestamp: SystemTime::now(),
+                #[cfg(feature = "scirs2-profiling")]
+                scirs2_profile: None,
+                #[cfg(feature = "scirs2-profiling")]
+                memory_profile: None,
+            }
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            // Non-Linux platforms: return zeros rather than fabricate values.
+            SystemMetrics::default()
         }
     }
 
@@ -949,18 +1086,58 @@ impl MetricsCollector {
         start.elapsed()
     }
 
+    /// Estimate memory bandwidth by measuring a large sequential copy.
+    ///
+    /// The result is a crude user-space approximation; hardware performance
+    /// counters (e.g. via `perf_event_open`) would give a more accurate figure
+    /// but require kernel integration not yet available here.
     #[cfg(feature = "scirs2-profiling")]
     fn estimate_memory_bandwidth(&self) -> f64 {
-        // This would use actual hardware counters in a real implementation
-        // For now, return a reasonable estimate
-        4.0 // GB/s
+        // Copy 64 MiB and measure wall-clock time to approximate bandwidth.
+        const BYTES: usize = 64 * 1024 * 1024;
+        let src = vec![0u8; BYTES];
+        let mut dst = vec![0u8; BYTES];
+        let start = Instant::now();
+        dst.copy_from_slice(&src);
+        let elapsed = start.elapsed();
+        // Prevent the compiler from eliding the copy.
+        let _ = dst[0];
+        if elapsed.as_secs_f64() > 0.0 {
+            // Two transfers (read + write) per byte.
+            BYTES as f64 * 2.0 / elapsed.as_secs_f64() / 1e9
+        } else {
+            // Timing granularity too coarse — report 0.0 (not yet measured).
+            0.0
+        }
     }
 
+    /// Estimate memory access latency by pointer-chasing through a small array.
+    ///
+    /// Returns 0.0 if the timing resolution is insufficient — the value is
+    /// "not yet measured", not a fabricated estimate.
     #[cfg(feature = "scirs2-profiling")]
     fn estimate_memory_latency(&self) -> f64 {
-        // This would use actual hardware counters in a real implementation
-        // For now, return a reasonable estimate
-        50.0 // nanoseconds
+        // Build a circular pointer-chase list to defeat prefetchers.
+        const N: usize = 256; // 256 × 8 bytes = 2 KiB — fits in L1 to measure cache
+        let mut chain = vec![0usize; N];
+        // Simple shuffle: link[i] = (i * 7 + 1) % N
+        for i in 0..N {
+            chain[i] = (i * 7 + 1) % N;
+        }
+        let iterations = 10_000usize;
+        let start = Instant::now();
+        let mut idx = 0usize;
+        for _ in 0..iterations {
+            idx = chain[idx];
+        }
+        let elapsed = start.elapsed();
+        // Prevent dead-code elimination.
+        let _ = idx;
+        if elapsed.as_nanos() > 0 {
+            elapsed.as_nanos() as f64 / iterations as f64
+        } else {
+            0.0 // not yet measured
+        }
     }
 }
 
@@ -1082,5 +1259,86 @@ mod tests {
 
         let value = collector.get_custom_metric("global_test").unwrap();
         assert_eq!(value, Some(7.5));
+    }
+
+    /// On Linux, `collect_system_metrics` must read real values from /proc.
+    /// The test verifies that memory fields are non-zero (a machine with zero
+    /// total memory cannot exist) and that CPU/network counters come from the
+    /// kernel, not from the old hardcoded 50 %/ 75 % placeholders.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_system_metrics_not_hardcoded_on_linux() {
+        let m = MetricsCollector::collect_system_metrics();
+
+        // Memory must be non-zero on any real machine.
+        assert!(
+            m.memory_usage_bytes > 0 || m.memory_available_bytes > 0,
+            "at least one memory field must be non-zero (got usage={}, avail={})",
+            m.memory_usage_bytes,
+            m.memory_available_bytes
+        );
+
+        // `cpu_usage_pct` must be a valid percentage; the retired placeholder
+        // ignored the system entirely and always returned exactly 50.0. Note that
+        // 50.0 is itself a legitimate real reading (idle == half of total over the
+        // sample window, common on a 2-vCPU box), so rejecting it outright is
+        // flaky. Instead, when the passive sample lands exactly on the old
+        // constant, saturate every core and re-sample: a real /proc/stat reading
+        // climbs well above 50 % under full load, whereas a hardcoded constant
+        // does not move.
+        assert!(
+            (0.0..=100.0).contains(&m.cpu_usage_pct),
+            "cpu_usage_pct must be a valid percentage, got {}",
+            m.cpu_usage_pct
+        );
+        if (m.cpu_usage_pct - 50.0).abs() < f64::EPSILON {
+            use std::sync::atomic::{AtomicBool, Ordering};
+            use std::sync::Arc;
+
+            let stop = Arc::new(AtomicBool::new(false));
+            let n_workers = std::thread::available_parallelism()
+                .map(|p| p.get())
+                .unwrap_or(2);
+            let workers: Vec<_> = (0..n_workers)
+                .map(|_| {
+                    let stop = Arc::clone(&stop);
+                    std::thread::spawn(move || {
+                        // Pure ALU spin so the cores stay busy (no syscalls/idle).
+                        let mut acc: u64 = 0;
+                        while !stop.load(Ordering::Relaxed) {
+                            acc = acc.wrapping_mul(2654435761).wrapping_add(1);
+                        }
+                        acc
+                    })
+                })
+                .collect();
+
+            let loaded = MetricsCollector::collect_system_metrics();
+            stop.store(true, Ordering::Relaxed);
+            for w in workers {
+                let _ = w.join();
+            }
+
+            assert!(
+                (loaded.cpu_usage_pct - 50.0).abs() >= f64::EPSILON,
+                "cpu_usage_pct stayed pinned at exactly 50.0 even under full CPU \
+                 saturation — looks like a hardcoded placeholder, not /proc/stat sampling"
+            );
+        }
+        assert!(
+            m.gpu_usage_pct != Some(75.0),
+            "gpu_usage_pct must not be the hardcoded 75.0 placeholder"
+        );
+
+        // Timestamp must be recent (within 10 seconds).
+        let age = m
+            .timestamp
+            .elapsed()
+            .unwrap_or(std::time::Duration::from_secs(999));
+        assert!(
+            age.as_secs() < 10,
+            "SystemMetrics timestamp is too old: {:?}",
+            age
+        );
     }
 }

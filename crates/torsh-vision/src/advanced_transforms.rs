@@ -811,6 +811,13 @@ impl GpuTransform for GpuResize {
             }
         }
     }
+
+    fn clone_box(&self) -> Box<dyn GpuTransform> {
+        Box::new(GpuResize {
+            size: self.size,
+            device: self.device,
+        })
+    }
 }
 
 impl GpuResize {
@@ -886,6 +893,14 @@ impl GpuTransform for GpuNormalize {
                 Ok(output_f32.to_dtype(DType::F32)?)
             }
         }
+    }
+
+    fn clone_box(&self) -> Box<dyn GpuTransform> {
+        Box::new(GpuNormalize {
+            mean: self.mean.clone(),
+            std: self.std.clone(),
+            device: self.device,
+        })
     }
 }
 
@@ -980,6 +995,16 @@ impl GpuTransform for GpuColorJitter {
             Ok(output_f32.to_dtype(DType::F32)?)
         }
     }
+
+    fn clone_box(&self) -> Box<dyn GpuTransform> {
+        Box::new(GpuColorJitter {
+            brightness: self.brightness,
+            contrast: self.contrast,
+            saturation: self.saturation,
+            hue: self.hue,
+            device: self.device,
+        })
+    }
 }
 
 impl GpuColorJitter {
@@ -1065,6 +1090,15 @@ impl GpuTransform for GpuAugmentationChain {
         }
         Ok(output)
     }
+
+    fn clone_box(&self) -> Box<dyn GpuTransform> {
+        let cloned_transforms: Vec<Box<dyn GpuTransform>> =
+            self.transforms.iter().map(|t| t.clone_box()).collect();
+        Box::new(GpuAugmentationChain {
+            transforms: cloned_transforms,
+            device: self.device,
+        })
+    }
 }
 
 impl Transform for GpuAugmentationChain {
@@ -1073,9 +1107,9 @@ impl Transform for GpuAugmentationChain {
     }
 
     fn clone_transform(&self) -> Box<dyn Transform> {
-        // Note: Cannot easily clone Box<dyn GpuTransform> without additional trait bounds
-        // For now, return a minimal implementation that copies the device
-        Box::new(GpuAugmentationChain::new(Vec::new(), DeviceType::Cpu))
+        let cloned_transforms: Vec<Box<dyn GpuTransform>> =
+            self.transforms.iter().map(|t| t.clone_box()).collect();
+        Box::new(GpuAugmentationChain::new(cloned_transforms, self.device))
     }
 }
 
@@ -1340,5 +1374,33 @@ mod tests {
         let metrics = monitor.get_metrics();
         assert!(metrics.contains_key("resize"));
         assert!(metrics["resize"] >= 0.0);
+    }
+
+    #[test]
+    fn test_gpu_augmentation_chain_clone_preserves_transforms() {
+        use crate::transforms::Transform;
+
+        // Build a chain with one resize transform and clone it via clone_transform
+        let resize = GpuResize::new((224, 224), DeviceType::Cpu);
+        let chain = GpuAugmentationChain::new(vec![Box::new(resize)], DeviceType::Cpu);
+
+        // Clone the chain — it must preserve the transform count (not return an empty chain)
+        let cloned: Box<dyn Transform> = chain.clone_transform();
+
+        // A simple 3×224×224 tensor should pass through both the original and the clone
+        let input = zeros(&[3, 224, 224]).unwrap();
+
+        let result_original = chain.forward(&input);
+        assert!(
+            result_original.is_ok(),
+            "original chain forward pass should succeed"
+        );
+
+        let result_cloned = cloned.forward(&input);
+        assert!(
+            result_cloned.is_ok(),
+            "cloned chain forward pass should succeed: {:?}",
+            result_cloned.err()
+        );
     }
 }

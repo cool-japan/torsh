@@ -428,18 +428,12 @@ pub mod simd {
 pub mod gpu {
     //! GPU acceleration through SciRS2
     //!
-    //! This module provides a unified interface to GPU operations through scirs2-core.
-    //! When scirs2-core is compiled with GPU support, this module re-exports all
-    //! GPU functionality. Otherwise, it provides fallback stubs.
+    //! GPU compute for ToRSh is provided by oxicuda (see
+    //! `torsh_tensor::gpu_dispatch`).  This module only exposes lightweight
+    //! availability stubs for torsh-core consumers; the real device dispatch
+    //! lives in torsh-tensor.
 
-    // Attempt to use scirs2-core GPU support if available
-    // Note: This will only compile if scirs2-core is built with GPU features
-    #[cfg(scirs2_gpu_available)]
-    pub use scirs2_core::gpu::*;
-
-    // Fallback implementation when scirs2-core GPU is not available
-    #[cfg(not(scirs2_gpu_available))]
-    /// Fallback GPU implementations when scirs2-core GPU support is not available
+    /// Lightweight GPU availability stubs (real device dispatch lives in torsh-tensor).
     pub mod fallback {
         #[allow(unused_imports)]
         use super::*;
@@ -498,47 +492,27 @@ pub mod gpu {
         }
     }
 
-    // Re-export fallback when scirs2-core GPU is not available
-    #[cfg(not(scirs2_gpu_available))]
     pub use fallback::*;
 
     /// Information module for GPU availability
     pub mod info {
         /// Get information about GPU availability and configuration
         pub fn status() -> &'static str {
-            #[cfg(scirs2_gpu_available)]
-            {
-                "GPU support enabled via scirs2-core with multi-backend support (CUDA/Metal/WebGPU/ROCm/OpenCL)"
-            }
-            #[cfg(not(scirs2_gpu_available))]
-            {
-                "GPU support requires scirs2-core compiled with 'gpu' feature. \
-                 Current build does not have GPU support enabled. \
-                 This is expected in development/testing environments. \
-                 \
-                 To enable GPU support:\n\
-                 1. Ensure scirs2-core is compiled with 'gpu' feature\n\
-                 2. Add appropriate backend features (cuda, metal, wgpu, rocm, opencl)\n\
-                 3. Rebuild with: cargo build --features gpu"
-            }
+            "GPU compute is provided by oxicuda via torsh-tensor's gpu_dispatch \
+             (enable torsh-tensor's `cuda` feature for the CUDA backend). \
+             torsh-core itself exposes only CPU-fallback availability stubs."
         }
 
         /// Check if GPU support is currently enabled
         pub fn is_enabled() -> bool {
-            cfg!(scirs2_gpu_available)
+            // torsh-core provides only fallback stubs; the real GPU backend
+            // (oxicuda) lives in torsh-tensor's `gpu_dispatch` module.
+            false
         }
 
-        /// Get list of available GPU backends (when GPU support is enabled)
+        /// Get list of available GPU backends (torsh-core stubs expose none).
         pub fn available_backends() -> &'static [&'static str] {
-            #[cfg(scirs2_gpu_available)]
-            {
-                // This would come from scirs2-core in a real implementation
-                &["CUDA", "Metal", "WebGPU"]
-            }
-            #[cfg(not(scirs2_gpu_available))]
-            {
-                &[]
-            }
+            &[]
         }
     }
 

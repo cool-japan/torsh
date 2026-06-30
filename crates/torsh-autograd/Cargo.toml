@@ -69,7 +69,9 @@ autograd = ["scirs2-autograd"]
 # High-performance features
 simd = ["scirs2-core/simd"]
 parallel = ["scirs2-core/parallel"]
-gpu = ["scirs2-core/gpu"]
+# GPU autograd (backward) dispatch is deferred to oxicuda; no scirs2 GPU dependency.
+# TODO(oxicuda-backward-ops): wire backward ops once oxicuda ComputeBackend gains them.
+gpu = []
 profiling = ["scirs2-core/profiling"]
 # WebGPU support for browser deployment
 webgpu = []

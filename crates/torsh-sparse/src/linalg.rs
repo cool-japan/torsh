@@ -186,8 +186,23 @@ impl IncompleteLU {
     }
 }
 
-/// Conjugate Gradient method for solving sparse linear systems Ax = b
-/// where A is symmetric positive definite
+/// Conjugate Gradient method for solving sparse linear systems `Ax = b`
+/// where `A` is symmetric positive definite.
+///
+/// All inner arithmetic is carried out in `f64` over dense owned buffers, and the sparse
+/// matrix-vector products are evaluated directly over the CSR arrays. The caller's `b` and
+/// `A` tensors are therefore never mutated (note that `Tensor::clone` shares storage, so
+/// writing through a clone would silently corrupt the original).
+///
+/// # Arguments
+/// * `matrix` - Symmetric positive-definite sparse coefficient matrix
+/// * `b` - Right-hand side vector
+/// * `x0` - Initial guess (if `None`, the zero vector is used)
+/// * `tol` - Convergence tolerance on the residual norm `||b - Ax||`
+/// * `max_iter` - Maximum number of iterations
+///
+/// # Returns
+/// Tuple of `(solution, iterations performed, final residual norm)`.
 pub fn conjugate_gradient(
     matrix: &dyn SparseTensor,
     b: &Tensor,
@@ -212,36 +227,60 @@ pub fn conjugate_gradient(
         ));
     }
 
-    // Convert to CSR for efficient matrix-vector operations
+    // CSR view for direct f64 sparse matrix-vector products. Accumulating in f64 (rather
+    // than the f32 matrix dtype) keeps the residual recurrence accurate.
     let csr_matrix = matrix.to_csr()?;
+    let row_ptr = csr_matrix.row_ptr();
+    let col_indices = csr_matrix.col_indices();
+    let values = csr_matrix.values();
 
-    // Initialize solution vector
-    let x = match x0 {
-        Some(x0_val) => x0_val.clone(),
-        None => zeros::<f32>(&[n])?,
+    // y = A * x with f64 accumulation; never touches the caller's tensors.
+    let mat_vec = |x: &[f64]| -> Vec<f64> {
+        let mut y = vec![0.0f64; n];
+        for (row, y_row) in y.iter_mut().enumerate() {
+            let mut sum = 0.0f64;
+            for idx in row_ptr[row]..row_ptr[row + 1] {
+                sum += f64::from(values[idx]) * x[col_indices[idx]];
+            }
+            *y_row = sum;
+        }
+        y
     };
 
-    // Compute initial residual: r = b - Ax
-    let ax = csr_matrix.matvec(&x)?;
-    let r = b.clone();
-    for i in 0..n {
-        r.set(&[i], b.get(&[i])? - ax.get(&[i])?)?;
+    let tol = f64::from(tol);
+
+    // Dense f64 right-hand side and initial iterate (owned copies, never aliasing the
+    // caller's tensors).
+    let mut b_vec = vec![0.0f64; n];
+    for (i, b_val) in b_vec.iter_mut().enumerate() {
+        *b_val = f64::from(b.get(&[i])?);
     }
 
-    let p = r.clone();
-    let mut rsold = dot_product(&r, &r)?;
+    let mut x_vec = vec![0.0f64; n];
+    if let Some(x_init) = x0 {
+        for (i, x_val) in x_vec.iter_mut().enumerate() {
+            *x_val = f64::from(x_init.get(&[i])?);
+        }
+    }
+
+    // Initial residual r = b - A x and search direction p = r (an owned deep copy).
+    let ax = mat_vec(&x_vec);
+    let mut r = vec![0.0f64; n];
+    for (r_val, (&b_val, &ax_val)) in r.iter_mut().zip(b_vec.iter().zip(ax.iter())) {
+        *r_val = b_val - ax_val;
+    }
+    let mut p = r.clone();
+    let mut rsold = dot_f64(&r, &r);
 
     for iter in 0..max_iter {
-        // Check convergence
+        // Converged before taking another step.
         if rsold.sqrt() < tol {
-            return Ok((x, iter, rsold.sqrt()));
+            return Ok((f64_slice_to_tensor(&x_vec)?, iter, rsold.sqrt() as f32));
         }
 
-        // Compute Ap
-        let ap = csr_matrix.matvec(&p)?;
-
-        // Compute alpha = r^T r / p^T A p
-        let pap = dot_product(&p, &ap)?;
+        // ap = A p and the curvature p^T A p.
+        let ap = mat_vec(&p);
+        let pap = dot_f64(&p, &ap);
         if pap <= 0.0 {
             return Err(TorshError::InvalidArgument(
                 "Matrix is not positive definite".to_string(),
@@ -249,38 +288,48 @@ pub fn conjugate_gradient(
         }
         let alpha = rsold / pap;
 
-        // Update solution: x = x + alpha * p
-        for i in 0..n {
-            x.set(&[i], x.get(&[i])? + alpha * p.get(&[i])?)?;
+        // x <- x + alpha p ; r <- r - alpha A p.
+        for (x_val, &p_val) in x_vec.iter_mut().zip(p.iter()) {
+            *x_val += alpha * p_val;
+        }
+        for (r_val, &ap_val) in r.iter_mut().zip(ap.iter()) {
+            *r_val -= alpha * ap_val;
         }
 
-        // Update residual: r = r - alpha * Ap
-        for i in 0..n {
-            r.set(&[i], r.get(&[i])? - alpha * ap.get(&[i])?)?;
-        }
-
-        let rsnew = dot_product(&r, &r)?;
-
-        // Check convergence
+        let rsnew = dot_f64(&r, &r);
         if rsnew.sqrt() < tol {
-            return Ok((x, iter + 1, rsnew.sqrt()));
+            return Ok((f64_slice_to_tensor(&x_vec)?, iter + 1, rsnew.sqrt() as f32));
         }
 
-        // Compute beta = r_new^T r_new / r_old^T r_old
+        // p <- r + beta p with beta = rsnew / rsold.
         let beta = rsnew / rsold;
-
-        // Update search direction: p = r + beta * p
-        for i in 0..n {
-            p.set(&[i], r.get(&[i])? + beta * p.get(&[i])?)?;
+        for (p_val, &r_val) in p.iter_mut().zip(r.iter()) {
+            *p_val = r_val + beta * *p_val;
         }
 
         rsold = rsnew;
     }
 
-    Ok((x, max_iter, rsold.sqrt()))
+    Ok((f64_slice_to_tensor(&x_vec)?, max_iter, rsold.sqrt() as f32))
 }
 
-/// BiConjugate Gradient Stabilized (BiCGSTAB) method for non-symmetric matrices
+/// BiConjugate Gradient Stabilized (BiCGSTAB) method for non-symmetric systems.
+///
+/// Like [`conjugate_gradient`], all inner arithmetic is performed in `f64` over dense owned
+/// buffers with the sparse matrix-vector products evaluated directly over the CSR arrays, so
+/// the caller's `b` and `A` tensors are never mutated (note that `Tensor::clone` shares
+/// storage, so writing through a clone would silently corrupt the original — and the shadow
+/// residual `r_hat` must be a genuine copy, not an alias of `r`).
+///
+/// # Arguments
+/// * `matrix` - Sparse coefficient matrix (can be non-symmetric)
+/// * `b` - Right-hand side vector
+/// * `x0` - Initial guess (if `None`, the zero vector is used)
+/// * `tol` - Convergence tolerance on the residual norm `||b - Ax||`
+/// * `max_iter` - Maximum number of iterations
+///
+/// # Returns
+/// Tuple of `(solution, iterations performed, final residual norm)`.
 pub fn bicgstab(
     matrix: &dyn SparseTensor,
     b: &Tensor,
@@ -305,32 +354,64 @@ pub fn bicgstab(
         ));
     }
 
-    let csr_matrix = matrix.to_csr()?;
+    // Below this magnitude a BiCGSTAB scalar is treated as a breakdown (division by an
+    // effectively zero quantity); `f64::EPSILON` is the natural machine-zero threshold for
+    // the f64 working precision.
+    const BREAKDOWN_EPS: f64 = f64::EPSILON;
 
-    // Initialize solution vector
-    let x = match x0 {
-        Some(x0_val) => x0_val.clone(),
-        None => zeros::<f32>(&[n])?,
+    // CSR view for direct f64 sparse matrix-vector products.
+    let csr_matrix = matrix.to_csr()?;
+    let row_ptr = csr_matrix.row_ptr();
+    let col_indices = csr_matrix.col_indices();
+    let values = csr_matrix.values();
+
+    // y = A * x with f64 accumulation; never touches the caller's tensors.
+    let mat_vec = |x: &[f64]| -> Vec<f64> {
+        let mut y = vec![0.0f64; n];
+        for (row, y_row) in y.iter_mut().enumerate() {
+            let mut sum = 0.0f64;
+            for idx in row_ptr[row]..row_ptr[row + 1] {
+                sum += f64::from(values[idx]) * x[col_indices[idx]];
+            }
+            *y_row = sum;
+        }
+        y
     };
 
-    // Compute initial residual: r = b - Ax
-    let ax = csr_matrix.matvec(&x)?;
-    let r = b.clone();
-    for i in 0..n {
-        r.set(&[i], b.get(&[i])? - ax.get(&[i])?)?;
+    let tol = f64::from(tol);
+
+    // Dense f64 right-hand side and initial iterate (owned copies, never aliasing the
+    // caller's tensors).
+    let mut b_vec = vec![0.0f64; n];
+    for (i, b_val) in b_vec.iter_mut().enumerate() {
+        *b_val = f64::from(b.get(&[i])?);
     }
 
+    let mut x_vec = vec![0.0f64; n];
+    if let Some(x_init) = x0 {
+        for (i, x_val) in x_vec.iter_mut().enumerate() {
+            *x_val = f64::from(x_init.get(&[i])?);
+        }
+    }
+
+    // Initial residual r = b - A x; `r_hat` is the fixed shadow residual and must be a
+    // genuine deep copy (aliasing it to `r` is the classic BiCGSTAB-breaks bug).
+    let ax = mat_vec(&x_vec);
+    let mut r = vec![0.0f64; n];
+    for (r_val, (&b_val, &ax_val)) in r.iter_mut().zip(b_vec.iter().zip(ax.iter())) {
+        *r_val = b_val - ax_val;
+    }
     let r_hat = r.clone();
-    let mut rho = 1.0;
-    let mut alpha = 1.0;
-    let mut omega = 1.0;
-    let mut v = zeros::<f32>(&[n])?;
-    let p = zeros::<f32>(&[n])?;
+
+    let mut rho = 1.0f64;
+    let mut alpha = 1.0f64;
+    let mut omega = 1.0f64;
+    let mut v = vec![0.0f64; n];
+    let mut p = vec![0.0f64; n];
 
     for iter in 0..max_iter {
-        let rho_new = dot_product(&r_hat, &r)?;
-
-        if rho_new.abs() < f32::EPSILON {
+        let rho_new = dot_f64(&r_hat, &r);
+        if rho_new.abs() < BREAKDOWN_EPS {
             return Err(TorshError::InvalidArgument(
                 "BiCGSTAB breakdown: rho = 0".to_string(),
             ));
@@ -338,72 +419,60 @@ pub fn bicgstab(
 
         let beta = (rho_new / rho) * (alpha / omega);
 
-        // Update p: p = r + beta * (p - omega * v)
-        for i in 0..n {
-            p.set(
-                &[i],
-                r.get(&[i])? + beta * (p.get(&[i])? - omega * v.get(&[i])?),
-            )?;
+        // p <- r + beta (p - omega v).
+        for ((p_val, &r_val), &v_val) in p.iter_mut().zip(r.iter()).zip(v.iter()) {
+            *p_val = r_val + beta * (*p_val - omega * v_val);
         }
 
-        // v = A * p
-        v = csr_matrix.matvec(&p)?;
+        // v <- A p.
+        v = mat_vec(&p);
 
-        let v_dot_rhat = dot_product(&r_hat, &v)?;
-        if v_dot_rhat.abs() < f32::EPSILON {
+        let v_dot_rhat = dot_f64(&r_hat, &v);
+        if v_dot_rhat.abs() < BREAKDOWN_EPS {
             return Err(TorshError::InvalidArgument(
                 "BiCGSTAB breakdown: <r_hat, v> = 0".to_string(),
             ));
         }
-
         alpha = rho_new / v_dot_rhat;
 
-        // s = r - alpha * v
-        let s = zeros::<f32>(&[n])?;
-        for i in 0..n {
-            s.set(&[i], r.get(&[i])? - alpha * v.get(&[i])?)?;
+        // s <- r - alpha v.
+        let mut s = vec![0.0f64; n];
+        for ((s_val, &r_val), &v_val) in s.iter_mut().zip(r.iter()).zip(v.iter()) {
+            *s_val = r_val - alpha * v_val;
         }
 
-        // Check convergence
-        let s_norm = vector_norm(&s)?;
+        // Early convergence on the half-step residual s.
+        let s_norm = norm_f64(&s);
         if s_norm < tol {
-            // Update x and return
-            for i in 0..n {
-                x.set(&[i], x.get(&[i])? + alpha * p.get(&[i])?)?;
+            for (x_val, &p_val) in x_vec.iter_mut().zip(p.iter()) {
+                *x_val += alpha * p_val;
             }
-            return Ok((x, iter + 1, s_norm));
+            return Ok((f64_slice_to_tensor(&x_vec)?, iter + 1, s_norm as f32));
         }
 
-        // t = A * s
-        let t = csr_matrix.matvec(&s)?;
-
-        let t_dot_t = dot_product(&t, &t)?;
-        if t_dot_t.abs() < f32::EPSILON {
-            omega = 0.0;
+        // t <- A s, then omega = <t, s> / <t, t>.
+        let t = mat_vec(&s);
+        let t_dot_t = dot_f64(&t, &t);
+        omega = if t_dot_t.abs() < BREAKDOWN_EPS {
+            0.0
         } else {
-            omega = dot_product(&t, &s)? / t_dot_t;
+            dot_f64(&t, &s) / t_dot_t
+        };
+
+        // x <- x + alpha p + omega s ; r <- s - omega t.
+        for ((x_val, &p_val), &s_val) in x_vec.iter_mut().zip(p.iter()).zip(s.iter()) {
+            *x_val += alpha * p_val + omega * s_val;
+        }
+        for ((r_val, &s_val), &t_val) in r.iter_mut().zip(s.iter()).zip(t.iter()) {
+            *r_val = s_val - omega * t_val;
         }
 
-        // Update x: x = x + alpha * p + omega * s
-        for i in 0..n {
-            x.set(
-                &[i],
-                x.get(&[i])? + alpha * p.get(&[i])? + omega * s.get(&[i])?,
-            )?;
-        }
-
-        // Update r: r = s - omega * t
-        for i in 0..n {
-            r.set(&[i], s.get(&[i])? - omega * t.get(&[i])?)?;
-        }
-
-        // Check convergence
-        let r_norm = vector_norm(&r)?;
+        let r_norm = norm_f64(&r);
         if r_norm < tol {
-            return Ok((x, iter + 1, r_norm));
+            return Ok((f64_slice_to_tensor(&x_vec)?, iter + 1, r_norm as f32));
         }
 
-        if omega.abs() < f32::EPSILON {
+        if omega.abs() < BREAKDOWN_EPS {
             return Err(TorshError::InvalidArgument(
                 "BiCGSTAB breakdown: omega = 0".to_string(),
             ));
@@ -412,7 +481,7 @@ pub fn bicgstab(
         rho = rho_new;
     }
 
-    Ok((x, max_iter, vector_norm(&r)?))
+    Ok((f64_slice_to_tensor(&x_vec)?, max_iter, norm_f64(&r) as f32))
 }
 
 /// Compute the largest eigenvalue and corresponding eigenvector using power iteration
@@ -693,21 +762,34 @@ impl SparseCholesky {
     }
 }
 
-/// GMRES (Generalized Minimal Residual) iterative solver for sparse linear systems
+/// GMRES(m) — Generalized Minimal Residual solver for sparse linear systems.
 ///
-/// GMRES is an iterative method for solving non-symmetric sparse linear systems Ax = b.
-/// It minimizes the residual norm over a Krylov subspace of increasing dimension.
+/// Solves the (possibly non-symmetric) system `Ax = b` by repeatedly building an
+/// orthonormal Krylov basis with the Arnoldi process and minimizing the residual norm
+/// over that subspace. Each restart cycle:
+///
+/// 1. forms `v_0 = r / ||r||` from the current true residual `r = b - Ax`,
+/// 2. extends the basis with modified Gram-Schmidt plus a Daniel-Gragg-Kaufman-Stewart
+///    re-orthogonalization pass for robustness against cancellation,
+/// 3. keeps the projected least-squares problem in upper-triangular form via incremental
+///    Givens rotations (which also yields a running residual estimate), and
+/// 4. updates `x` with the minimizer over the subspace.
+///
+/// All inner arithmetic is performed in `f64`; only the matrix entries and the returned
+/// solution use `f32`. The right-hand side and solution are kept as dense `f64` vectors so
+/// the routine never mutates the caller's tensors (note that `Tensor::clone` shares
+/// storage, so writing through a clone would corrupt the original).
 ///
 /// # Arguments
 /// * `a` - Sparse coefficient matrix (can be non-symmetric)
 /// * `b` - Right-hand side vector
-/// * `x0` - Initial guess (if None, uses zero vector)
-/// * `restart` - Number of iterations before restarting (GMRES(m) algorithm)
-/// * `max_iter` - Maximum number of restarts
-/// * `tol` - Convergence tolerance for relative residual norm
+/// * `x0` - Initial guess (if `None`, the zero vector is used)
+/// * `restart` - Krylov subspace dimension before restarting (the `m` in GMRES(m))
+/// * `max_iter` - Maximum number of restart cycles
+/// * `tol` - Convergence tolerance on the relative residual `||b - Ax|| / ||b||`
 ///
 /// # Returns
-/// Tuple of (solution vector, number of iterations, final residual norm)
+/// Tuple of `(solution, total Arnoldi steps performed, final relative residual)`.
 pub fn gmres(
     a: &dyn SparseTensor,
     b: &Tensor,
@@ -727,206 +809,240 @@ pub fn gmres(
         ));
     }
 
-    if b.shape().dims()[0] != n {
+    if b.shape().ndim() != 1 || b.shape().dims()[0] != n {
         return Err(TorshError::InvalidArgument(
             "Vector size doesn't match matrix dimensions".to_string(),
         ));
     }
 
-    // Initialize solution
-    let x = if let Some(x_init) = x0 {
-        x_init.clone()
-    } else {
-        zeros::<f32>(&[n])?
+    if restart == 0 {
+        return Err(TorshError::InvalidArgument(
+            "GMRES restart dimension must be at least 1".to_string(),
+        ));
+    }
+
+    // Re-orthogonalization (DGKS) threshold: 1/sqrt(2). A second Gram-Schmidt pass is
+    // triggered when the first pass leaves less than this fraction of the input norm.
+    const REORTH_FACTOR: f64 = std::f64::consts::FRAC_1_SQRT_2;
+    // Happy-breakdown threshold relative to ||A v_j||: a sub-diagonal entry this small
+    // means the Krylov subspace is (numerically) A-invariant and the solve is exact.
+    const HAPPY_BREAKDOWN_FACTOR: f64 = 1e-13;
+
+    // CSR view for fast f64 sparse matrix-vector products (the accumulation happens in
+    // f64 rather than f32, and there is no per-iteration tensor allocation).
+    let csr = a.to_csr()?;
+    let row_ptr = csr.row_ptr();
+    let col_indices = csr.col_indices();
+    let values = csr.values();
+
+    // y = A * x with f64 accumulation.
+    let mat_vec = |x: &[f64]| -> Vec<f64> {
+        let mut y = vec![0.0f64; n];
+        for (row, y_row) in y.iter_mut().enumerate() {
+            let mut sum = 0.0f64;
+            for idx in row_ptr[row]..row_ptr[row + 1] {
+                sum += f64::from(values[idx]) * x[col_indices[idx]];
+            }
+            *y_row = sum;
+        }
+        y
     };
 
-    // Compute initial residual: r = b - A*x
-    // Need to reshape x to 2D for spmm: (n,) -> (n, 1)
-    let x_2d = zeros::<f32>(&[n, 1])?;
-    for i in 0..n {
-        x_2d.set(&[i, 0], x.get(&[i])?)?;
-    }
-    let ax_2d = crate::ops::spmm(a, &x_2d)?;
-    let mut r = b.clone();
-    for i in 0..n {
-        let val = r.get(&[i])? - ax_2d.get(&[i, 0])?;
-        r.set(&[i], val)?;
+    // Dense f64 copies of b and the initial guess. These deliberately avoid aliasing the
+    // caller's tensors.
+    let mut b_vec = vec![0.0f64; n];
+    for (i, b_val) in b_vec.iter_mut().enumerate() {
+        *b_val = f64::from(b.get(&[i])?);
     }
 
-    let b_norm = vector_norm(b)?;
-    if b_norm < f64::EPSILON as f32 {
-        return Ok((x, 0, 0.0));
-    }
-
-    let mut total_iterations = 0;
-
-    // GMRES restart loop
-    for _restart_iter in 0..max_iter {
-        let r_norm = vector_norm(&r)?;
-        let rel_residual = (r_norm as f64) / (b_norm as f64);
-
-        // Check convergence
-        if rel_residual < tol {
-            return Ok((x, total_iterations, rel_residual));
-        }
-
-        // Arnoldi iteration to build orthonormal basis
-        let mut v: Vec<Tensor> = Vec::with_capacity(restart + 1);
-
-        // v[0] = r / ||r||
-        let v0 = zeros::<f32>(&[n])?;
-        for i in 0..n {
-            v0.set(&[i], r.get(&[i])? / r_norm)?;
-        }
-        v.push(v0);
-
-        // Upper Hessenberg matrix H (stored as Vec<Vec<f32>>)
-        let mut h: Vec<Vec<f32>> = vec![vec![0.0; restart]; restart + 1];
-
-        // Arnoldi process
-        let mut m = 0;
-        for j in 0..restart {
-            // w = A * v[j]
-            // Need to reshape v[j] to 2D for spmm
-            let v_2d = zeros::<f32>(&[n, 1])?;
-            for i in 0..n {
-                v_2d.set(&[i, 0], v[j].get(&[i])?)?;
-            }
-            let w_2d = crate::ops::spmm(a, &v_2d)?;
-            let w = zeros::<f32>(&[n])?;
-            for i in 0..n {
-                w.set(&[i], w_2d.get(&[i, 0])?)?;
-            }
-
-            // Modified Gram-Schmidt orthogonalization
-            let w_ortho = w.clone();
-            for i in 0..=j {
-                // h[i][j] = <w, v[i]>
-                let mut dot_product = 0.0;
-                for k in 0..n {
-                    dot_product += w_ortho.get(&[k])? * v[i].get(&[k])?;
-                }
-                h[i][j] = dot_product;
-
-                // w = w - h[i][j] * v[i]
-                for k in 0..n {
-                    let val = w_ortho.get(&[k])? - h[i][j] * v[i].get(&[k])?;
-                    w_ortho.set(&[k], val)?;
-                }
-            }
-
-            // h[j+1][j] = ||w||
-            h[j + 1][j] = vector_norm(&w_ortho)?;
-
-            // Check for breakdown
-            if h[j + 1][j] < (f64::EPSILON as f32) {
-                m = j + 1;
-                break;
-            }
-
-            // v[j+1] = w / h[j+1][j]
-            let v_next = zeros::<f32>(&[n])?;
-            for k in 0..n {
-                v_next.set(&[k], w_ortho.get(&[k])? / h[j + 1][j])?;
-            }
-            v.push(v_next);
-
-            m = j + 1;
-        }
-
-        // Solve least squares problem: min ||beta * e1 - H * y||
-        // where beta = ||r||, e1 = [1, 0, ..., 0]
-        let mut rhs = vec![0.0; m + 1];
-        rhs[0] = r_norm;
-
-        // Apply Givens rotations to make H upper triangular
-        let y = solve_least_squares(&h, &rhs, m)?;
-
-        // Update solution: x = x + V * y
-        for i in 0..m {
-            for k in 0..n {
-                let val = x.get(&[k])? + y[i] * v[i].get(&[k])?;
-                x.set(&[k], val)?;
-            }
-        }
-
-        total_iterations += m;
-
-        // Recompute residual for next restart
-        let x_2d = zeros::<f32>(&[n, 1])?;
-        for i in 0..n {
-            x_2d.set(&[i, 0], x.get(&[i])?)?;
-        }
-        let ax_2d = crate::ops::spmm(a, &x_2d)?;
-        r = b.clone();
-        for i in 0..n {
-            let val = r.get(&[i])? - ax_2d.get(&[i, 0])?;
-            r.set(&[i], val)?;
+    let mut x_vec = vec![0.0f64; n];
+    if let Some(x_init) = x0 {
+        for (i, x_val) in x_vec.iter_mut().enumerate() {
+            *x_val = f64::from(x_init.get(&[i])?);
         }
     }
 
-    // Final residual check
-    let r_norm = vector_norm(&r)?;
-    let rel_residual = (r_norm as f64) / (b_norm as f64);
+    let b_norm = norm_f64(&b_vec);
 
-    Ok((x, total_iterations, rel_residual))
-}
+    // Residual workspace reused across cycles.
+    let mut r = vec![0.0f64; n];
 
-/// Solve least squares problem min ||b - H*y|| where H is upper Hessenberg
-fn solve_least_squares(h: &[Vec<f32>], b: &[f32], m: usize) -> TorshResult<Vec<f32>> {
-    let mut h_copy = h.to_vec();
-    let mut b_copy = b.to_vec();
-
-    // Apply Givens rotations to transform H to upper triangular form
-    for i in 0..m {
-        // Eliminate H[i+1][i] using Givens rotation
-        let a = h_copy[i][i];
-        let b_elem = h_copy[i + 1][i];
-
-        let r = (a * a + b_elem * b_elem).sqrt();
-        if r < f32::EPSILON {
-            continue;
+    // Degenerate right-hand side: the relative-residual formulation is undefined, so
+    // return the current iterate together with its absolute residual norm.
+    if b_norm <= f64::EPSILON {
+        let ax = mat_vec(&x_vec);
+        for (r_val, (&b_val, &ax_val)) in r.iter_mut().zip(b_vec.iter().zip(ax.iter())) {
+            *r_val = b_val - ax_val;
         }
-
-        let c = a / r;
-        let s = -b_elem / r;
-
-        // Apply rotation to H
-        h_copy[i][i] = r;
-        h_copy[i + 1][i] = 0.0;
-
-        for j in (i + 1)..m {
-            let temp1 = c * h_copy[i][j] - s * h_copy[i + 1][j];
-            let temp2 = s * h_copy[i][j] + c * h_copy[i + 1][j];
-            h_copy[i][j] = temp1;
-            h_copy[i + 1][j] = temp2;
-        }
-
-        // Apply rotation to RHS
-        let temp1 = c * b_copy[i] - s * b_copy[i + 1];
-        let temp2 = s * b_copy[i] + c * b_copy[i + 1];
-        b_copy[i] = temp1;
-        b_copy[i + 1] = temp2;
+        return Ok((f64_slice_to_tensor(&x_vec)?, 0, norm_f64(&r)));
     }
 
-    // Back substitution to solve upper triangular system
-    let mut y = vec![0.0; m];
-    for i in (0..m).rev() {
-        let mut sum = b_copy[i];
-        for j in (i + 1)..m {
-            sum -= h_copy[i][j] * y[j];
-        }
+    // A Krylov subspace of dimension n already spans R^n, so never build more than n
+    // Arnoldi vectors (doing so would divide by a round-off-level sub-diagonal entry).
+    let m = restart.min(n);
 
-        if h_copy[i][i].abs() < f32::EPSILON {
-            return Err(TorshError::ComputeError(
-                "Singular Hessenberg matrix in GMRES".to_string(),
+    let mut total_iterations = 0usize;
+
+    for _restart_cycle in 0..max_iter {
+        // True residual at the start of the cycle: r = b - A x.
+        let ax = mat_vec(&x_vec);
+        for (r_val, (&b_val, &ax_val)) in r.iter_mut().zip(b_vec.iter().zip(ax.iter())) {
+            *r_val = b_val - ax_val;
+        }
+        let beta = norm_f64(&r);
+        if beta / b_norm < tol {
+            return Ok((
+                f64_slice_to_tensor(&x_vec)?,
+                total_iterations,
+                beta / b_norm,
             ));
         }
 
-        y[i] = sum / h_copy[i][i];
+        // Orthonormal Krylov basis, v[0] = r / ||r||.
+        let mut v: Vec<Vec<f64>> = Vec::with_capacity(m + 1);
+        let inv_beta = 1.0 / beta;
+        v.push(r.iter().map(|&r_val| r_val * inv_beta).collect());
+
+        // (m+1) x m upper-Hessenberg matrix, Givens coefficients, and the rotated
+        // right-hand side g (||r|| e1 progressively rotated).
+        let mut h = vec![vec![0.0f64; m]; m + 1];
+        let mut cs = vec![0.0f64; m];
+        let mut sn = vec![0.0f64; m];
+        let mut g = vec![0.0f64; m + 1];
+        g[0] = beta;
+
+        // Number of fully processed Arnoldi columns this cycle.
+        let mut k = 0usize;
+
+        for j in 0..m {
+            // w = A v[j].
+            let mut w = mat_vec(&v[j]);
+            let input_norm = norm_f64(&w);
+
+            // Modified Gram-Schmidt against the existing basis.
+            for i in 0..=j {
+                let h_ij = dot_f64(&w, &v[i]);
+                h[i][j] = h_ij;
+                for (w_val, &v_val) in w.iter_mut().zip(v[i].iter()) {
+                    *w_val -= h_ij * v_val;
+                }
+            }
+            let mut h_next = norm_f64(&w);
+
+            // DGKS re-orthogonalization when the first pass lost too much to cancellation.
+            if h_next < REORTH_FACTOR * input_norm {
+                for i in 0..=j {
+                    let correction = dot_f64(&w, &v[i]);
+                    h[i][j] += correction;
+                    for (w_val, &v_val) in w.iter_mut().zip(v[i].iter()) {
+                        *w_val -= correction * v_val;
+                    }
+                }
+                h_next = norm_f64(&w);
+            }
+            h[j + 1][j] = h_next;
+
+            // Apply the previously computed Givens rotations to the new column.
+            for i in 0..j {
+                let temp = cs[i] * h[i][j] + sn[i] * h[i + 1][j];
+                h[i + 1][j] = cs[i] * h[i + 1][j] - sn[i] * h[i][j];
+                h[i][j] = temp;
+            }
+
+            // New Givens rotation eliminating the sub-diagonal h[j+1][j].
+            let denom = h[j][j].hypot(h[j + 1][j]);
+            if denom <= f64::MIN_POSITIVE {
+                break;
+            }
+            cs[j] = h[j][j] / denom;
+            sn[j] = h[j + 1][j] / denom;
+            h[j][j] = denom;
+            h[j + 1][j] = 0.0;
+
+            // Rotate the right-hand side; |g[j+1]| is the new residual estimate.
+            let g_j = g[j];
+            g[j] = cs[j] * g_j;
+            g[j + 1] = -sn[j] * g_j;
+
+            k = j + 1;
+            total_iterations += 1;
+
+            if g[j + 1].abs() / b_norm < tol {
+                break;
+            }
+
+            // Lucky breakdown: the subspace is A-invariant, the projection is exact.
+            if h_next <= HAPPY_BREAKDOWN_FACTOR * input_norm {
+                break;
+            }
+
+            // Extend the basis: v[j+1] = w / ||w|| (skip after the final column).
+            if j + 1 < m {
+                let inv = 1.0 / h_next;
+                v.push(w.iter().map(|&w_val| w_val * inv).collect());
+            }
+        }
+
+        // Solve the k x k upper-triangular system R y = g by back-substitution.
+        let mut y = vec![0.0f64; k];
+        for i in (0..k).rev() {
+            let mut sum = g[i];
+            for l in (i + 1)..k {
+                sum -= h[i][l] * y[l];
+            }
+            if h[i][i].abs() <= f64::MIN_POSITIVE {
+                return Err(TorshError::ComputeError(
+                    "Singular Hessenberg factor in GMRES least-squares solve".to_string(),
+                ));
+            }
+            y[i] = sum / h[i][i];
+        }
+
+        // x = x + V_k y.
+        for i in 0..k {
+            let y_i = y[i];
+            for (x_val, &v_val) in x_vec.iter_mut().zip(v[i].iter()) {
+                *x_val += y_i * v_val;
+            }
+        }
+
+        // No progress was possible this cycle (defensive): stop restarting.
+        if k == 0 {
+            break;
+        }
     }
 
-    Ok(y)
+    // Final true residual after exhausting the restart budget.
+    let ax = mat_vec(&x_vec);
+    for (r_val, (&b_val, &ax_val)) in r.iter_mut().zip(b_vec.iter().zip(ax.iter())) {
+        *r_val = b_val - ax_val;
+    }
+    let final_rel_residual = norm_f64(&r) / b_norm;
+
+    Ok((
+        f64_slice_to_tensor(&x_vec)?,
+        total_iterations,
+        final_rel_residual,
+    ))
+}
+
+/// Dense dot product of two `f64` vectors of equal length.
+fn dot_f64(a: &[f64], b: &[f64]) -> f64 {
+    a.iter().zip(b.iter()).map(|(&x, &y)| x * y).sum()
+}
+
+/// Euclidean (L2) norm of an `f64` vector.
+fn norm_f64(a: &[f64]) -> f64 {
+    dot_f64(a, a).sqrt()
+}
+
+/// Materialize an `f64` working vector into a 1-D `f32` tensor (the public result type).
+fn f64_slice_to_tensor(data: &[f64]) -> TorshResult<Tensor> {
+    let tensor = zeros::<f32>(&[data.len()])?;
+    for (i, &value) in data.iter().enumerate() {
+        tensor.set(&[i], value as f32)?;
+    }
+    Ok(tensor)
 }
 
 #[cfg(test)]
@@ -936,34 +1052,128 @@ mod tests {
 
     #[test]
     fn test_conjugate_gradient() {
-        // Create a well-conditioned symmetric positive definite matrix
-        // [4, 1, 0]
-        // [1, 4, 1]
-        // [0, 1, 4]
+        // Symmetric positive-definite tridiagonal system:
+        //   [4  1  0]      [1]
+        //   [1  4  1] x =  [1]
+        //   [0  1  4]      [1]
+        // Exact solution: x = [3/14, 1/7, 3/14].
         let rows = vec![0, 0, 1, 1, 1, 2, 2];
         let cols = vec![0, 1, 0, 1, 2, 1, 2];
         let vals = vec![4.0, 1.0, 1.0, 4.0, 1.0, 1.0, 4.0];
         let matrix = CooTensor::new(rows, cols, vals, Shape::new(vec![3, 3])).unwrap();
 
-        // Right-hand side: b = [1, 1, 1]
+        // Right-hand side: b = [1, 1, 1].
         let b = zeros::<f32>(&[3]).unwrap();
         b.set(&[0], 1.0).unwrap();
         b.set(&[1], 1.0).unwrap();
         b.set(&[2], 1.0).unwrap();
 
-        let (solution, iterations, residual) = conjugate_gradient(
-            &matrix as &dyn SparseTensor,
-            &b,
-            None,
-            1e-4, // Relaxed tolerance
-            50,   // Reduced max iterations
-        )
-        .unwrap();
+        let (solution, iterations, residual) =
+            conjugate_gradient(&matrix as &dyn SparseTensor, &b, None, 1e-8, 50).unwrap();
 
-        // Check that the solution is reasonable
-        assert!(iterations < 50);
-        assert!(residual < 1e-4);
+        // Regression guard (the bug): the right-hand side must be left byte-for-byte
+        // unchanged. `Tensor::clone` shares storage, so a careless residual update would
+        // silently corrupt the caller's `b`. Checked first so it acts as the canary.
+        for (i, &exp_b) in [1.0_f32, 1.0, 1.0].iter().enumerate() {
+            assert_eq!(
+                b.get(&[i]).unwrap(),
+                exp_b,
+                "conjugate_gradient mutated the caller's b at index {i}"
+            );
+        }
+
+        // Converged to a tight residual within the iteration budget.
+        assert!(iterations <= 50);
+        assert!(
+            residual < 1e-6,
+            "CG failed to converge: residual {residual}"
+        );
         assert_eq!(solution.shape().dims(), &[3]);
+
+        // The computed solution must match the exact solution.
+        let expected: [f32; 3] = [3.0 / 14.0, 1.0 / 7.0, 3.0 / 14.0];
+        for (i, &exp) in expected.iter().enumerate() {
+            assert_relative_eq!(solution.get(&[i]).unwrap(), exp, epsilon = 1e-4);
+        }
+
+        // A*x must reproduce b.
+        let solution_2d = zeros::<f32>(&[3, 1]).unwrap();
+        for i in 0..3 {
+            solution_2d
+                .set(&[i, 0], solution.get(&[i]).unwrap())
+                .unwrap();
+        }
+        let ax = crate::ops::spmm(&matrix as &dyn SparseTensor, &solution_2d).unwrap();
+        for i in 0..3 {
+            let component_error = (ax.get(&[i, 0]).unwrap() - b.get(&[i]).unwrap()).abs();
+            assert!(
+                component_error < 1e-4,
+                "A*x - b component {i} = {component_error}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_bicgstab() {
+        // Well-conditioned, non-symmetric 3x3 system (strictly diagonally dominant):
+        //   [4  1  2]      [1]
+        //   [1  3  1] x =  [2]
+        //   [2  0  5]      [3]
+        // Exact solution: x = [-2/9, 23/45, 31/45].
+        let rows = vec![0, 0, 0, 1, 1, 1, 2, 2];
+        let cols = vec![0, 1, 2, 0, 1, 2, 0, 2];
+        let vals = vec![4.0, 1.0, 2.0, 1.0, 3.0, 1.0, 2.0, 5.0];
+        let matrix = CooTensor::new(rows, cols, vals, Shape::new(vec![3, 3])).unwrap();
+
+        // Right-hand side: b = [1, 2, 3].
+        let b = zeros::<f32>(&[3]).unwrap();
+        b.set(&[0], 1.0).unwrap();
+        b.set(&[1], 2.0).unwrap();
+        b.set(&[2], 3.0).unwrap();
+
+        let (solution, iterations, residual) =
+            bicgstab(&matrix as &dyn SparseTensor, &b, None, 1e-8, 100).unwrap();
+
+        // Regression guard (the bug): the right-hand side must be left byte-for-byte
+        // unchanged. `Tensor::clone` shares storage, so a careless residual update would
+        // silently corrupt the caller's `b`. Checked first so it acts as the canary.
+        for (i, &exp_b) in [1.0_f32, 2.0, 3.0].iter().enumerate() {
+            assert_eq!(
+                b.get(&[i]).unwrap(),
+                exp_b,
+                "bicgstab mutated the caller's b at index {i}"
+            );
+        }
+
+        // Converged to a tight residual within the iteration budget.
+        assert!(iterations <= 100);
+        assert!(
+            residual < 1e-6,
+            "BiCGSTAB failed to converge: residual {residual}"
+        );
+        assert_eq!(solution.shape().dims(), &[3]);
+
+        // The computed solution must match the exact solution.
+        let expected: [f32; 3] = [-2.0 / 9.0, 23.0 / 45.0, 31.0 / 45.0];
+        for (i, &exp) in expected.iter().enumerate() {
+            assert_relative_eq!(solution.get(&[i]).unwrap(), exp, epsilon = 1e-4);
+        }
+
+        // A*x must reproduce b.
+        let solution_2d = zeros::<f32>(&[3, 1]).unwrap();
+        for i in 0..3 {
+            solution_2d
+                .set(&[i, 0], solution.get(&[i]).unwrap())
+                .unwrap();
+        }
+        let ax = crate::ops::spmm(&matrix as &dyn SparseTensor, &solution_2d).unwrap();
+        for i in 0..3 {
+            let component_error = (ax.get(&[i, 0]).unwrap() - b.get(&[i]).unwrap()).abs();
+            assert!(
+                component_error < 1e-4,
+                "A*x - b component {i} = {component_error}"
+            );
+        }
     }
 
     #[test]
@@ -1004,33 +1214,47 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // TODO: GMRES implementation needs numerical refinement
     fn test_gmres() {
-        // Create a non-symmetric matrix for GMRES
-        // [4  1  2]
-        // [1  3  1]
-        // [2  0  5]
+        // Non-symmetric, well-conditioned 3x3 system:
+        //   [4  1  2]      [1]
+        //   [1  3  1] x =  [2]
+        //   [2  0  5]      [3]
+        // Exact solution: x = [-2/9, 23/45, 31/45].
         let rows = vec![0, 0, 0, 1, 1, 1, 2, 2];
         let cols = vec![0, 1, 2, 0, 1, 2, 0, 2];
         let vals = vec![4.0, 1.0, 2.0, 1.0, 3.0, 1.0, 2.0, 5.0];
         let matrix = CooTensor::new(rows, cols, vals, Shape::new(vec![3, 3])).unwrap();
 
-        // Right-hand side: b = [1, 2, 3]
+        // Right-hand side: b = [1, 2, 3].
         let b = zeros::<f32>(&[3]).unwrap();
         b.set(&[0], 1.0).unwrap();
         b.set(&[1], 2.0).unwrap();
         b.set(&[2], 3.0).unwrap();
 
-        // Solve using GMRES with restart=5, max_iter=20, relaxed tolerance
         let (solution, iterations, residual) =
-            gmres(&matrix as &dyn SparseTensor, &b, None, 5, 20, 1e-3).unwrap();
+            gmres(&matrix as &dyn SparseTensor, &b, None, 5, 20, 1e-10).unwrap();
 
-        // Check that the solution converged
-        assert!(iterations <= 100); // 20 restarts * 5 iterations
-        assert!(residual < 1e-2); // Relaxed tolerance for numerical stability
+        // GMRES must reach a tight residual within at most n steps per cycle.
         assert_eq!(solution.shape().dims(), &[3]);
+        assert!(iterations <= 100);
+        assert!(
+            residual < 1e-8,
+            "GMRES failed to converge: relative residual {residual}"
+        );
 
-        // Verify the solution approximately satisfies A*x = b with relaxed tolerance
+        // The computed solution must match the exact solution.
+        let expected: [f32; 3] = [-2.0 / 9.0, 23.0 / 45.0, 31.0 / 45.0];
+        for (i, &exp) in expected.iter().enumerate() {
+            assert_relative_eq!(solution.get(&[i]).unwrap(), exp, epsilon = 1e-4);
+        }
+
+        // Regression guard: the right-hand side must be left untouched. `Tensor::clone`
+        // shares storage, so a careless residual update would corrupt the caller's `b`.
+        for (i, &exp_b) in [1.0_f32, 2.0, 3.0].iter().enumerate() {
+            assert_relative_eq!(b.get(&[i]).unwrap(), exp_b, epsilon = 1e-6);
+        }
+
+        // A*x must reproduce b.
         let solution_2d = zeros::<f32>(&[3, 1]).unwrap();
         for i in 0..3 {
             solution_2d
@@ -1038,20 +1262,94 @@ mod tests {
                 .unwrap();
         }
         let ax = crate::ops::spmm(&matrix as &dyn SparseTensor, &solution_2d).unwrap();
-
-        // Compute relative error in solution
-        let mut max_error: f32 = 0.0;
         for i in 0..3 {
-            let diff = (ax.get(&[i, 0]).unwrap() - b.get(&[i]).unwrap()).abs();
-            let b_val = b.get(&[i]).unwrap().abs().max(1.0); // Avoid division by small numbers
-            let rel_error = diff / b_val;
-            max_error = max_error.max(rel_error);
+            let component_error = (ax.get(&[i, 0]).unwrap() - b.get(&[i]).unwrap()).abs();
+            assert!(
+                component_error < 1e-4,
+                "A*x - b component {i} = {component_error}"
+            );
         }
+    }
 
-        // Assert that relative error is reasonable for an iterative method
+    #[test]
+    fn test_gmres_spd() {
+        // Symmetric positive definite tridiagonal system:
+        //   [4  1  0]      [1]
+        //   [1  4  1] x =  [1]
+        //   [0  1  4]      [1]
+        // Exact solution: x = [3/14, 1/7, 3/14].
+        let rows = vec![0, 0, 1, 1, 1, 2, 2];
+        let cols = vec![0, 1, 0, 1, 2, 1, 2];
+        let vals = vec![4.0, 1.0, 1.0, 4.0, 1.0, 1.0, 4.0];
+        let matrix = CooTensor::new(rows, cols, vals, Shape::new(vec![3, 3])).unwrap();
+
+        let b = ones::<f32>(&[3]).unwrap();
+
+        let (solution, _iterations, residual) =
+            gmres(&matrix as &dyn SparseTensor, &b, None, 3, 10, 1e-12).unwrap();
+
         assert!(
-            max_error < 0.1,
-            "Solution relative error too large: {max_error}"
+            residual < 1e-10,
+            "GMRES (SPD) failed to converge: relative residual {residual}"
         );
+
+        let expected: [f32; 3] = [3.0 / 14.0, 1.0 / 7.0, 3.0 / 14.0];
+        for (i, &exp) in expected.iter().enumerate() {
+            assert_relative_eq!(solution.get(&[i]).unwrap(), exp, epsilon = 1e-5);
+        }
+    }
+
+    #[test]
+    fn test_gmres_restart_nonsymmetric() {
+        // 8x8 strictly diagonally dominant, non-symmetric matrix:
+        //   diagonal = 8, sub-diagonal = -1, super-diagonal = -2.
+        let n = 8;
+        let mut rows = Vec::new();
+        let mut cols = Vec::new();
+        let mut vals = Vec::new();
+        for i in 0..n {
+            rows.push(i);
+            cols.push(i);
+            vals.push(8.0);
+            if i > 0 {
+                rows.push(i);
+                cols.push(i - 1);
+                vals.push(-1.0);
+            }
+            if i + 1 < n {
+                rows.push(i);
+                cols.push(i + 1);
+                vals.push(-2.0);
+            }
+        }
+        let matrix = CooTensor::new(rows, cols, vals, Shape::new(vec![n, n])).unwrap();
+
+        let b = ones::<f32>(&[n]).unwrap();
+
+        // restart = 4 < n exercises the GMRES(m) restart loop.
+        let (solution, _iterations, residual) =
+            gmres(&matrix as &dyn SparseTensor, &b, None, 4, 100, 1e-10).unwrap();
+
+        assert_eq!(solution.shape().dims(), &[n]);
+        assert!(
+            residual < 1e-8,
+            "restarted GMRES failed to converge: relative residual {residual}"
+        );
+
+        // Verify A*x = b directly.
+        let solution_2d = zeros::<f32>(&[n, 1]).unwrap();
+        for i in 0..n {
+            solution_2d
+                .set(&[i, 0], solution.get(&[i]).unwrap())
+                .unwrap();
+        }
+        let ax = crate::ops::spmm(&matrix as &dyn SparseTensor, &solution_2d).unwrap();
+        for i in 0..n {
+            let component_error = (ax.get(&[i, 0]).unwrap() - 1.0).abs();
+            assert!(
+                component_error < 1e-4,
+                "A*x - b component {i} = {component_error}"
+            );
+        }
     }
 }

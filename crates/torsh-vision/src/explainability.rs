@@ -13,7 +13,6 @@
 //! - Are the predictions based on relevant features?
 
 use crate::{Result, VisionError};
-use scirs2_core::ndarray::Array3; // SciRS2 Policy compliance
 use std::sync::Arc;
 use torsh_core::device::Device;
 use torsh_nn::Module;
@@ -79,22 +78,17 @@ impl GradCAM {
         // Backward pass to get gradients
         target_score.backward()?;
 
-        // In a complete implementation:
-        // 1. Extract activations from target convolutional layer
-        // 2. Extract gradients flowing into the target layer
-        // 3. Compute importance weights (global average pooling of gradients)
-        // 4. Weighted combination of activation maps
-        // 5. Apply ReLU and normalize
-
-        // Placeholder: Create a dummy heatmap for demonstration
-        // In production, this would be replaced with actual GradCAM computation
-        let input_shape = batched_input.shape();
-        let height = input_shape.dims()[2] as usize;
-        let width = input_shape.dims()[3] as usize;
-
-        let heatmap = self.create_placeholder_heatmap(height, width)?;
-
-        Ok(heatmap)
+        // GradCAM requires gradient hooks registered on the target convolutional layer
+        // to capture both the forward activations and the backward gradient signal.
+        // This crate does not yet expose a register_hook API on torsh_nn::Module.
+        // Returning a silent zero heatmap would be a fabrication — callers cannot
+        // distinguish "not computed" from "no salient region". Return an honest error.
+        return Err(VisionError::ModelError(
+            "GradCAM requires gradient hooks on the target layer; \
+             use `register_forward_hook` / `register_backward_hook` once the \
+             hook API is exposed on torsh_nn::Module"
+                .to_string(),
+        ));
     }
 
     /// Generate GradCAM++ heatmap (improved version of GradCAM)
@@ -156,16 +150,6 @@ impl GradCAM {
 
         let colored = Tensor::cat(&[&r, &g, &b], 0)?;
         Ok(colored)
-    }
-
-    /// Create placeholder heatmap (to be replaced with actual implementation)
-    fn create_placeholder_heatmap(&self, height: usize, width: usize) -> Result<Tensor> {
-        use torsh_tensor::creation;
-
-        // Create a simple gradient heatmap for demonstration
-        let heatmap: Tensor<f32> = creation::zeros(&[height, width])?;
-
-        Ok(heatmap)
     }
 }
 
@@ -571,5 +555,31 @@ mod tests {
         assert!(ig_black.create_baseline(&input).is_ok());
         assert!(ig_random.create_baseline(&input).is_ok());
         assert!(ig_blurred.create_baseline(&input).is_ok());
+    }
+
+    #[test]
+    fn test_gradcam_returns_honest_error_not_zeros() {
+        struct StubModel;
+
+        impl torsh_nn::Module for StubModel {
+            fn forward(&self, _input: &Tensor) -> torsh_core::error::Result<Tensor> {
+                // Return [1, 10] logits (batch=1, 10 classes)
+                creation::zeros(&[1usize, 10])
+                    .map_err(|e| torsh_core::error::TorshError::Other(e.to_string()))
+            }
+        }
+
+        let device = Arc::new(CpuDevice::new());
+        let gradcam = GradCAM::new("layer4".to_string(), device);
+
+        let input: Tensor<f32> =
+            creation::ones(&[1usize, 3, 32, 32]).expect("input creation should succeed");
+
+        let result = gradcam.generate_heatmap(&StubModel, &input, 0);
+        // Must return an error (not zeros)
+        assert!(
+            result.is_err(),
+            "GradCAM must return an error rather than a silent zero heatmap; got Ok"
+        );
     }
 }

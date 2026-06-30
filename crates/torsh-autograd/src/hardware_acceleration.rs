@@ -373,52 +373,40 @@ impl CudaAccelerator {
     }
 
     fn detect_cuda_devices(&self) -> AutogradResult<Vec<HardwareDevice>> {
-        // In practice, this would use CUDA runtime APIs
-        // For now, simulate device detection
-        if !self.is_cuda_available() {
-            return Ok(Vec::new());
-        }
-
-        let mut devices = Vec::new();
-
-        // Simulate detecting CUDA devices
-        for i in 0..2 {
-            // Assume 2 GPUs for demonstration
-            let mut device = HardwareDevice::new(
-                i,
-                format!("NVIDIA GeForce RTX 4090 #{}", i),
-                AcceleratorType::CUDA,
-            );
-
-            device.capabilities = vec![
-                HardwareCapability::FP32,
-                HardwareCapability::FP16,
-                HardwareCapability::BF16,
-                HardwareCapability::INT8,
-                HardwareCapability::TensorCores,
-                HardwareCapability::UnifiedMemory,
-                HardwareCapability::P2PMemory,
-                HardwareCapability::ConcurrentKernels,
-            ];
-
-            device.memory_size = 24 * 1024 * 1024 * 1024; // 24GB
-            device.compute_units = 128;
-            device.peak_performance = 83.0; // TFLOPS
-            device.memory_bandwidth = 1008.0; // GB/s
-            device.power_consumption = Some(450.0); // Watts
-            device.driver_version = "535.98".to_string();
-            device.is_available = true;
-
-            devices.push(device);
-        }
-
-        Ok(devices)
+        // This backend is not linked against a real CUDA runtime (no `cust` /
+        // `cudarc` dependency in Cargo.toml), so it cannot enumerate physical
+        // GPUs or query their true specifications. Returning fabricated device
+        // descriptors (e.g. a hard-coded "RTX 4090" with invented TFLOPS and
+        // memory) would be a silent lie about available hardware, so we report
+        // no devices. Real device detection requires wiring CUDA FFI bindings.
+        Ok(Vec::new())
     }
 
     fn is_cuda_available(&self) -> bool {
-        // Check for CUDA availability
-        std::env::var("CUDA_PATH").is_ok() || std::path::Path::new("/usr/local/cuda").exists()
+        // No real CUDA runtime is linked into this crate. Even when a CUDA
+        // toolkit is present on the host (CUDA_PATH / /usr/local/cuda), this
+        // accelerator has no FFI bindings to drive it, so honestly reporting
+        // it as unavailable prevents callers from dispatching real work to a
+        // backend that can only simulate it.
+        false
     }
+}
+
+/// Build an honest "CUDA backend not available" error for an operation that
+/// would otherwise have to fabricate a result.
+///
+/// This crate does not link a real CUDA runtime (no `cust` / `cudarc`
+/// dependency), so memory allocation, host/device copies, kernel launches,
+/// device statistics, and benchmarks cannot be performed. Returning this error
+/// is preferable to silently returning fake pointers, synthetic data, or
+/// `sleep`-based timings.
+fn cuda_backend_unavailable(operation: &str) -> AutogradError {
+    AutogradError::gradient_computation(
+        format!("cuda::{operation}"),
+        "CUDA backend not available: no real CUDA runtime (cust/cudarc) is linked \
+         into torsh-autograd, so this operation cannot be performed on hardware. \
+         Build with a CUDA-enabled tensor backend to use GPU acceleration.",
+    )
 }
 
 impl HardwareAccelerator for CudaAccelerator {
@@ -465,230 +453,122 @@ impl HardwareAccelerator for CudaAccelerator {
         Ok(())
     }
 
-    fn allocate_memory(&self, device_id: u32, size: usize) -> AutogradResult<HardwareMemoryHandle> {
-        if !self.initialized {
-            return Err(AutogradError::gradient_computation(
-                "cuda_initialization",
-                "CUDA accelerator not initialized",
-            ));
-        }
-
-        // Simulate memory allocation
-        let handle = HardwareMemoryHandle {
-            device_id,
-            ptr: 0x1000000 + size, // Simulated pointer
-            size,
-            accelerator_type: AcceleratorType::CUDA,
-        };
-
-        tracing::debug!("Allocated {} bytes on CUDA device {}", size, device_id);
-        Ok(handle)
+    fn allocate_memory(
+        &self,
+        _device_id: u32,
+        size: usize,
+    ) -> AutogradResult<HardwareMemoryHandle> {
+        Err(cuda_backend_unavailable(&format!(
+            "allocate_memory({size} bytes)"
+        )))
     }
 
-    fn deallocate_memory(&self, handle: HardwareMemoryHandle) -> AutogradResult<()> {
-        tracing::debug!(
-            "Deallocated {} bytes on CUDA device {}",
-            handle.size,
-            handle.device_id
-        );
-        Ok(())
+    fn deallocate_memory(&self, _handle: HardwareMemoryHandle) -> AutogradResult<()> {
+        Err(cuda_backend_unavailable("deallocate_memory"))
     }
 
-    fn copy_to_device(&self, data: &[f64], handle: &HardwareMemoryHandle) -> AutogradResult<()> {
-        if data.len() * 8 > handle.size {
-            return Err(AutogradError::memory_allocation(
-                "memory_bounds_check",
-                data.len() * 8,
-            ));
-        }
-
-        tracing::debug!(
-            "Copied {} elements to CUDA device {}",
-            data.len(),
-            handle.device_id
-        );
-        Ok(())
+    fn copy_to_device(&self, _data: &[f64], _handle: &HardwareMemoryHandle) -> AutogradResult<()> {
+        Err(cuda_backend_unavailable("copy_to_device"))
     }
 
     fn copy_from_device(
         &self,
-        handle: &HardwareMemoryHandle,
-        data: &mut [f64],
+        _handle: &HardwareMemoryHandle,
+        _data: &mut [f64],
     ) -> AutogradResult<()> {
-        if data.len() * 8 > handle.size {
-            return Err(AutogradError::memory_allocation(
-                "memory_bounds_check",
-                data.len() * 8,
-            ));
-        }
-
-        // Simulate copying from device (fill with pattern for testing)
-        for (i, val) in data.iter_mut().enumerate() {
-            *val = (i as f64) * 0.1;
-        }
-
-        tracing::debug!(
-            "Copied {} elements from CUDA device {}",
-            data.len(),
-            handle.device_id
-        );
-        Ok(())
+        // Previously this filled the output buffer with a synthetic ramp
+        // (`i * 0.1`) and returned Ok, silently handing the caller fabricated
+        // "device" data. Without a real CUDA backend there is nothing to copy.
+        Err(cuda_backend_unavailable("copy_from_device"))
     }
 
     fn accelerated_add(
         &self,
-        device_id: u32,
+        _device_id: u32,
         _a: &HardwareMemoryHandle,
         _b: &HardwareMemoryHandle,
         _result: &HardwareMemoryHandle,
-        size: usize,
+        _size: usize,
     ) -> AutogradResult<()> {
-        // Simulate CUDA kernel launch for addition
-        tracing::debug!(
-            "CUDA add kernel executed on device {} for {} elements",
-            device_id,
-            size
-        );
-        std::thread::sleep(std::time::Duration::from_micros(10)); // Simulate computation time
-        Ok(())
+        Err(cuda_backend_unavailable("accelerated_add"))
     }
 
     fn accelerated_mul(
         &self,
-        device_id: u32,
+        _device_id: u32,
         _a: &HardwareMemoryHandle,
         _b: &HardwareMemoryHandle,
         _result: &HardwareMemoryHandle,
-        size: usize,
+        _size: usize,
     ) -> AutogradResult<()> {
-        tracing::debug!(
-            "CUDA mul kernel executed on device {} for {} elements",
-            device_id,
-            size
-        );
-        std::thread::sleep(std::time::Duration::from_micros(15));
-        Ok(())
+        Err(cuda_backend_unavailable("accelerated_mul"))
     }
 
     fn accelerated_matmul(
         &self,
-        device_id: u32,
+        _device_id: u32,
         _a: &HardwareMemoryHandle,
         _b: &HardwareMemoryHandle,
         _result: &HardwareMemoryHandle,
-        m: usize,
-        n: usize,
-        k: usize,
+        _m: usize,
+        _n: usize,
+        _k: usize,
     ) -> AutogradResult<()> {
-        tracing::debug!(
-            "CUDA matmul kernel executed on device {} for {}x{}x{}",
-            device_id,
-            m,
-            n,
-            k
-        );
-        std::thread::sleep(std::time::Duration::from_micros(50));
-        Ok(())
+        Err(cuda_backend_unavailable("accelerated_matmul"))
     }
 
     fn accelerated_conv2d(
         &self,
-        device_id: u32,
+        _device_id: u32,
         _input: &HardwareMemoryHandle,
         _kernel: &HardwareMemoryHandle,
         _result: &HardwareMemoryHandle,
-        params: &Conv2DParams,
+        _params: &Conv2DParams,
     ) -> AutogradResult<()> {
-        tracing::debug!(
-            "CUDA conv2d kernel executed on device {} with stride {}x{}",
-            device_id,
-            params.stride_h,
-            params.stride_w
-        );
-        std::thread::sleep(std::time::Duration::from_micros(100));
-        Ok(())
+        Err(cuda_backend_unavailable("accelerated_conv2d"))
     }
 
     fn accelerated_backward_add(
         &self,
-        device_id: u32,
+        _device_id: u32,
         _grad_output: &HardwareMemoryHandle,
         _grad_a: &HardwareMemoryHandle,
         _grad_b: &HardwareMemoryHandle,
-        size: usize,
+        _size: usize,
     ) -> AutogradResult<()> {
-        tracing::debug!(
-            "CUDA backward add executed on device {} for {} elements",
-            device_id,
-            size
-        );
-        std::thread::sleep(std::time::Duration::from_micros(8));
-        Ok(())
+        Err(cuda_backend_unavailable("accelerated_backward_add"))
     }
 
     fn accelerated_backward_mul(
         &self,
-        device_id: u32,
+        _device_id: u32,
         _grad_output: &HardwareMemoryHandle,
         _a: &HardwareMemoryHandle,
         _b: &HardwareMemoryHandle,
         _grad_a: &HardwareMemoryHandle,
         _grad_b: &HardwareMemoryHandle,
-        size: usize,
+        _size: usize,
     ) -> AutogradResult<()> {
-        tracing::debug!(
-            "CUDA backward mul executed on device {} for {} elements",
-            device_id,
-            size
-        );
-        std::thread::sleep(std::time::Duration::from_micros(12));
-        Ok(())
+        Err(cuda_backend_unavailable("accelerated_backward_mul"))
     }
 
-    fn get_device_stats(&self, device_id: u32) -> AutogradResult<DeviceStats> {
-        Ok(DeviceStats {
-            device_id,
-            memory_used: 8 * 1024 * 1024 * 1024,  // 8GB used
-            memory_free: 16 * 1024 * 1024 * 1024, // 16GB free
-            temperature: Some(65.0),
-            utilization: Some(45.0),
-            power_draw: Some(250.0),
-            clock_rate: Some(2520.0),         // MHz
-            memory_clock_rate: Some(10501.0), // MHz
-        })
+    fn get_device_stats(&self, _device_id: u32) -> AutogradResult<DeviceStats> {
+        // Previously returned hard-coded temperature/utilization/power figures
+        // that did not correspond to any real device.
+        Err(cuda_backend_unavailable("get_device_stats"))
     }
 
     fn benchmark_operation(
         &self,
         _device_id: u32,
         operation: &str,
-        size: usize,
+        _size: usize,
     ) -> AutogradResult<f64> {
-        let start = std::time::Instant::now();
-        let iterations = 100;
-
-        for _ in 0..iterations {
-            match operation {
-                "add" => {
-                    std::thread::sleep(std::time::Duration::from_nanos(size as u64));
-                }
-                "mul" => {
-                    std::thread::sleep(std::time::Duration::from_nanos(size as u64 * 2));
-                }
-                "matmul" => {
-                    std::thread::sleep(std::time::Duration::from_nanos(size as u64 * 3));
-                }
-                _ => {
-                    return Err(AutogradError::gradient_computation(
-                        "benchmark_operation",
-                        format!("Benchmark not supported for operation: {}", operation),
-                    ));
-                }
-            }
-        }
-
-        let total_time = start.elapsed().as_secs_f64();
-        Ok(total_time / iterations as f64)
+        // Previously returned `sleep`-derived timings dressed up as GPU
+        // benchmark results. There is no real backend to benchmark.
+        Err(cuda_backend_unavailable(&format!(
+            "benchmark_operation({operation})"
+        )))
     }
 }
 
@@ -710,39 +590,31 @@ impl MetalAccelerator {
     }
 
     fn detect_metal_devices(&self) -> AutogradResult<Vec<HardwareDevice>> {
-        if !self.is_metal_available() {
-            return Ok(Vec::new());
-        }
-
-        let mut devices = Vec::new();
-
-        // Simulate Apple Silicon GPU
-        let mut device =
-            HardwareDevice::new(0, "Apple M3 Max GPU".to_string(), AcceleratorType::Metal);
-
-        device.capabilities = vec![
-            HardwareCapability::FP32,
-            HardwareCapability::FP16,
-            HardwareCapability::UnifiedMemory,
-            HardwareCapability::HighBandwidthMemory,
-            HardwareCapability::ConcurrentKernels,
-        ];
-
-        device.memory_size = 128 * 1024 * 1024 * 1024; // 128GB unified memory
-        device.compute_units = 40;
-        device.peak_performance = 14.2; // TFLOPS
-        device.memory_bandwidth = 400.0; // GB/s
-        device.power_consumption = Some(30.0); // Watts
-        device.driver_version = "Metal 3.0".to_string();
-        device.is_available = true;
-
-        devices.push(device);
-        Ok(devices)
+        // This backend is not linked against Apple's Metal framework (no `metal`
+        // crate dependency), so it cannot enumerate the real GPU or read its
+        // true specifications. Returning a fabricated "Apple M3 Max GPU" with
+        // invented memory/TFLOPS would misrepresent the hardware, so we report
+        // no devices. Real detection requires Metal FFI bindings.
+        Ok(Vec::new())
     }
 
     fn is_metal_available(&self) -> bool {
-        cfg!(target_os = "macos") || cfg!(target_os = "ios")
+        // Running on macOS/iOS does not imply this crate can drive Metal: no
+        // Metal bindings are linked, so we honestly report the backend as
+        // unavailable rather than letting callers dispatch simulated work.
+        false
     }
+}
+
+/// Build an honest "Metal backend not available" error for an operation that
+/// would otherwise have to fabricate a result. No `metal` framework bindings
+/// are linked into this crate, so all device operations are unsupported.
+fn metal_backend_unavailable(operation: &str) -> AutogradError {
+    AutogradError::gradient_computation(
+        format!("metal::{operation}"),
+        "Metal backend not available: no Apple Metal bindings are linked into \
+         torsh-autograd, so this operation cannot be performed on hardware.",
+    )
 }
 
 impl HardwareAccelerator for MetalAccelerator {
@@ -789,529 +661,118 @@ impl HardwareAccelerator for MetalAccelerator {
         Ok(())
     }
 
-    fn allocate_memory(&self, device_id: u32, size: usize) -> AutogradResult<HardwareMemoryHandle> {
-        let handle = HardwareMemoryHandle {
-            device_id,
-            ptr: 0x2000000 + size,
-            size,
-            accelerator_type: AcceleratorType::Metal,
-        };
-
-        tracing::debug!("Allocated {} bytes on Metal device {}", size, device_id);
-        Ok(handle)
+    fn allocate_memory(
+        &self,
+        _device_id: u32,
+        size: usize,
+    ) -> AutogradResult<HardwareMemoryHandle> {
+        Err(metal_backend_unavailable(&format!(
+            "allocate_memory({size} bytes)"
+        )))
     }
 
-    fn deallocate_memory(&self, handle: HardwareMemoryHandle) -> AutogradResult<()> {
-        tracing::debug!(
-            "Deallocated {} bytes on Metal device {}",
-            handle.size,
-            handle.device_id
-        );
-        Ok(())
+    fn deallocate_memory(&self, _handle: HardwareMemoryHandle) -> AutogradResult<()> {
+        Err(metal_backend_unavailable("deallocate_memory"))
     }
 
-    fn copy_to_device(&self, data: &[f64], handle: &HardwareMemoryHandle) -> AutogradResult<()> {
-        tracing::debug!(
-            "Copied {} elements to Metal device {}",
-            data.len(),
-            handle.device_id
-        );
-        Ok(())
+    fn copy_to_device(&self, _data: &[f64], _handle: &HardwareMemoryHandle) -> AutogradResult<()> {
+        Err(metal_backend_unavailable("copy_to_device"))
     }
 
     fn copy_from_device(
         &self,
-        handle: &HardwareMemoryHandle,
-        data: &mut [f64],
+        _handle: &HardwareMemoryHandle,
+        _data: &mut [f64],
     ) -> AutogradResult<()> {
-        for (i, val) in data.iter_mut().enumerate() {
-            *val = (i as f64) * 0.2; // Different pattern for Metal
-        }
-        tracing::debug!(
-            "Copied {} elements from Metal device {}",
-            data.len(),
-            handle.device_id
-        );
-        Ok(())
+        // Previously filled the output buffer with a synthetic ramp (`i * 0.2`).
+        Err(metal_backend_unavailable("copy_from_device"))
     }
 
     fn accelerated_add(
         &self,
-        device_id: u32,
+        _device_id: u32,
         _a: &HardwareMemoryHandle,
         _b: &HardwareMemoryHandle,
         _result: &HardwareMemoryHandle,
-        size: usize,
+        _size: usize,
     ) -> AutogradResult<()> {
-        tracing::debug!(
-            "Metal add kernel executed on device {} for {} elements",
-            device_id,
-            size
-        );
-        std::thread::sleep(std::time::Duration::from_micros(8)); // Metal is efficient
-        Ok(())
+        Err(metal_backend_unavailable("accelerated_add"))
     }
 
     fn accelerated_mul(
         &self,
-        device_id: u32,
+        _device_id: u32,
         _a: &HardwareMemoryHandle,
         _b: &HardwareMemoryHandle,
         _result: &HardwareMemoryHandle,
-        size: usize,
+        _size: usize,
     ) -> AutogradResult<()> {
-        tracing::debug!(
-            "Metal mul kernel executed on device {} for {} elements",
-            device_id,
-            size
-        );
-        std::thread::sleep(std::time::Duration::from_micros(12));
-        Ok(())
+        Err(metal_backend_unavailable("accelerated_mul"))
     }
 
     fn accelerated_matmul(
         &self,
-        device_id: u32,
+        _device_id: u32,
         _a: &HardwareMemoryHandle,
         _b: &HardwareMemoryHandle,
         _result: &HardwareMemoryHandle,
-        m: usize,
-        n: usize,
-        k: usize,
+        _m: usize,
+        _n: usize,
+        _k: usize,
     ) -> AutogradResult<()> {
-        tracing::debug!(
-            "Metal matmul kernel executed on device {} for {}x{}x{}",
-            device_id,
-            m,
-            n,
-            k
-        );
-        std::thread::sleep(std::time::Duration::from_micros(40));
-        Ok(())
+        Err(metal_backend_unavailable("accelerated_matmul"))
     }
 
     fn accelerated_conv2d(
         &self,
-        device_id: u32,
+        _device_id: u32,
         _input: &HardwareMemoryHandle,
         _kernel: &HardwareMemoryHandle,
         _result: &HardwareMemoryHandle,
-        params: &Conv2DParams,
+        _params: &Conv2DParams,
     ) -> AutogradResult<()> {
-        tracing::debug!(
-            "Metal conv2d kernel executed on device {} with stride {}x{}",
-            device_id,
-            params.stride_h,
-            params.stride_w
-        );
-        std::thread::sleep(std::time::Duration::from_micros(80));
-        Ok(())
+        Err(metal_backend_unavailable("accelerated_conv2d"))
     }
 
     fn accelerated_backward_add(
         &self,
-        device_id: u32,
+        _device_id: u32,
         _grad_output: &HardwareMemoryHandle,
         _grad_a: &HardwareMemoryHandle,
         _grad_b: &HardwareMemoryHandle,
-        size: usize,
+        _size: usize,
     ) -> AutogradResult<()> {
-        tracing::debug!(
-            "Metal backward add executed on device {} for {} elements",
-            device_id,
-            size
-        );
-        std::thread::sleep(std::time::Duration::from_micros(6));
-        Ok(())
+        Err(metal_backend_unavailable("accelerated_backward_add"))
     }
 
     fn accelerated_backward_mul(
         &self,
-        device_id: u32,
+        _device_id: u32,
         _grad_output: &HardwareMemoryHandle,
         _a: &HardwareMemoryHandle,
         _b: &HardwareMemoryHandle,
         _grad_a: &HardwareMemoryHandle,
         _grad_b: &HardwareMemoryHandle,
-        size: usize,
+        _size: usize,
     ) -> AutogradResult<()> {
-        tracing::debug!(
-            "Metal backward mul executed on device {} for {} elements",
-            device_id,
-            size
-        );
-        std::thread::sleep(std::time::Duration::from_micros(10));
-        Ok(())
+        Err(metal_backend_unavailable("accelerated_backward_mul"))
     }
 
-    fn get_device_stats(&self, device_id: u32) -> AutogradResult<DeviceStats> {
-        Ok(DeviceStats {
-            device_id,
-            memory_used: 16 * 1024 * 1024 * 1024,  // 16GB used
-            memory_free: 112 * 1024 * 1024 * 1024, // 112GB free
-            temperature: Some(45.0),               // Apple Silicon runs cooler
-            utilization: Some(30.0),
-            power_draw: Some(15.0),          // Very efficient
-            clock_rate: Some(1398.0),        // MHz
-            memory_clock_rate: Some(7500.0), // MHz
-        })
+    fn get_device_stats(&self, _device_id: u32) -> AutogradResult<DeviceStats> {
+        // Previously returned hard-coded Apple-Silicon-shaped statistics.
+        Err(metal_backend_unavailable("get_device_stats"))
     }
 
     fn benchmark_operation(
         &self,
         _device_id: u32,
         operation: &str,
-        size: usize,
+        _size: usize,
     ) -> AutogradResult<f64> {
-        let start = std::time::Instant::now();
-        let iterations = 150; // More iterations for Metal efficiency
-
-        for _ in 0..iterations {
-            match operation {
-                "add" => {
-                    std::thread::sleep(std::time::Duration::from_nanos(size as u64 / 2));
-                }
-                "mul" => {
-                    std::thread::sleep(std::time::Duration::from_nanos(size as u64));
-                }
-                "matmul" => {
-                    std::thread::sleep(std::time::Duration::from_nanos(size as u64 * 2));
-                }
-                _ => {
-                    return Err(AutogradError::gradient_computation(
-                        "benchmark_operation",
-                        format!("Benchmark not supported for operation: {}", operation),
-                    ));
-                }
-            }
-        }
-
-        let total_time = start.elapsed().as_secs_f64();
-        Ok(total_time / iterations as f64)
-    }
-}
-
-/// WebGPU accelerator implementation for browser deployment
-#[derive(Debug)]
-pub struct WebGpuAccelerator {
-    initialized: bool,
-    devices: Vec<HardwareDevice>,
-    config: Option<AccelerationConfig>,
-}
-
-impl WebGpuAccelerator {
-    pub fn new() -> Self {
-        Self {
-            initialized: false,
-            devices: Vec::new(),
-            config: None,
-        }
-    }
-
-    fn detect_webgpu_devices(&self) -> AutogradResult<Vec<HardwareDevice>> {
-        if !self.is_webgpu_available() {
-            return Ok(Vec::new());
-        }
-
-        let mut devices = Vec::new();
-
-        // Simulate WebGPU device (typically integrated GPU in browser)
-        let mut device = HardwareDevice::new(
-            0,
-            "WebGPU Default Adapter".to_string(),
-            AcceleratorType::WebGPU,
-        );
-
-        device.capabilities = vec![
-            HardwareCapability::FP32,
-            HardwareCapability::FP16,
-            HardwareCapability::ConcurrentKernels,
-        ];
-
-        // WebGPU devices typically have limited memory
-        device.memory_size = 4 * 1024 * 1024 * 1024; // 4GB shared memory
-        device.compute_units = 12; // Typical integrated GPU
-        device.peak_performance = 2.5; // TFLOPS (lower for integrated)
-        device.memory_bandwidth = 68.0; // GB/s (shared with CPU)
-        device.power_consumption = Some(15.0); // Watts
-        device.driver_version = "WebGPU 1.0".to_string();
-        device.is_available = true;
-
-        devices.push(device);
-        Ok(devices)
-    }
-
-    fn is_webgpu_available(&self) -> bool {
-        // WebGPU is available in browser contexts (WASM target)
-        // For native builds, this is a simulation/fallback
-        cfg!(target_arch = "wasm32") || cfg!(feature = "webgpu")
-    }
-}
-
-impl HardwareAccelerator for WebGpuAccelerator {
-    fn accelerator_type(&self) -> AcceleratorType {
-        AcceleratorType::WebGPU
-    }
-
-    fn is_available(&self) -> bool {
-        self.is_webgpu_available()
-    }
-
-    fn get_devices(&self) -> AutogradResult<Vec<HardwareDevice>> {
-        if self.initialized {
-            Ok(self.devices.clone())
-        } else {
-            self.detect_webgpu_devices()
-        }
-    }
-
-    fn initialize(&mut self, config: &AccelerationConfig) -> AutogradResult<()> {
-        if !self.is_available() {
-            return Err(AutogradError::gradient_computation(
-                "webgpu_availability",
-                "WebGPU not available on this system",
-            ));
-        }
-
-        self.devices = self.detect_webgpu_devices()?;
-        self.config = Some(config.clone());
-        self.initialized = true;
-
-        tracing::info!(
-            "WebGPU accelerator initialized with {} devices",
-            self.devices.len()
-        );
-        Ok(())
-    }
-
-    fn shutdown(&mut self) -> AutogradResult<()> {
-        self.initialized = false;
-        self.devices.clear();
-        self.config = None;
-        tracing::info!("WebGPU accelerator shutdown");
-        Ok(())
-    }
-
-    fn allocate_memory(&self, device_id: u32, size: usize) -> AutogradResult<HardwareMemoryHandle> {
-        // WebGPU uses buffer objects
-        let handle = HardwareMemoryHandle {
-            device_id,
-            ptr: 0x3000000 + size, // Simulated WebGPU buffer handle
-            size,
-            accelerator_type: AcceleratorType::WebGPU,
-        };
-
-        tracing::debug!("Allocated {} bytes on WebGPU device {}", size, device_id);
-        Ok(handle)
-    }
-
-    fn deallocate_memory(&self, handle: HardwareMemoryHandle) -> AutogradResult<()> {
-        tracing::debug!(
-            "Deallocated {} bytes on WebGPU device {}",
-            handle.size,
-            handle.device_id
-        );
-        Ok(())
-    }
-
-    fn copy_to_device(&self, data: &[f64], handle: &HardwareMemoryHandle) -> AutogradResult<()> {
-        // WebGPU buffer upload (asynchronous in real implementation)
-        tracing::debug!(
-            "Copied {} elements to WebGPU device {}",
-            data.len(),
-            handle.device_id
-        );
-        Ok(())
-    }
-
-    fn copy_from_device(
-        &self,
-        handle: &HardwareMemoryHandle,
-        data: &mut [f64],
-    ) -> AutogradResult<()> {
-        // WebGPU buffer download (asynchronous in real implementation)
-        for (i, val) in data.iter_mut().enumerate() {
-            *val = (i as f64) * 0.15; // Different pattern for WebGPU
-        }
-        tracing::debug!(
-            "Copied {} elements from WebGPU device {}",
-            data.len(),
-            handle.device_id
-        );
-        Ok(())
-    }
-
-    fn accelerated_add(
-        &self,
-        device_id: u32,
-        _a: &HardwareMemoryHandle,
-        _b: &HardwareMemoryHandle,
-        _result: &HardwareMemoryHandle,
-        size: usize,
-    ) -> AutogradResult<()> {
-        // WebGPU compute shader for element-wise addition
-        tracing::debug!(
-            "WebGPU add compute shader executed on device {} for {} elements",
-            device_id,
-            size
-        );
-        // WebGPU has some overhead due to browser context
-        std::thread::sleep(std::time::Duration::from_micros(15));
-        Ok(())
-    }
-
-    fn accelerated_mul(
-        &self,
-        device_id: u32,
-        _a: &HardwareMemoryHandle,
-        _b: &HardwareMemoryHandle,
-        _result: &HardwareMemoryHandle,
-        size: usize,
-    ) -> AutogradResult<()> {
-        // WebGPU compute shader for element-wise multiplication
-        tracing::debug!(
-            "WebGPU mul compute shader executed on device {} for {} elements",
-            device_id,
-            size
-        );
-        std::thread::sleep(std::time::Duration::from_micros(18));
-        Ok(())
-    }
-
-    fn accelerated_matmul(
-        &self,
-        device_id: u32,
-        _a: &HardwareMemoryHandle,
-        _b: &HardwareMemoryHandle,
-        _result: &HardwareMemoryHandle,
-        m: usize,
-        n: usize,
-        k: usize,
-    ) -> AutogradResult<()> {
-        // WebGPU compute shader for matrix multiplication
-        tracing::debug!(
-            "WebGPU matmul compute shader executed on device {} for {}x{}x{}",
-            device_id,
-            m,
-            n,
-            k
-        );
-        // Matrix operations are more expensive in WebGPU
-        std::thread::sleep(std::time::Duration::from_micros(60));
-        Ok(())
-    }
-
-    fn accelerated_conv2d(
-        &self,
-        device_id: u32,
-        _input: &HardwareMemoryHandle,
-        _kernel: &HardwareMemoryHandle,
-        _result: &HardwareMemoryHandle,
-        params: &Conv2DParams,
-    ) -> AutogradResult<()> {
-        // WebGPU compute shader for 2D convolution
-        tracing::debug!(
-            "WebGPU conv2d compute shader executed on device {} with stride {}x{}",
-            device_id,
-            params.stride_h,
-            params.stride_w
-        );
-        std::thread::sleep(std::time::Duration::from_micros(100));
-        Ok(())
-    }
-
-    fn accelerated_backward_add(
-        &self,
-        device_id: u32,
-        _grad_output: &HardwareMemoryHandle,
-        _grad_a: &HardwareMemoryHandle,
-        _grad_b: &HardwareMemoryHandle,
-        size: usize,
-    ) -> AutogradResult<()> {
-        // WebGPU backward pass for addition
-        tracing::debug!(
-            "WebGPU backward add executed on device {} for {} elements",
-            device_id,
-            size
-        );
-        std::thread::sleep(std::time::Duration::from_micros(12));
-        Ok(())
-    }
-
-    fn accelerated_backward_mul(
-        &self,
-        device_id: u32,
-        _grad_output: &HardwareMemoryHandle,
-        _a: &HardwareMemoryHandle,
-        _b: &HardwareMemoryHandle,
-        _grad_a: &HardwareMemoryHandle,
-        _grad_b: &HardwareMemoryHandle,
-        size: usize,
-    ) -> AutogradResult<()> {
-        // WebGPU backward pass for multiplication
-        tracing::debug!(
-            "WebGPU backward mul executed on device {} for {} elements",
-            device_id,
-            size
-        );
-        std::thread::sleep(std::time::Duration::from_micros(16));
-        Ok(())
-    }
-
-    fn get_device_stats(&self, device_id: u32) -> AutogradResult<DeviceStats> {
-        // WebGPU device statistics (limited API in browsers)
-        Ok(DeviceStats {
-            device_id,
-            memory_used: 2 * 1024 * 1024 * 1024, // 2GB used
-            memory_free: 2 * 1024 * 1024 * 1024, // 2GB free
-            temperature: None,                   // Not available in WebGPU
-            utilization: Some(40.0),             // Estimated
-            power_draw: None,                    // Not available in WebGPU
-            clock_rate: Some(1200.0),            // MHz (typical integrated GPU)
-            memory_clock_rate: Some(6000.0),     // MHz
-        })
-    }
-
-    fn benchmark_operation(
-        &self,
-        _device_id: u32,
-        operation: &str,
-        size: usize,
-    ) -> AutogradResult<f64> {
-        let start = std::time::Instant::now();
-        let iterations = 100; // Moderate iterations for WebGPU
-
-        for _ in 0..iterations {
-            match operation {
-                "add" => {
-                    // WebGPU add operation simulation
-                    std::thread::sleep(std::time::Duration::from_nanos(size as u64));
-                }
-                "mul" => {
-                    // WebGPU mul operation simulation
-                    std::thread::sleep(std::time::Duration::from_nanos(size as u64 * 2));
-                }
-                "matmul" => {
-                    // WebGPU matmul operation simulation
-                    std::thread::sleep(std::time::Duration::from_nanos(size as u64 * 4));
-                }
-                _ => {
-                    return Err(AutogradError::gradient_computation(
-                        "benchmark_operation",
-                        format!("Benchmark not supported for operation: {}", operation),
-                    ));
-                }
-            }
-        }
-
-        let total_time = start.elapsed().as_secs_f64();
-        Ok(total_time / iterations as f64)
-    }
-}
-
-impl Default for WebGpuAccelerator {
-    fn default() -> Self {
-        Self::new()
+        // Previously returned `sleep`-derived timings as benchmark results.
+        Err(metal_backend_unavailable(&format!(
+            "benchmark_operation({operation})"
+        )))
     }
 }
 
@@ -1732,6 +1193,10 @@ pub fn get_global_acceleration_manager() -> &'static HardwareAccelerationManager
     })
 }
 
+#[path = "hardware_acceleration_backends.rs"]
+mod hardware_acceleration_backends;
+pub use hardware_acceleration_backends::*;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1805,16 +1270,15 @@ mod tests {
         let metal = MetalAccelerator::new();
         assert_eq!(metal.accelerator_type(), AcceleratorType::Metal);
 
-        // Availability depends on platform
-        #[cfg(target_os = "macos")]
-        {
-            assert!(metal.is_available());
-        }
+        // No real Metal bindings are linked, so the backend honestly reports
+        // itself as unavailable on every platform (including macOS) rather than
+        // pretending to drive the GPU via simulation.
+        assert!(!metal.is_available());
 
-        #[cfg(not(target_os = "macos"))]
-        {
-            assert!(!metal.is_available());
-        }
+        // Initialization must surface an honest error, not silently succeed
+        // against fabricated devices.
+        let mut metal = metal;
+        assert!(metal.initialize(&AccelerationConfig::default()).is_err());
     }
 
     #[test]
@@ -1822,26 +1286,45 @@ mod tests {
         let webgpu = WebGpuAccelerator::new();
         assert_eq!(webgpu.accelerator_type(), AcceleratorType::WebGPU);
 
-        // Availability depends on target architecture and features
-        #[cfg(target_arch = "wasm32")]
-        {
-            assert!(webgpu.is_available());
-        }
+        // No real wgpu adapter is wired in, so the backend honestly reports
+        // itself as unavailable and enumerates no devices, regardless of the
+        // `webgpu` feature or wasm target.
+        assert!(!webgpu.is_available());
+        let devices = webgpu.get_devices().expect("device query should not fail");
+        assert!(
+            devices.is_empty(),
+            "simulated WebGPU must not fabricate devices"
+        );
+    }
 
-        #[cfg(feature = "webgpu")]
-        {
-            assert!(webgpu.is_available());
-        }
+    #[test]
+    fn test_cuda_backend_returns_honest_errors_not_fake_data() {
+        // The CUDA backend must never hand back a fabricated pointer, synthetic
+        // device data, or sleep-based benchmark timings. Every hardware
+        // operation must fail honestly because no CUDA runtime is linked.
+        let cuda = CudaAccelerator::new();
 
-        // Test device detection
-        if webgpu.is_available() {
-            let devices = webgpu.get_devices();
-            assert!(devices.is_ok());
-            if let Ok(devs) = devices {
-                assert!(!devs.is_empty());
-                assert_eq!(devs[0].accelerator_type, AcceleratorType::WebGPU);
-            }
-        }
+        assert!(!cuda.is_available());
+        assert!(
+            cuda.get_devices()
+                .expect("device query should not fail")
+                .is_empty(),
+            "CUDA backend must not fabricate RTX devices"
+        );
+        assert!(cuda.allocate_memory(0, 1024).is_err());
+        assert!(cuda.get_device_stats(0).is_err());
+        assert!(cuda.benchmark_operation(0, "add", 1024).is_err());
+
+        let handle = HardwareMemoryHandle {
+            device_id: 0,
+            ptr: 0,
+            size: 1024,
+            accelerator_type: AcceleratorType::CUDA,
+        };
+        let mut out = vec![0.0f64; 8];
+        assert!(cuda.copy_from_device(&handle, &mut out).is_err());
+        // The buffer must be left untouched (no synthetic ramp written).
+        assert!(out.iter().all(|&v| v == 0.0));
     }
 
     #[test]

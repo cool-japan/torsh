@@ -24,13 +24,14 @@ torsh-data = { workspace = true }
 
 # Vision processing
 image = { workspace = true }
-imageproc = "0.26"
+imageproc = "0.27"
 
 # Scientific computing - comprehensive SciRS2 vision integration
 scirs2-core = { workspace = true }
 scirs2-autograd = { workspace = true }
 scirs2-vision = { workspace = true }
 scirs2-spatial = { workspace = true }
+scirs2-linalg = { workspace = true }
 
 # Serialization
 serde = { workspace = true, features = ["derive"] }

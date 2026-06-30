@@ -1,10 +1,29 @@
 //! ROCm backend for ToRSh deep learning framework
 //!
-//! This module provides GPU acceleration for tensor operations using AMD ROCm platform
-//! and HIP API. It follows the same architectural patterns as the CUDA backend but
-//! targets AMD GPUs for high-performance computing workloads.
+//! This module is intended to provide GPU acceleration for tensor operations using the
+//! AMD ROCm platform and HIP API, following the same architectural patterns as the CUDA
+//! backend but targeting AMD GPUs.
+//!
+//! # Implementation status
+//!
+//! The ROCm backend is **not yet implemented**. There are currently no HIP/`rocm-rs`
+//! runtime bindings wired into this crate, so no real device can be created, queried, or
+//! driven. To avoid silently returning fabricated device specifications or pretending
+//! that operations succeeded, every function that would require a live HIP runtime
+//! returns an honest [`RocmError`] instead. The struct and type definitions are retained
+//! so that the `rocm` feature continues to compile and so that the public surface is
+//! ready for a future implementation backed by real bindings.
+//!
+//! [`is_available`] performs a genuine filesystem probe for a ROCm installation; it does
+//! not fabricate availability. Even when ROCm files are present on disk, the higher-level
+//! entry points still return an honest "not implemented" error because no bindings exist
+//! to talk to the runtime.
 
 use std::sync::Arc;
+
+/// Honest error message reused by every entry point that would require a live HIP runtime.
+const NOT_IMPLEMENTED: &str =
+    "ROCm backend not implemented; requires HIP runtime and rocm-rs bindings";
 
 /// ROCm-specific error types
 #[derive(Debug, thiserror::Error)]
@@ -23,6 +42,9 @@ pub enum RocmError {
     HipError(String),
     #[error("MIOpen error: {0}")]
     MiOpenError(String),
+    /// The requested ROCm functionality has no real implementation yet.
+    #[error("{0}")]
+    NotImplemented(&'static str),
 }
 
 /// ROCm device information
@@ -60,16 +82,12 @@ impl RocmDevice {
     }
 
     /// Initialize the device context
+    ///
+    /// Not implemented: a real implementation would call `hipSetDevice()` and create a
+    /// HIP context. Returns an honest error rather than pretending initialization
+    /// succeeded.
     pub fn initialize(&mut self) -> Result<(), RocmError> {
-        if self.context_initialized {
-            return Ok(());
-        }
-
-        // Mock HIP context initialization
-        // In real implementation, this would call hipSetDevice() and hipCtxCreate()
-
-        self.context_initialized = true;
-        Ok(())
+        Err(RocmError::NotImplemented(NOT_IMPLEMENTED))
     }
 
     /// Get device information
@@ -83,27 +101,19 @@ impl RocmDevice {
     }
 
     /// Get available memory on the device
+    ///
+    /// Not implemented: a real implementation would call `hipMemGetInfo()`. Returns an
+    /// honest error rather than fabricating a free-memory figure.
     pub fn available_memory(&self) -> Result<usize, RocmError> {
-        if !self.context_initialized {
-            return Err(RocmError::InitializationFailed(
-                "Device not initialized".to_string(),
-            ));
-        }
-
-        // Mock memory query - in real implementation, this would call hipMemGetInfo()
-        Ok(self.info.total_memory * 8 / 10) // Assume 80% available
+        Err(RocmError::NotImplemented(NOT_IMPLEMENTED))
     }
 
     /// Synchronize device operations
+    ///
+    /// Not implemented: a real implementation would call `hipDeviceSynchronize()`.
+    /// Returns an honest error rather than pretending all work has drained.
     pub fn synchronize(&self) -> Result<(), RocmError> {
-        if !self.context_initialized {
-            return Err(RocmError::InitializationFailed(
-                "Device not initialized".to_string(),
-            ));
-        }
-
-        // Mock synchronization - in real implementation, this would call hipDeviceSynchronize()
-        Ok(())
+        Err(RocmError::NotImplemented(NOT_IMPLEMENTED))
     }
 }
 
@@ -115,26 +125,12 @@ pub struct RocmBackend {
 
 impl RocmBackend {
     /// Create a new ROCm backend
+    ///
+    /// Not implemented: constructing a working backend requires a live HIP runtime and
+    /// `rocm-rs` bindings, neither of which is wired in. Returns an honest error rather
+    /// than handing back a backend bound to fabricated devices.
     pub fn new() -> Result<Self, RocmError> {
-        if !is_available() {
-            return Err(RocmError::RuntimeNotAvailable);
-        }
-
-        let device_count = device_count().unwrap_or(0);
-        if device_count == 0 {
-            return Err(RocmError::NoDevicesFound);
-        }
-
-        let mut devices = Vec::new();
-        for i in 0..device_count {
-            let device = RocmDevice::new(i)?;
-            devices.push(Arc::new(device));
-        }
-
-        Ok(Self {
-            devices,
-            default_device_id: 0,
-        })
+        Err(RocmError::NotImplemented(NOT_IMPLEMENTED))
     }
 
     /// Get the default device
@@ -158,17 +154,17 @@ impl RocmBackend {
     }
 }
 
-/// Check if ROCm backend is available
+/// Check whether a ROCm installation appears to be present on this host.
+///
+/// This performs a genuine filesystem probe for a ROCm installation (it does not
+/// fabricate availability). Note that a positive result only indicates that ROCm files
+/// exist on disk; it does **not** mean the backend is usable, because no HIP runtime
+/// bindings are wired in. The higher-level entry points still return an honest
+/// "not implemented" error regardless of this probe.
 pub fn is_available() -> bool {
-    // Check for ROCm runtime availability
-    // In real implementation, this would check for:
-    // - libhip_hcc.so or libamdhip64.so
-    // - ROCm installation in /opt/rocm
-    // - HIP runtime initialization
-
     #[cfg(target_os = "linux")]
     {
-        // Mock availability check - check for ROCm files
+        // Real filesystem probe for a ROCm installation / HIP runtime libraries.
         std::path::Path::new("/opt/rocm").exists()
             || std::path::Path::new("/usr/lib/x86_64-linux-gnu/libhip_hcc.so").exists()
             || std::path::Path::new("/usr/lib/x86_64-linux-gnu/libamdhip64.so").exists()
@@ -176,82 +172,51 @@ pub fn is_available() -> bool {
 
     #[cfg(not(target_os = "linux"))]
     {
-        // ROCm is primarily supported on Linux
+        // ROCm is primarily supported on Linux.
         false
     }
 }
 
 /// Get ROCm device count
+///
+/// A real implementation would call `hipGetDeviceCount()`. Because no HIP bindings are
+/// wired in, this honestly reports zero usable devices (`None`) rather than fabricating a
+/// device count from the mere presence of ROCm files on disk.
 pub fn device_count() -> Option<usize> {
-    if !is_available() {
-        return None;
-    }
-
-    // Mock device enumeration
-    // In real implementation, this would call hipGetDeviceCount()
-
-    // For testing purposes, return 1 if ROCm files are detected
-    if is_available() {
-        Some(1)
-    } else {
-        None
-    }
+    None
 }
 
 /// Get device information for a specific device
-pub fn get_device_info(device_id: usize) -> Result<RocmDeviceInfo, RocmError> {
-    if !is_available() {
-        return Err(RocmError::RuntimeNotAvailable);
-    }
-
-    // Mock device info retrieval
-    // In real implementation, this would call:
-    // - hipGetDeviceProperties()
-    // - hipDeviceGetAttribute()
-
-    match device_id {
-        0 => Ok(RocmDeviceInfo {
-            device_id,
-            name: "AMD Radeon RX 7900 XTX".to_string(),
-            compute_capability: (6, 0),            // gfx1030 equivalent
-            total_memory: 24 * 1024 * 1024 * 1024, // 24GB
-            multiprocessor_count: 96,
-            warp_size: 64, // AMD wavefront size
-            max_threads_per_block: 1024,
-            is_integrated: false,
-        }),
-        _ => Err(RocmError::DeviceNotFound(device_id)),
-    }
+///
+/// Not implemented: a real implementation would call `hipGetDeviceProperties()` and
+/// `hipDeviceGetAttribute()`. Returns an honest error rather than fabricating device
+/// specifications (name, VRAM, compute units, etc.).
+pub fn get_device_info(_device_id: usize) -> Result<RocmDeviceInfo, RocmError> {
+    Err(RocmError::NotImplemented(NOT_IMPLEMENTED))
 }
 
 /// Enumerate all available ROCm devices
+///
+/// Returns an empty list because no devices can be enumerated without a live HIP runtime.
+/// This intentionally does not fabricate any device entries.
 pub fn enumerate_devices() -> Result<Vec<RocmDeviceInfo>, RocmError> {
-    let count = device_count().unwrap_or(0);
-    let mut devices = Vec::new();
-
-    for i in 0..count {
-        devices.push(get_device_info(i)?);
-    }
-
-    Ok(devices)
+    Ok(Vec::new())
 }
 
 /// Initialize ROCm runtime
+///
+/// Not implemented: a real implementation would call `hipInit()`. Returns an honest error
+/// rather than pretending the runtime was initialized.
 pub fn initialize() -> Result<(), RocmError> {
-    if !is_available() {
-        return Err(RocmError::RuntimeNotAvailable);
-    }
-
-    // Mock initialization
-    // In real implementation, this would call hipInit()
-    Ok(())
+    Err(RocmError::NotImplemented(NOT_IMPLEMENTED))
 }
 
 /// Finalize ROCm runtime
+///
+/// Not implemented: there is no initialized runtime to tear down. Returns an honest error
+/// rather than pretending cleanup occurred.
 pub fn finalize() -> Result<(), RocmError> {
-    // Mock finalization
-    // ROCm cleanup would happen here
-    Ok(())
+    Err(RocmError::NotImplemented(NOT_IMPLEMENTED))
 }
 
 #[cfg(test)]

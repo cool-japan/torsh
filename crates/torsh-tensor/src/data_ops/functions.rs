@@ -121,7 +121,26 @@ impl<T: TensorElement + Copy> Tensor<T> {
                 size: self.numel(),
             });
         }
-        self.storage.get(index)
+        // Convert flat view-space index → multi-dim → storage index via strides+offset
+        let shape = self.shape();
+        let dims = shape.dims();
+        let ndim = dims.len();
+        let mut multi_dim = vec![0usize; ndim];
+        let mut remaining = index;
+        for i in (0..ndim).rev() {
+            if dims[i] > 0 {
+                multi_dim[i] = remaining % dims[i];
+                remaining /= dims[i];
+            }
+        }
+        let strides = self.strides();
+        let storage_idx = self.storage_offset
+            + multi_dim
+                .iter()
+                .zip(strides.iter())
+                .map(|(&m, &s)| m * s)
+                .sum::<usize>();
+        self.storage.get(storage_idx)
     }
     /// Set element by flat index
     pub fn set_item_flat(&mut self, index: usize, value: T) -> Result<()>
@@ -134,7 +153,26 @@ impl<T: TensorElement + Copy> Tensor<T> {
                 size: self.numel(),
             });
         }
-        self.storage.set(index, value)
+        // Convert flat view-space index → multi-dim → storage index via strides+offset
+        let shape = self.shape();
+        let dims = shape.dims();
+        let ndim = dims.len();
+        let mut multi_dim = vec![0usize; ndim];
+        let mut remaining = index;
+        for i in (0..ndim).rev() {
+            if dims[i] > 0 {
+                multi_dim[i] = remaining % dims[i];
+                remaining /= dims[i];
+            }
+        }
+        let strides = self.strides();
+        let storage_idx = self.storage_offset
+            + multi_dim
+                .iter()
+                .zip(strides.iter())
+                .map(|(&m, &s)| m * s)
+                .sum::<usize>();
+        self.storage.set(storage_idx, value)
     }
     /// Convert multi-dimensional indices to flat index
     pub fn multi_to_flat_index(&self, indices: &[usize]) -> Result<usize> {

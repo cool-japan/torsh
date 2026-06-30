@@ -180,7 +180,7 @@ pub use functional::{
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const VERSION_MAJOR: u32 = 0;
 pub const VERSION_MINOR: u32 = 1;
-pub const VERSION_PATCH: u32 = 1;
+pub const VERSION_PATCH: u32 = 3;
 
 /// Version synchronization and compatibility checking
 pub mod version {
@@ -1045,7 +1045,7 @@ mod tests {
 
     #[test]
     fn test_version() {
-        assert_eq!(VERSION, "0.1.2");
+        assert_eq!(VERSION, "0.1.3");
         check_version(0, 1).unwrap();
     }
 }

@@ -14,6 +14,7 @@ pub use parameter_ext::{
 
 use crate::init::Initializer;
 use parking_lot::RwLock;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use torsh_core::device::DeviceType;
 use torsh_core::error::Result;
@@ -30,7 +31,13 @@ use hashbrown::HashMap;
 #[derive(Clone, Debug)]
 pub struct Parameter {
     data: Arc<RwLock<Tensor>>,
-    requires_grad: bool,
+    /// Gradient-tracking flag.
+    ///
+    /// Stored behind `Arc<AtomicBool>` so it is *shared* across clones of this
+    /// parameter, exactly like the underlying tensor storage. This is what allows
+    /// module-level freezing/unfreezing to take effect on parameters that are
+    /// handed out by value (e.g. via `Module::all_parameters`).
+    requires_grad: Arc<AtomicBool>,
 }
 
 impl Parameter {
@@ -38,7 +45,7 @@ impl Parameter {
     pub fn new(tensor: Tensor) -> Self {
         Self {
             data: Arc::new(RwLock::new(tensor)),
-            requires_grad: true,
+            requires_grad: Arc::new(AtomicBool::new(true)),
         }
     }
 
@@ -46,7 +53,7 @@ impl Parameter {
     pub fn new_no_grad(tensor: Tensor) -> Self {
         Self {
             data: Arc::new(RwLock::new(tensor)),
-            requires_grad: false,
+            requires_grad: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -59,21 +66,38 @@ impl Parameter {
     pub fn from_tensor(tensor: Arc<RwLock<Tensor>>) -> Self {
         Self {
             data: tensor,
-            requires_grad: true,
+            requires_grad: Arc::new(AtomicBool::new(true)),
         }
     }
 
-    /// Set whether this parameter requires gradients
-    pub fn requires_grad_(mut self, requires_grad: bool) -> Self {
-        self.requires_grad = requires_grad;
-        // Note: torsh_tensor doesn't support requires_grad yet
-        // This will be implemented when autograd is available
+    /// Set whether this parameter requires gradients (builder style).
+    ///
+    /// Note: the flag is shared across clones (see [`Parameter`]), so this updates
+    /// the shared state observed by every clone of `self`.
+    pub fn requires_grad_(self, requires_grad: bool) -> Self {
+        self.requires_grad.store(requires_grad, Ordering::SeqCst);
         self
+    }
+
+    /// Set whether this parameter requires gradients, in place.
+    ///
+    /// Takes `&self` (not `&mut self`) because the flag lives behind a shared
+    /// atomic. Updating it here is visible from every clone of this parameter,
+    /// which is what makes [`crate::core::ModuleExt::freeze_matching`] /
+    /// [`crate::core::ModuleExt::unfreeze_matching`] actually take effect on
+    /// parameters returned by value from a module.
+    pub fn set_requires_grad(&self, requires_grad: bool) {
+        self.requires_grad.store(requires_grad, Ordering::SeqCst);
     }
 
     /// Check if parameter requires gradients
     pub fn requires_grad(&self) -> bool {
-        self.requires_grad
+        self.requires_grad.load(Ordering::SeqCst)
+    }
+
+    /// Get the device that the underlying parameter tensor resides on.
+    pub fn device(&self) -> DeviceType {
+        self.data.read().device()
     }
 
     /// Get parameter shape
@@ -843,14 +867,14 @@ impl ParameterCollection {
     /// Freeze all parameters
     pub fn freeze_all(&mut self) {
         for param in self.parameters.values_mut() {
-            param.requires_grad = false;
+            param.set_requires_grad(false);
         }
     }
 
     /// Unfreeze all parameters
     pub fn unfreeze_all(&mut self) {
         for param in self.parameters.values_mut() {
-            param.requires_grad = true;
+            param.set_requires_grad(true);
         }
     }
 

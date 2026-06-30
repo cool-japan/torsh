@@ -1287,8 +1287,8 @@ While the library is fully functional and production-ready, remaining clippy war
 - **Build System**: Addressed compilation blockers preventing workspace builds
 
 ### Files Modified This Session
-- ✅ `/media/kitasan/Backup/torsh/crates/torsh-tensor/src/ops.rs` - Fixed 4 unused variable warnings
-- ✅ `/media/kitasan/Backup/torsh/crates/torsh-nn/src/container.rs` - Fixed 30+ compilation errors
+- ✅ `crates/torsh-tensor/src/ops.rs` - Fixed 4 unused variable warnings
+- ✅ `crates/torsh-nn/src/container.rs` - Fixed 30+ compilation errors
 - ✅ Updated TODO tracking and documentation
 
 ### Current Workspace Status

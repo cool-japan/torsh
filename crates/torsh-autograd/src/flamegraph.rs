@@ -479,6 +479,52 @@ impl FlamegraphBuilder {
     }
 }
 
+/// Per-frame difference between two flamegraphs (new minus old).
+///
+/// A "frame" is identified by its full root-to-frame stack path (the segments
+/// joined by `";"`, matching the collapsed flamegraph format), so two boxes
+/// that share an operation name but sit under different ancestors are treated
+/// as distinct frames.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FrameDelta {
+    /// Fully-qualified frame identity (root-to-frame stack path, `";"`-joined).
+    pub frame: String,
+
+    /// Change in self-time, new minus old, in nanoseconds (may be negative).
+    pub self_time_delta_ns: i128,
+
+    /// Change in total-time, new minus old, in nanoseconds (may be negative).
+    pub total_time_delta_ns: i128,
+
+    /// Self-time of the frame in the old (baseline) graph.
+    pub old_self_time: Duration,
+
+    /// Self-time of the frame in the new (comparison) graph.
+    pub new_self_time: Duration,
+
+    /// Total-time of the frame in the old (baseline) graph.
+    pub old_total_time: Duration,
+
+    /// Total-time of the frame in the new (comparison) graph.
+    pub new_total_time: Duration,
+}
+
+/// Result of comparing two flamegraphs frame-by-frame.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct FlamegraphComparison {
+    /// Delta for every frame present in either graph, keyed by frame identity.
+    ///
+    /// Frames present in only one graph use [`Duration::ZERO`] for the missing
+    /// side, so their delta carries the full magnitude with the correct sign.
+    pub frame_deltas: IndexMap<String, FrameDelta>,
+
+    /// Frames present only in the new (comparison) graph.
+    pub appeared: Vec<String>,
+
+    /// Frames present only in the old (baseline) graph.
+    pub disappeared: Vec<String>,
+}
+
 /// Differential flamegraph comparing two runs
 pub struct DifferentialFlamegraph {
     baseline: FlamegraphBuilder,
@@ -524,9 +570,153 @@ impl DifferentialFlamegraph {
         ));
 
         output.push_str("Top changed operations:\n");
-        // TODO: Implement detailed comparison logic
+
+        let comparison = self.compare();
+
+        // Order frames by the magnitude of their total-time change so the most
+        // significant regressions/improvements surface first.
+        let mut ranked: Vec<&FrameDelta> = comparison.frame_deltas.values().collect();
+        ranked.sort_by_key(|delta| std::cmp::Reverse(delta.total_time_delta_ns.abs()));
+
+        for delta in ranked.iter().take(10) {
+            let total_delta_ms = delta.total_time_delta_ns as f64 / 1_000_000.0;
+            let self_delta_ms = delta.self_time_delta_ns as f64 / 1_000_000.0;
+            let tag = if comparison.appeared.contains(&delta.frame) {
+                " [APPEARED]"
+            } else if comparison.disappeared.contains(&delta.frame) {
+                " [DISAPPEARED]"
+            } else {
+                ""
+            };
+            output.push_str(&format!(
+                "  {}{}: total {:+.3}ms, self {:+.3}ms\n",
+                delta.frame, tag, total_delta_ms, self_delta_ms
+            ));
+        }
+
+        if !comparison.appeared.is_empty() {
+            output.push_str(&format!(
+                "\nAppeared ({}): {}\n",
+                comparison.appeared.len(),
+                comparison.appeared.join(", ")
+            ));
+        }
+        if !comparison.disappeared.is_empty() {
+            output.push_str(&format!(
+                "Disappeared ({}): {}\n",
+                comparison.disappeared.len(),
+                comparison.disappeared.join(", ")
+            ));
+        }
 
         output
+    }
+
+    /// Compare the baseline and comparison flamegraphs frame-by-frame.
+    ///
+    /// Every frame present in either graph receives a [`FrameDelta`] recording
+    /// the change in self-time and total-time (new minus old). Frames present
+    /// only in the new graph are reported in [`FlamegraphComparison::appeared`]
+    /// and frames present only in the old graph in
+    /// [`FlamegraphComparison::disappeared`].
+    pub fn compare(&self) -> FlamegraphComparison {
+        let old_frames = Self::flatten_frames(self.baseline.root());
+        let new_frames = Self::flatten_frames(self.comparison.root());
+
+        let mut frame_deltas = IndexMap::new();
+        let mut appeared = Vec::new();
+        let mut disappeared = Vec::new();
+
+        // Walk the new graph first so its frames keep their traversal order,
+        // then append any frames that exist only in the old graph.
+        for (frame, &(new_self, new_total)) in &new_frames {
+            let (old_self, old_total) = old_frames
+                .get(frame)
+                .copied()
+                .unwrap_or((Duration::ZERO, Duration::ZERO));
+
+            if !old_frames.contains_key(frame) {
+                appeared.push(frame.clone());
+            }
+
+            frame_deltas.insert(
+                frame.clone(),
+                FrameDelta {
+                    frame: frame.clone(),
+                    self_time_delta_ns: new_self.as_nanos() as i128 - old_self.as_nanos() as i128,
+                    total_time_delta_ns: new_total.as_nanos() as i128
+                        - old_total.as_nanos() as i128,
+                    old_self_time: old_self,
+                    new_self_time: new_self,
+                    old_total_time: old_total,
+                    new_total_time: new_total,
+                },
+            );
+        }
+
+        for (frame, &(old_self, old_total)) in &old_frames {
+            if new_frames.contains_key(frame) {
+                continue;
+            }
+
+            disappeared.push(frame.clone());
+            frame_deltas.insert(
+                frame.clone(),
+                FrameDelta {
+                    frame: frame.clone(),
+                    self_time_delta_ns: -(old_self.as_nanos() as i128),
+                    total_time_delta_ns: -(old_total.as_nanos() as i128),
+                    old_self_time: old_self,
+                    new_self_time: Duration::ZERO,
+                    old_total_time: old_total,
+                    new_total_time: Duration::ZERO,
+                },
+            );
+        }
+
+        FlamegraphComparison {
+            frame_deltas,
+            appeared,
+            disappeared,
+        }
+    }
+
+    /// Flatten a flamegraph tree into `frame path -> (self_time, total_time)`.
+    ///
+    /// The root sentinel node is skipped; every other node contributes one
+    /// entry keyed by its `";"`-joined stack path.
+    fn flatten_frames(root: &FlamegraphNode) -> IndexMap<String, (Duration, Duration)> {
+        let mut frames = IndexMap::new();
+        let mut stack: Vec<String> = Vec::new();
+        Self::collect_frames(root, &mut stack, &mut frames);
+        frames
+    }
+
+    /// Depth-first helper that accumulates frame times into `frames`.
+    fn collect_frames(
+        node: &FlamegraphNode,
+        stack: &mut Vec<String>,
+        frames: &mut IndexMap<String, (Duration, Duration)>,
+    ) {
+        let is_root = node.name == "root" && node.depth == 0;
+
+        if !is_root {
+            stack.push(node.name.clone());
+            let key = stack.join(";");
+            let entry = frames
+                .entry(key)
+                .or_insert((Duration::ZERO, Duration::ZERO));
+            entry.0 += node.self_time;
+            entry.1 += node.total_time;
+        }
+
+        for child in node.children.values() {
+            Self::collect_frames(child, stack, frames);
+        }
+
+        if !is_root {
+            stack.pop();
+        }
     }
 }
 
@@ -607,5 +797,137 @@ mod tests {
         let svg_str = svg.unwrap();
         assert!(svg_str.contains("<svg"));
         assert!(svg_str.contains("</svg>"));
+    }
+
+    /// Build a single frame node with explicit self/total time (in ms).
+    fn make_frame(name: &str, depth: usize, self_ms: u64, total_ms: u64) -> FlamegraphNode {
+        let mut node = FlamegraphNode::new(name.to_string(), depth);
+        node.self_time = Duration::from_millis(self_ms);
+        node.total_time = Duration::from_millis(total_ms);
+        node.invocation_count = 1;
+        node
+    }
+
+    fn builder_with_root(root: FlamegraphNode, total_ms: u64) -> FlamegraphBuilder {
+        let mut builder = FlamegraphBuilder::new(FlamegraphConfig::default());
+        builder.root = root;
+        builder.total_time = Duration::from_millis(total_ms);
+        builder
+    }
+
+    #[test]
+    fn test_compare_flamegraphs_frame_deltas() {
+        // --- OLD (baseline) graph ----------------------------------------
+        // root
+        //   forward   self=20ms total=100ms
+        //     matmul  self=60ms total=60ms
+        //     add     self=20ms total=20ms   (DISAPPEARS)
+        //   backward  self=50ms total=50ms   (DISAPPEARS)
+        let mut old_forward = make_frame("forward", 1, 20, 100);
+        old_forward
+            .children
+            .insert("matmul".to_string(), make_frame("matmul", 2, 60, 60));
+        old_forward
+            .children
+            .insert("add".to_string(), make_frame("add", 2, 20, 20));
+
+        let mut old_root = FlamegraphNode::new("root".to_string(), 0);
+        old_root.children.insert("forward".to_string(), old_forward);
+        old_root
+            .children
+            .insert("backward".to_string(), make_frame("backward", 1, 50, 50));
+
+        // --- NEW (comparison) graph --------------------------------------
+        // root
+        //   forward   self=40ms total=120ms
+        //     matmul  self=50ms total=50ms   (got faster: -10ms)
+        //     relu    self=30ms total=30ms   (APPEARS)
+        //   optimizer self=10ms total=10ms   (APPEARS)
+        let mut new_forward = make_frame("forward", 1, 40, 120);
+        new_forward
+            .children
+            .insert("matmul".to_string(), make_frame("matmul", 2, 50, 50));
+        new_forward
+            .children
+            .insert("relu".to_string(), make_frame("relu", 2, 30, 30));
+
+        let mut new_root = FlamegraphNode::new("root".to_string(), 0);
+        new_root.children.insert("forward".to_string(), new_forward);
+        new_root
+            .children
+            .insert("optimizer".to_string(), make_frame("optimizer", 1, 10, 10));
+
+        let diff = DifferentialFlamegraph::new(
+            builder_with_root(old_root, 150),
+            builder_with_root(new_root, 130),
+        );
+        let result = diff.compare();
+
+        const MS: i128 = 1_000_000; // nanoseconds per millisecond
+
+        // Frame present in BOTH graphs: forward grew by +20ms (self and total).
+        let forward = result
+            .frame_deltas
+            .get("forward")
+            .expect("forward frame should be present");
+        assert_eq!(forward.self_time_delta_ns, 20 * MS);
+        assert_eq!(forward.total_time_delta_ns, 20 * MS);
+        assert_eq!(forward.old_total_time, Duration::from_millis(100));
+        assert_eq!(forward.new_total_time, Duration::from_millis(120));
+
+        // Frame present in BOTH graphs that got FASTER: matmul (-10ms).
+        let matmul = result
+            .frame_deltas
+            .get("forward;matmul")
+            .expect("forward;matmul frame should be present");
+        assert_eq!(matmul.self_time_delta_ns, -10 * MS);
+        assert_eq!(matmul.total_time_delta_ns, -10 * MS);
+
+        // APPEARED set must be exactly {forward;relu, optimizer}.
+        let mut appeared = result.appeared.clone();
+        appeared.sort();
+        assert_eq!(
+            appeared,
+            vec!["forward;relu".to_string(), "optimizer".to_string()]
+        );
+
+        // DISAPPEARED set must be exactly {backward, forward;add}.
+        let mut disappeared = result.disappeared.clone();
+        disappeared.sort();
+        assert_eq!(
+            disappeared,
+            vec!["backward".to_string(), "forward;add".to_string()]
+        );
+
+        // Appeared frames carry the full positive magnitude (old side is zero).
+        let relu = result
+            .frame_deltas
+            .get("forward;relu")
+            .expect("relu frame should be present");
+        assert_eq!(relu.self_time_delta_ns, 30 * MS);
+        assert_eq!(relu.total_time_delta_ns, 30 * MS);
+        assert_eq!(relu.old_self_time, Duration::ZERO);
+        assert_eq!(relu.new_self_time, Duration::from_millis(30));
+
+        // Disappeared frames carry the full negative magnitude (new side zero).
+        let backward = result
+            .frame_deltas
+            .get("backward")
+            .expect("backward frame should be present");
+        assert_eq!(backward.self_time_delta_ns, -50 * MS);
+        assert_eq!(backward.total_time_delta_ns, -50 * MS);
+        assert_eq!(backward.new_self_time, Duration::ZERO);
+        assert_eq!(backward.old_self_time, Duration::from_millis(50));
+
+        // Every frame from either graph is accounted for (4 shared/changed +
+        // 2 appeared + 2 disappeared = 6 distinct frame paths).
+        assert_eq!(result.frame_deltas.len(), 6);
+
+        // The textual report should surface the appeared/disappeared frames.
+        let report = diff.report();
+        assert!(report.contains("[APPEARED]"));
+        assert!(report.contains("[DISAPPEARED]"));
+        assert!(report.contains("optimizer"));
+        assert!(report.contains("backward"));
     }
 }

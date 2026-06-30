@@ -4,10 +4,9 @@
 //! MAML (Model-Agnostic Meta-Learning), learning-to-optimize, and adaptive
 //! optimizer selection based on task characteristics.
 
-use crate::{Optimizer, OptimizerError, OptimizerResult};
+use crate::{Adam, Optimizer, OptimizerError, OptimizerResult, SGD};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::ops::Add;
 use std::sync::{Arc, RwLock};
 use torsh_tensor::Tensor;
 
@@ -228,9 +227,14 @@ impl MetaOptimizer {
                 
                 // Accumulate meta-gradients
                 for (param_name, gradient) in query_gradients {
-                    meta_gradients.entry(param_name)
-                        .and_modify(|g| *g = g.add(&gradient).expect("tensor add should succeed"))
-                        .or_insert(gradient);
+                    match meta_gradients.get_mut(&param_name) {
+                        Some(existing) => {
+                            *existing = existing.add(&gradient)?;
+                        }
+                        None => {
+                            meta_gradients.insert(param_name, gradient);
+                        }
+                    }
                 }
             }
             
@@ -275,7 +279,7 @@ impl MetaOptimizer {
         Ok(())
     }
 
-    fn few_shot_training(&mut self, task_dataset: &TaskDataset, adaptation_steps: usize, adaptation_lr: f32) -> OptimizerResult<()> {
+    fn few_shot_training(&mut self, task_dataset: &TaskDataset, adaptation_steps: usize, _adaptation_lr: f32) -> OptimizerResult<()> {
         // Build adaptation rules from task performance data
         for task in &task_dataset.tasks {
             // Try different optimizer configurations
@@ -346,18 +350,55 @@ impl MetaOptimizer {
     }
 
     fn create_optimizer_from_config(&self, config: &OptimizerConfig) -> OptimizerResult<Box<dyn Optimizer>> {
-        // This would create an actual optimizer instance based on the config
-        // For now, return a placeholder
-        Err(OptimizerError::ConfigError("Optimizer creation not implemented".to_string()))
+        // Empty parameter list: the caller is expected to populate the optimizer
+        // via `add_param_group` before use (meta-learning adapts the hyper-params,
+        // not the parameter set itself which is task-specific).
+        let empty_params: Vec<Arc<RwLock<Tensor>>> = Vec::new();
+
+        match config.optimizer_type.to_lowercase().as_str() {
+            "adam" | "adamw" => {
+                let lr = config.hyperparameters.get("lr").copied();
+                let beta1 = config.hyperparameters.get("beta1").copied().unwrap_or(0.9);
+                let beta2 = config.hyperparameters.get("beta2").copied().unwrap_or(0.999);
+                let eps = config.hyperparameters.get("eps").copied();
+                let weight_decay = config.hyperparameters.get("weight_decay").copied();
+                Ok(Box::new(Adam::new(
+                    empty_params,
+                    lr,
+                    Some((beta1, beta2)),
+                    eps,
+                    weight_decay,
+                    false,
+                )))
+            }
+            "sgd" => {
+                let lr = config.hyperparameters.get("lr").copied().unwrap_or(0.01);
+                let momentum = config.hyperparameters.get("momentum").copied();
+                let weight_decay = config.hyperparameters.get("weight_decay").copied();
+                let dampening = config.hyperparameters.get("dampening").copied();
+                Ok(Box::new(SGD::new(
+                    empty_params,
+                    lr,
+                    momentum,
+                    dampening,
+                    weight_decay,
+                    false,
+                )))
+            }
+            other => Err(OptimizerError::ConfigError(format!(
+                "Unknown optimizer type: '{}'. Supported types: adam, adamw, sgd",
+                other
+            ))),
+        }
     }
 
-    fn perform_few_shot_adaptation(&self, mut optimizer: Box<dyn Optimizer>, task: &Task, adaptation_steps: usize, adaptation_lr: f32) -> OptimizerResult<Box<dyn Optimizer>> {
+    fn perform_few_shot_adaptation(&self, mut optimizer: Box<dyn Optimizer>, _task: &Task, adaptation_steps: usize, _adaptation_lr: f32) -> OptimizerResult<Box<dyn Optimizer>> {
         // Perform few-shot adaptation on support set
         for _ in 0..adaptation_steps {
             // Run optimizer step on support data
             optimizer.step()?;
         }
-        
+
         Ok(optimizer)
     }
 
@@ -376,11 +417,23 @@ impl MetaOptimizer {
         batch
     }
 
-    fn compute_task_gradients(&self, task: &Task, parameters: &HashMap<String, Tensor>, use_support: bool) -> OptimizerResult<HashMap<String, Tensor>> {
-        // Compute gradients for a task
-        // This would involve forward/backward passes
-        // For now, return empty gradients
-        Ok(HashMap::new())
+    fn compute_task_gradients(&self, task: &Task, _parameters: &HashMap<String, Tensor>, use_support: bool) -> OptimizerResult<HashMap<String, Tensor>> {
+        // Computing per-task gradients requires a differentiable model that maps the
+        // task's parameters to a loss over its data, followed by a backward pass.
+        // `MetaOptimizer` carries only a parameter map and an opaque base optimizer
+        // (`Box<dyn Optimizer>`) -- it has no model architecture or loss function to
+        // run forward/backward through, so real gradients cannot be produced here.
+        //
+        // Returning an empty map would silently fabricate "zero gradients" and make
+        // the surrounding MAML / gradient-based meta-training loops appear to run
+        // while learning nothing. Fail loudly instead.
+        let split = if use_support { "support" } else { "query" };
+        Err(OptimizerError::ConfigError(format!(
+            "compute_task_gradients (task '{}', {} set) is not available: MetaOptimizer \
+             has no differentiable model/loss to backpropagate through. Provide a model \
+             and loss-aware training loop before invoking gradient-based meta-learning.",
+            task.id, split
+        )))
     }
 
     fn extract_optimizer_state_features(&self, task: &Task) -> OptimizerResult<Vec<f32>> {
@@ -396,16 +449,32 @@ impl MetaOptimizer {
         Ok(features)
     }
 
-    fn predict_optimizer_update(&self, state_features: &[f32]) -> OptimizerResult<HashMap<String, Tensor>> {
-        // Use meta-learned model to predict optimizer update
-        // For now, return empty update
-        Ok(HashMap::new())
+    fn predict_optimizer_update(&self, _state_features: &[f32]) -> OptimizerResult<HashMap<String, Tensor>> {
+        // Learning-to-Optimize (L2O) predicts parameter updates with a learned
+        // meta-network (typically an LSTM) mapping optimizer-state features to an
+        // update. No such meta-network is instantiated on `MetaOptimizer`, so there
+        // is nothing to run inference with.
+        //
+        // Returning an empty map would masquerade as a real (no-op) update; fail
+        // loudly so callers know L2O inference is not wired up.
+        Err(OptimizerError::ConfigError(
+            "predict_optimizer_update is not available: the L2O meta-network that maps \
+             optimizer-state features to parameter updates has not been instantiated. \
+             A learned update model must be provided before L2O inference can run."
+                .to_string(),
+        ))
     }
 
-    fn evaluate_optimizer_update(&self, task: &Task, update: &HashMap<String, Tensor>) -> OptimizerResult<f32> {
-        // Evaluate the quality of an optimizer update
-        // Return a performance score
-        Ok(0.0)
+    fn evaluate_optimizer_update(&self, task: &Task, _update: &HashMap<String, Tensor>) -> OptimizerResult<f32> {
+        // Scoring a predicted update requires applying it to the task's parameters
+        // and measuring the resulting loss on the task data -- which again needs a
+        // model and loss function that `MetaOptimizer` does not hold. A hardcoded
+        // `0.0` would be a fabricated metric, so report the missing capability.
+        Err(OptimizerError::ConfigError(format!(
+            "evaluate_optimizer_update (task '{}') is not available: scoring an update \
+             requires a model and loss to measure post-update task performance.",
+            task.id
+        )))
     }
 
     fn update_meta_optimizer(&mut self, performance: f32) -> OptimizerResult<()> {
@@ -453,18 +522,22 @@ impl MetaOptimizer {
         configs
     }
 
-    fn evaluate_config_on_task(&self, config: &OptimizerConfig, task: &Task, max_steps: usize) -> OptimizerResult<TaskPerformance> {
-        // Evaluate optimizer configuration on task
-        // This would involve actual training
-        // For now, return dummy performance
-        Ok(TaskPerformance {
-            task_id: task.id.clone(),
-            characteristics: task.characteristics.clone(),
-            initial_loss: 1.0,
-            final_loss: 0.1,
-            convergence_steps: max_steps / 2,
-            optimizer_config: config.clone(),
-        })
+    fn evaluate_config_on_task(&self, _config: &OptimizerConfig, task: &Task, _max_steps: usize) -> OptimizerResult<TaskPerformance> {
+        // A genuine evaluation trains the configured optimizer on the task's support
+        // data for `max_steps` and records the real initial/final losses and the
+        // step at which it converged. That requires a model + loss to produce those
+        // losses; `MetaOptimizer` has neither.
+        //
+        // The previous implementation returned hardcoded `initial_loss = 1.0`,
+        // `final_loss = 0.1` -- fabricated metrics that would poison the learned
+        // adaptation rules derived from this performance history. Return an honest
+        // error instead.
+        Err(OptimizerError::ConfigError(format!(
+            "evaluate_config_on_task (task '{}') is not available: measuring real \
+             initial/final losses requires training a model with a loss function, \
+             which MetaOptimizer does not provide. Refusing to return fabricated metrics.",
+            task.id
+        )))
     }
 
     fn learn_adaptation_rules(&mut self) -> OptimizerResult<()> {
@@ -503,11 +576,22 @@ impl MetaOptimizer {
         Ok(())
     }
 
-    fn compute_meta_gradients(&self, task: &Task, adaptation_steps: usize) -> OptimizerResult<HashMap<String, Tensor>> {
-        // Compute meta-gradients for gradient-based meta-learning
-        // This would involve computing gradients of gradients
-        // For now, return empty gradients
-        Ok(HashMap::new())
+    fn compute_meta_gradients(&self, task: &Task, _adaptation_steps: usize) -> OptimizerResult<HashMap<String, Tensor>> {
+        // Gradient-based meta-learning differentiates the post-adaptation loss with
+        // respect to the initial (meta) parameters, i.e. it computes gradients
+        // through the inner-loop optimization (higher-order / "gradient of
+        // gradients"). This needs a differentiable model, a loss, and second-order
+        // autograd support -- none of which `MetaOptimizer` currently wires up.
+        //
+        // An empty map would silently pretend the meta-gradients are zero, leaving
+        // the meta-parameters unchanged while claiming training occurred. Fail loudly.
+        Err(OptimizerError::ConfigError(format!(
+            "compute_meta_gradients (task '{}') is not available: higher-order \
+             meta-gradients require a differentiable model/loss and second-order \
+             autograd through the inner adaptation loop, which MetaOptimizer does not \
+             provide.",
+            task.id
+        )))
     }
 }
 
@@ -617,30 +701,22 @@ pub mod utils {
         }
     }
     
-    /// Evaluate meta-learning performance
-    pub fn evaluate_meta_performance(meta_optimizer: &mut MetaOptimizer, test_tasks: &[Task]) -> OptimizerResult<f32> {
-        let mut total_performance = 0.0;
-        let mut valid_tasks = 0;
-        
-        for task in test_tasks {
-            match meta_optimizer.adapt_to_task(task) {
-                Ok(_adapted_optimizer) => {
-                    // Evaluate adapted optimizer on task
-                    // For now, return dummy performance
-                    total_performance += 0.8;
-                    valid_tasks += 1;
-                }
-                Err(_) => {
-                    // Skip failed adaptations
-                    continue;
-                }
-            }
-        }
-        
-        if valid_tasks > 0 {
-            Ok(total_performance / valid_tasks as f32)
-        } else {
-            Err(OptimizerError::StateError("No valid task adaptations".to_string()))
-        }
+    /// Evaluate meta-learning performance across a set of test tasks.
+    ///
+    /// A real evaluation would, for each task, adapt the meta-optimizer and then
+    /// measure the adapted model's loss/accuracy on the task's query set. The query
+    /// score requires a model and loss function to evaluate, which `MetaOptimizer`
+    /// does not hold, so a genuine aggregate performance number cannot be computed.
+    ///
+    /// The previous implementation accumulated a hardcoded `0.8` per successfully
+    /// adapted task -- a fabricated metric independent of the actual tasks. Rather
+    /// than return that, this function reports the missing capability.
+    pub fn evaluate_meta_performance(_meta_optimizer: &mut MetaOptimizer, _test_tasks: &[Task]) -> OptimizerResult<f32> {
+        Err(OptimizerError::ConfigError(
+            "evaluate_meta_performance is not available: scoring adapted optimizers on \
+             their query sets requires a model and loss function to measure real task \
+             performance. Refusing to return a fabricated score."
+                .to_string(),
+        ))
     }
 }

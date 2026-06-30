@@ -10,6 +10,9 @@ use std::path::PathBuf;
 use std::time::Instant;
 use tracing::info;
 
+use torsh::core::device::DeviceType;
+use torsh::tensor::Tensor;
+
 use crate::config::Config;
 use crate::utils::{output, progress};
 
@@ -168,114 +171,240 @@ async fn run_benchmark(args: RunArgs) -> Result<()> {
     Ok(())
 }
 
-/// Run tensor operations benchmarks
+/// Run tensor operations benchmarks.
+///
+/// These are real measurements: for each matrix size we execute genuine
+/// `matmul` kernels on real tensors, discard `warmup` iterations, then time the
+/// measured iterations and report the per-call latency and achieved throughput.
+/// A square `n×n` matmul performs `2·n³` floating-point operations.
 async fn run_tensor_ops_benchmarks(args: &RunArgs) -> Result<serde_json::Value> {
     use serde_json::json;
 
     info!(
-        "Running tensor ops benchmarks with {} iterations",
+        "Running tensor ops benchmarks with up to {} iterations",
         args.iterations
     );
 
-    // Simulate benchmark runs - in real implementation would use torsh-benches
     let mut benchmarks = Vec::new();
 
-    for size in [128, 512, 1024, 2048] {
-        let duration_ms = (size as f64 * 0.001) + (args.iterations as f64 * 0.0001);
+    for size in [128usize, 256, 512, 1024] {
+        let a = Tensor::<f32>::ones(&[size, size], DeviceType::Cpu)?;
+        let b = Tensor::<f32>::ones(&[size, size], DeviceType::Cpu)?;
+
+        // A square n×n matmul is 2·n³ FLOPs. Scale the measured iteration count
+        // down for large matrices so wall-clock stays bounded; the count
+        // actually used is reported for reproducibility.
+        let flops_per_iter = 2.0 * (size as f64).powi(3);
+        let iter_budget = (5.0e9 / flops_per_iter).ceil() as usize;
+        let iters_used = args.iterations.min(iter_budget.max(1)).max(1);
+        let warmup_used = args.warmup.min(iters_used);
+
+        for _ in 0..warmup_used {
+            let _ = a.matmul(&b)?;
+        }
+
+        let start = Instant::now();
+        for _ in 0..iters_used {
+            let _ = a.matmul(&b)?;
+        }
+        let elapsed = start.elapsed();
+
+        let avg_secs = elapsed.as_secs_f64() / iters_used as f64;
+        let duration_ms = avg_secs * 1000.0;
+        let throughput_gflops = if avg_secs > 0.0 {
+            flops_per_iter / avg_secs / 1.0e9
+        } else {
+            0.0
+        };
+
         benchmarks.push(json!({
             "name": format!("matmul_{}x{}", size, size),
             "size": size,
-            "iterations": args.iterations,
+            "iterations": iters_used,
             "duration_ms": duration_ms,
-            "throughput_gflops": size as f64 * size as f64 / duration_ms / 1000.0,
+            "throughput_gflops": throughput_gflops,
         }));
     }
+
+    let total_time_ms: f64 = benchmarks
+        .iter()
+        .map(|b| b["duration_ms"].as_f64().unwrap_or(0.0))
+        .sum();
 
     Ok(json!({
         "suite": "tensor_ops",
         "benchmarks": benchmarks,
-        "total_time_ms": benchmarks.iter().map(|b| b["duration_ms"].as_f64().unwrap_or(0.0)).sum::<f64>(),
+        "total_time_ms": total_time_ms,
     }))
 }
 
-/// Run model benchmarks
-async fn run_model_benchmarks(args: &RunArgs) -> Result<serde_json::Value> {
-    use serde_json::json;
-
-    info!("Running model benchmarks");
-
-    let models = vec!["resnet50", "bert-base", "gpt2", "vit"];
-    let mut benchmarks = Vec::new();
-
-    for model in models {
-        let duration_ms = args.iterations as f64 * 10.0;
-        benchmarks.push(json!({
-            "model": model,
-            "batch_size": 32,
-            "iterations": args.iterations,
-            "inference_time_ms": duration_ms,
-            "throughput_samples_per_sec": 32.0 * args.iterations as f64 / (duration_ms / 1000.0),
-        }));
-    }
-
-    Ok(json!({
-        "suite": "models",
-        "benchmarks": benchmarks,
-    }))
+/// Run model benchmarks.
+///
+/// Benchmarking a named architecture (resnet50/bert/gpt2/vit) requires a
+/// concrete model to execute. This command takes no model input and does not
+/// bundle pretrained architectures, so fabricating per-model timings would be
+/// dishonest. Returns an error directing the user to the model-aware command.
+async fn run_model_benchmarks(_args: &RunArgs) -> Result<serde_json::Value> {
+    anyhow::bail!(
+        "Model benchmarking is unavailable from `benchmark run --suite models`: \
+         it has no model to execute and named pretrained architectures are not \
+         bundled here. Benchmark a real model with \
+         `torsh model benchmark --model <path>`."
+    )
 }
 
-/// Run memory benchmarks
+/// Run memory benchmarks.
+///
+/// Real measurement: queries the operating system for this process's resident
+/// set size (RSS) via `sysinfo` while allocating genuine tensors of increasing
+/// size, reporting the baseline, peak and average RSS observed and the number
+/// of allocations performed.
 async fn run_memory_benchmarks(_args: &RunArgs) -> Result<serde_json::Value> {
     use serde_json::json;
 
+    let baseline_mb = current_process_memory_mb();
+
+    let sizes = [256usize, 512, 1024, 2048];
+    let mut tensors: Vec<Tensor<f32>> = Vec::new();
+    let mut peak_mb = baseline_mb;
+    let mut sum_mb = 0.0f64;
+
+    for &n in &sizes {
+        tensors.push(Tensor::<f32>::ones(&[n, n], DeviceType::Cpu)?);
+        let rss = current_process_memory_mb();
+        peak_mb = peak_mb.max(rss);
+        sum_mb += rss;
+    }
+
+    let average_mb = sum_mb / sizes.len() as f64;
+    let allocations = tensors.len() as u64;
+
     Ok(json!({
         "suite": "memory",
-        "peak_memory_mb": 1024.0,
-        "average_memory_mb": 512.0,
-        "allocations": 10000,
+        "baseline_memory_mb": baseline_mb,
+        "peak_memory_mb": peak_mb,
+        "average_memory_mb": average_mb,
+        "allocations": allocations,
     }))
 }
 
-/// Run autograd benchmarks
-async fn run_autograd_benchmarks(_args: &RunArgs) -> Result<serde_json::Value> {
+/// Run autograd benchmarks.
+///
+/// Real measurement: builds a genuine autograd graph over gradient-tracked
+/// tensors, then separately times the forward construction and the `backward()`
+/// pass, averaged over the measured iterations. The graph uses differentiable
+/// elementwise/reduction ops (`sub -> mean`) because `matmul` does not currently
+/// record an autograd backward; `mean` reduces to a scalar so `backward()` is
+/// valid directly.
+async fn run_autograd_benchmarks(args: &RunArgs) -> Result<serde_json::Value> {
     use serde_json::json;
+
+    let size = 512usize;
+    let iters_used = args.iterations.min(50).max(1);
+    let warmup_used = args.warmup.min(iters_used);
+
+    let mut forward_total = std::time::Duration::ZERO;
+    let mut backward_total = std::time::Duration::ZERO;
+
+    for _ in 0..warmup_used {
+        let x = Tensor::<f32>::ones(&[size, size], DeviceType::Cpu)?.requires_grad_(true);
+        let w = Tensor::<f32>::ones(&[size, size], DeviceType::Cpu)?.requires_grad_(true);
+        let loss = x.sub(&w)?.mean(None, false)?;
+        loss.backward()?;
+    }
+
+    for _ in 0..iters_used {
+        let x = Tensor::<f32>::ones(&[size, size], DeviceType::Cpu)?.requires_grad_(true);
+        let w = Tensor::<f32>::ones(&[size, size], DeviceType::Cpu)?.requires_grad_(true);
+
+        let fwd_start = Instant::now();
+        let loss = x.sub(&w)?.mean(None, false)?;
+        forward_total += fwd_start.elapsed();
+
+        let bwd_start = Instant::now();
+        loss.backward()?;
+        backward_total += bwd_start.elapsed();
+    }
+
+    let n = iters_used as f64;
+    let forward_pass_ms = forward_total.as_secs_f64() * 1000.0 / n;
+    let backward_pass_ms = backward_total.as_secs_f64() * 1000.0 / n;
 
     Ok(json!({
         "suite": "autograd",
-        "forward_pass_ms": 10.5,
-        "backward_pass_ms": 15.3,
-        "gradient_accuracy": 0.9999,
+        "graph": format!("sub -> mean -> backward ({0}x{0})", size),
+        "iterations": iters_used,
+        "forward_pass_ms": forward_pass_ms,
+        "backward_pass_ms": backward_pass_ms,
     }))
 }
 
-/// Run distributed training benchmarks
+/// Run distributed training benchmarks.
+///
+/// Collective-operation benchmarking requires a configured multi-node runtime
+/// (MPI or NCCL) and a launcher that places ranks across devices/hosts. None is
+/// present in this build, so fabricating scaling figures would be dishonest.
 async fn run_distributed_benchmarks(_args: &RunArgs) -> Result<serde_json::Value> {
-    use serde_json::json;
-
-    Ok(json!({
-        "suite": "distributed",
-        "nodes": 4,
-        "scaling_efficiency": 0.92,
-        "communication_overhead_ms": 5.2,
-    }))
+    anyhow::bail!(
+        "Distributed benchmarking is unavailable: it requires a configured \
+         multi-node runtime (e.g. MPI or NCCL) and a distributed launcher, which \
+         are not present in this build."
+    )
 }
 
-/// Run all benchmark suites
+/// Run all benchmark suites.
+///
+/// Suites that require infrastructure not present in this build are reported as
+/// explicitly unavailable (with the reason) rather than fabricated.
 async fn run_all_benchmarks(args: &RunArgs) -> Result<serde_json::Value> {
     use serde_json::json;
 
     let ops = run_tensor_ops_benchmarks(args).await?;
-    let models = run_model_benchmarks(args).await?;
     let memory = run_memory_benchmarks(args).await?;
     let autograd = run_autograd_benchmarks(args).await?;
+
+    let models = match run_model_benchmarks(args).await {
+        Ok(value) => value,
+        Err(e) => json!({ "suite": "models", "available": false, "reason": e.to_string() }),
+    };
+    let distributed = match run_distributed_benchmarks(args).await {
+        Ok(value) => value,
+        Err(e) => json!({ "suite": "distributed", "available": false, "reason": e.to_string() }),
+    };
 
     Ok(json!({
         "suite": "all",
         "tensor_ops": ops,
-        "models": models,
         "memory": memory,
         "autograd": autograd,
+        "models": models,
+        "distributed": distributed,
     }))
+}
+
+/// Query the current resident set size (RSS) of this process in megabytes.
+///
+/// A real measurement obtained from the operating system via `sysinfo`, not a
+/// fabricated value. Returns `0.0` only when the OS cannot report the figure.
+fn current_process_memory_mb() -> f64 {
+    use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System};
+
+    let Ok(pid) = sysinfo::get_current_pid() else {
+        return 0.0;
+    };
+
+    let mut system = System::new();
+    system.refresh_processes_specifics(
+        ProcessesToUpdate::Some(&[pid]),
+        true,
+        ProcessRefreshKind::nothing().with_memory(),
+    );
+
+    match system.process(pid) {
+        // sysinfo reports `memory()` in bytes.
+        Some(process) => process.memory() as f64 / (1024.0 * 1024.0),
+        None => 0.0,
+    }
 }
 
 /// Generate HTML report
@@ -421,4 +550,89 @@ async fn generate_report(args: ReportArgs) -> Result<()> {
 
     output::print_success("Report generated successfully!");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tiny_args() -> RunArgs {
+        RunArgs {
+            suite: "all".to_string(),
+            output: std::env::temp_dir().join("torsh_bench_test"),
+            iterations: 2,
+            warmup: 1,
+            verbose: false,
+            html: false,
+            baseline: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_tensor_ops_benchmark_is_real() {
+        let result = run_tensor_ops_benchmarks(&tiny_args())
+            .await
+            .expect("ops benchmark should run");
+        let benches = result
+            .get("benchmarks")
+            .and_then(|b| b.as_array())
+            .expect("benchmarks array");
+        assert!(!benches.is_empty());
+        // A real matmul takes measurable time; a fabricated constant would not
+        // vary, but more importantly real work must report positive duration.
+        let dur = benches[0]
+            .get("duration_ms")
+            .and_then(|d| d.as_f64())
+            .unwrap_or(0.0);
+        assert!(
+            dur > 0.0,
+            "real matmul must take measurable time, got {dur}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_autograd_benchmark_is_real() {
+        // Validates the real matmul -> sum -> backward path executes across
+        // iterations and yields measured (finite, non-negative) timings.
+        let result = run_autograd_benchmarks(&tiny_args())
+            .await
+            .expect("autograd benchmark should run");
+        let fwd = result
+            .get("forward_pass_ms")
+            .and_then(|d| d.as_f64())
+            .unwrap_or(-1.0);
+        let bwd = result
+            .get("backward_pass_ms")
+            .and_then(|d| d.as_f64())
+            .unwrap_or(-1.0);
+        assert!(
+            fwd >= 0.0 && fwd.is_finite(),
+            "forward must be measured, got {fwd}"
+        );
+        assert!(
+            bwd >= 0.0 && bwd.is_finite(),
+            "backward must be measured, got {bwd}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_memory_benchmark_is_real() {
+        let result = run_memory_benchmarks(&tiny_args())
+            .await
+            .expect("memory benchmark should run");
+        // Real RSS reported by the OS is positive for a running process.
+        let peak = result
+            .get("peak_memory_mb")
+            .and_then(|d| d.as_f64())
+            .unwrap_or(0.0);
+        assert!(peak > 0.0, "real RSS must be positive, got {peak}");
+    }
+
+    #[tokio::test]
+    async fn test_model_and_distributed_are_honest_errors() {
+        // These require infrastructure not present in this build; they must
+        // return honest errors rather than fabricate results.
+        assert!(run_model_benchmarks(&tiny_args()).await.is_err());
+        assert!(run_distributed_benchmarks(&tiny_args()).await.is_err());
+    }
 }

@@ -5,8 +5,6 @@
 //! - Binary Segmentation - Fast approximate change point detection
 //! - Window-based detection - Sliding window statistical methods
 //! - Bayesian change point detection - Probabilistic approach
-//!
-//! NOTE: Full implementation will use scirs2-series when change point APIs are available.
 
 use crate::TimeSeries;
 use torsh_core::error::Result;
@@ -22,17 +20,23 @@ pub struct ChangePointResult {
     pub algorithm: String,
 }
 
-/// Cost function type for change point detection
+/// Cost function type for change point detection.
+///
+/// Each variant is a genuine additive segment cost suitable for optimal
+/// partitioning. All are super-additive (splitting a segment never increases the
+/// total cost), so PELT pruning with constant `K = 0` is exact.
 #[derive(Debug, Clone, Copy)]
 pub enum CostFunction {
-    /// L2 norm (mean change)
+    /// Gaussian mean-change cost: the sum of squared deviations about the segment
+    /// mean (`Σ(xᵢ − x̄)²`). This is the negative log-likelihood for a change in
+    /// mean with fixed variance, up to additive constants.
     L2,
-    /// L1 norm (median change)
+    /// Laplace / median-change cost: the sum of absolute deviations about the
+    /// segment median (`Σ|xᵢ − median|`), robust to outliers.
     L1,
-    /// Variance change
+    /// Gaussian variance-change cost: the `n·ln(σ̂²)` negative log-likelihood term
+    /// where `σ̂²` is the MLE variance of the segment.
     Variance,
-    /// Kolmogorov-Smirnov statistic
-    KolmogorovSmirnov,
 }
 
 /// PELT (Pruned Exact Linear Time) algorithm
@@ -65,117 +69,175 @@ impl PELT {
         self
     }
 
-    /// Detect change points using PELT algorithm
+    /// Detect change points using the PELT algorithm.
+    ///
+    /// Implements exact optimal partitioning (Jackson et al. 2005) with the pruning
+    /// step of Killick, Fearnhead & Eckley (2012). The dynamic program
+    ///
+    /// ```text
+    /// F(s) = min_{t in R} [ F(t) + C(y_{t+1..s}) + beta ]
+    /// ```
+    ///
+    /// is solved left-to-right where `C` is the selected segment cost, `beta` the
+    /// penalty and `R` the set of admissible last-changepoints. After `F(s)` is
+    /// computed, every candidate `t` with `F(t) + C(y_{t+1..s}) + K > F(s)` is pruned
+    /// (`K = 0`, valid for the super-additive costs used here), which yields the same
+    /// optimum as the un-pruned recursion at near-linear expected cost.
     pub fn detect(&self, series: &TimeSeries) -> Result<ChangePointResult> {
         let data = series.values.to_vec()?;
-        let n = data.len();
+        Ok(self.run(&data, true))
+    }
 
-        if n < 2 * self.min_segment_length {
-            return Ok(ChangePointResult {
+    /// Suggested BIC / SIC penalty for a mean-change model.
+    ///
+    /// On the raw sum-of-squared-errors cost scale, the Bayesian Information
+    /// Criterion contributes `2·variance·ln(n)` per added changepoint (one extra
+    /// mean parameter per new segment), where `variance` is the (assumed known)
+    /// noise variance.
+    pub fn bic_penalty(n: usize, variance: f64) -> f64 {
+        2.0 * variance * (n.max(1) as f64).ln()
+    }
+
+    /// Core optimal-partitioning solver.
+    ///
+    /// When `prune` is `true` the PELT pruning step is applied (near-linear); when
+    /// `false` every past candidate is considered (reference `O(n²)` optimal
+    /// partitioning). For the super-additive costs in [`CostFunction`] both return
+    /// the identical global optimum.
+    fn run(&self, data: &[f32], prune: bool) -> ChangePointResult {
+        let n = data.len();
+        if n == 0 {
+            return ChangePointResult {
                 change_points: vec![],
                 scores: vec![],
                 algorithm: "PELT".to_string(),
-            });
+            };
         }
 
-        // TODO: Implement full PELT with optimal partitioning when scirs2-series available
-        // For now, implement simplified version using dynamic programming
+        // Prefix sums (f64) give O(1) Gaussian segment costs.
+        let mut prefix1 = vec![0.0f64; n + 1];
+        let mut prefix2 = vec![0.0f64; n + 1];
+        for i in 0..n {
+            let x = data[i] as f64;
+            prefix1[i + 1] = prefix1[i] + x;
+            prefix2[i + 1] = prefix2[i] + x * x;
+        }
 
-        let mut f = vec![f64::INFINITY; n + 1]; // Cost up to index i
-        f[0] = -self.penalty;
+        let beta = self.penalty;
+        let min_len = self.min_segment_length.max(1);
 
-        let mut cp = vec![0; n + 1]; // Last change point before index i
-        let mut r = vec![0]; // Pruning set
+        // F(s): optimal cost of segmenting data[0..s]; cp[s]: best last changepoint.
+        let mut f = vec![f64::INFINITY; n + 1];
+        f[0] = -beta;
+        let mut cp = vec![0usize; n + 1];
+        let mut candidates: Vec<usize> = vec![0];
 
-        for t in self.min_segment_length..=n {
-            let mut costs = Vec::new();
+        for s in 1..=n {
+            let mut best = f64::INFINITY;
+            let mut best_t = 0usize;
 
-            for &s in &r {
-                if t - s >= self.min_segment_length {
-                    let segment_cost = self.compute_cost(&data[s..t]);
-                    costs.push((f[s] + segment_cost + self.penalty, s));
+            if prune {
+                for &t in &candidates {
+                    if s - t < min_len || !f[t].is_finite() {
+                        continue;
+                    }
+                    let total = f[t] + self.segment_cost(data, &prefix1, &prefix2, t, s) + beta;
+                    if total < best {
+                        best = total;
+                        best_t = t;
+                    }
+                }
+            } else {
+                for t in 0..s {
+                    if s - t < min_len || !f[t].is_finite() {
+                        continue;
+                    }
+                    let total = f[t] + self.segment_cost(data, &prefix1, &prefix2, t, s) + beta;
+                    if total < best {
+                        best = total;
+                        best_t = t;
+                    }
                 }
             }
 
-            if let Some(&(min_cost, s_star)) = costs
-                .iter()
-                .min_by(|(a, _), (b, _)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-            {
-                f[t] = min_cost;
-                cp[t] = s_star;
+            if best.is_finite() {
+                f[s] = best;
+                cp[s] = best_t;
+            }
 
-                // Pruning: remove s from R if F(s) > F(t)
-                r.retain(|&s| f[s] + self.compute_cost(&data[s..t]) <= f[t]);
-                r.push(t);
+            if prune {
+                if f[s].is_finite() {
+                    // Keep `t` only if it can still be optimal for a future endpoint:
+                    //   F(t) + C(y_{t+1..s}) <= F(s)   (pruning constant K = 0).
+                    let f_s = f[s];
+                    candidates.retain(|&t| {
+                        f[t].is_finite()
+                            && f[t] + self.segment_cost(data, &prefix1, &prefix2, t, s) <= f_s
+                    });
+                }
+                candidates.push(s);
             }
         }
 
-        // Backtrack to find change points
+        // Backtrack the optimal segmentation, recording the cost of each segment.
         let mut change_points = Vec::new();
-        let mut current = n;
-        while current > 0 {
-            let prev = cp[current];
+        let mut scores = Vec::new();
+        let mut cur = n;
+        while cur > 0 {
+            let prev = cp[cur];
+            if prev >= cur {
+                break; // defensive: cp[cur] is always < cur for a valid path
+            }
             if prev > 0 {
                 change_points.push(prev);
+                scores.push(self.segment_cost(data, &prefix1, &prefix2, prev, cur));
             }
-            current = prev;
+            cur = prev;
         }
         change_points.reverse();
+        scores.reverse();
 
-        // Compute scores for each change point
-        let scores = change_points
-            .iter()
-            .map(|&cp_idx| {
-                if cp_idx < n {
-                    self.compute_cost(&data[cp_idx - self.min_segment_length..cp_idx])
-                } else {
-                    0.0
-                }
-            })
-            .collect();
-
-        Ok(ChangePointResult {
+        ChangePointResult {
             change_points,
             scores,
             algorithm: "PELT".to_string(),
-        })
+        }
     }
 
-    /// Compute cost for a segment
-    fn compute_cost(&self, segment: &[f32]) -> f64 {
+    /// Cost of the segment `data[a..b]` under the configured cost function.
+    ///
+    /// Gaussian costs (`L2`, `Variance`) are evaluated in O(1) from the prefix
+    /// sums; the robust `L1` cost is computed directly from the slice.
+    fn segment_cost(
+        &self,
+        data: &[f32],
+        prefix1: &[f64],
+        prefix2: &[f64],
+        a: usize,
+        b: usize,
+    ) -> f64 {
+        let n_seg = (b - a) as f64;
         match self.cost_function {
             CostFunction::L2 => {
-                let mean = segment.iter().sum::<f32>() / segment.len() as f32;
-                segment
-                    .iter()
-                    .map(|&x| ((x - mean) as f64).powi(2))
-                    .sum::<f64>()
-            }
-            CostFunction::L1 => {
-                let mut sorted = segment.to_vec();
-                sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-                let median = sorted[sorted.len() / 2];
-                segment
-                    .iter()
-                    .map(|&x| ((x - median) as f64).abs())
-                    .sum::<f64>()
+                let sum1 = prefix1[b] - prefix1[a];
+                let sum2 = prefix2[b] - prefix2[a];
+                // Sum of squared errors about the segment mean: Σx² − (Σx)²/n.
+                (sum2 - sum1 * sum1 / n_seg).max(0.0)
             }
             CostFunction::Variance => {
-                let mean = segment.iter().sum::<f32>() / segment.len() as f32;
-                let variance = segment
-                    .iter()
-                    .map(|&x| ((x - mean) as f64).powi(2))
-                    .sum::<f64>()
-                    / segment.len() as f64;
-                -variance.ln() * segment.len() as f64 // Negative log-likelihood
+                let sum1 = prefix1[b] - prefix1[a];
+                let sum2 = prefix2[b] - prefix2[a];
+                let sse = (sum2 - sum1 * sum1 / n_seg).max(0.0);
+                // Gaussian variance-change NLL term n·ln(σ̂²); floor σ̂² to stay finite.
+                let var = (sse / n_seg).max(1e-12);
+                n_seg * var.ln()
             }
-            CostFunction::KolmogorovSmirnov => {
-                // Simplified KS statistic
-                let mean = segment.iter().sum::<f32>() / segment.len() as f32;
-                segment
-                    .iter()
-                    .map(|&x| ((x - mean) as f64).powi(2))
-                    .sum::<f64>()
+            CostFunction::L1 => {
+                let seg = &data[a..b];
+                let mut sorted: Vec<f32> = seg.to_vec();
+                sorted.sort_by(|x, y| x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal));
+                let median = sorted[sorted.len() / 2];
+                seg.iter().map(|&x| ((x - median) as f64).abs()).sum()
             }
         }
     }
@@ -315,13 +377,6 @@ impl BinarySegmentation {
                     .map(|&x| ((x - mean) as f64).powi(2))
                     .sum::<f64>()
                     / segment.len() as f64
-            }
-            CostFunction::KolmogorovSmirnov => {
-                let mean = segment.iter().sum::<f32>() / segment.len() as f32;
-                segment
-                    .iter()
-                    .map(|&x| ((x - mean) as f64).powi(2))
-                    .sum::<f64>()
             }
         }
     }
@@ -479,18 +534,119 @@ mod tests {
     fn test_pelt_with_cost_functions() {
         let series = create_change_point_series();
 
-        for cost_fn in [
-            CostFunction::L2,
-            CostFunction::L1,
-            CostFunction::Variance,
-            CostFunction::KolmogorovSmirnov,
-        ] {
+        for cost_fn in [CostFunction::L2, CostFunction::L1, CostFunction::Variance] {
             let pelt = PELT::new(10.0, 5).with_cost_function(cost_fn);
             let result = pelt
                 .detect(&series)
                 .expect("detection operation should succeed");
             assert_eq!(result.algorithm, "PELT");
         }
+    }
+
+    /// Build a three-regime series (means 0, 10, -5 over [0,50), [50,100), [100,150))
+    /// with additive Gaussian noise, deterministically seeded.
+    fn create_three_regime_series(seed: u64, noise_std: f64) -> Vec<f32> {
+        use scirs2_core::random::{Distribution, Normal, Random};
+        let mut rng = Random::seed(seed);
+        let noise = Normal::new(0.0f64, noise_std).expect("normal distribution should succeed");
+        let means = [0.0f64, 10.0, -5.0];
+        let mut data = Vec::with_capacity(150);
+        for &mu in means.iter() {
+            for _ in 0..50 {
+                let v = mu + noise.sample(&mut rng);
+                data.push(v as f32);
+            }
+        }
+        data
+    }
+
+    #[test]
+    fn test_bic_penalty_formula() {
+        // 2 * variance * ln(n)
+        let p = PELT::bic_penalty(150, 1.0);
+        assert!((p - 2.0 * (150f64).ln()).abs() < 1e-9, "got {}", p);
+    }
+
+    /// KNOWN-ANSWER: PELT must recover exactly the two true changepoints {50, 100}
+    /// of a synthetic mean-shift series (means 0, 10, -5 with unit Gaussian noise).
+    #[test]
+    fn test_pelt_known_changepoints() {
+        let data = create_three_regime_series(12345, 1.0);
+        let n = data.len();
+        let tensor = Tensor::from_vec(data, &[n]).expect("Tensor should succeed");
+        let series = TimeSeries::new(tensor);
+
+        // BIC-family penalty: with mean gaps of 10 and 15 against unit noise the two
+        // true changepoints each cut the SSE by O(10^3), while a spurious split saves
+        // only O(noise variance); any penalty in (~tens, ~10^3) recovers exactly
+        // {50, 100}. We use 5x the textbook BIC value to stay comfortably inside it.
+        let penalty = 5.0 * PELT::bic_penalty(n, 1.0);
+        let pelt = PELT::new(penalty, 10).with_cost_function(CostFunction::L2);
+        let result = pelt
+            .detect(&series)
+            .expect("detection operation should succeed");
+
+        assert_eq!(
+            result.change_points.len(),
+            2,
+            "expected exactly two changepoints, got {:?}",
+            result.change_points
+        );
+        assert!(
+            (result.change_points[0] as i64 - 50).abs() <= 2,
+            "first changepoint should be ~50, got {}",
+            result.change_points[0]
+        );
+        assert!(
+            (result.change_points[1] as i64 - 100).abs() <= 2,
+            "second changepoint should be ~100, got {}",
+            result.change_points[1]
+        );
+        assert_eq!(result.change_points.len(), result.scores.len());
+    }
+
+    /// PELT pruning must not change the optimum: the pruned run and the un-pruned
+    /// optimal-partitioning run must produce identical changepoints and scores.
+    #[test]
+    fn test_pelt_pruning_matches_optimal_partitioning() {
+        let data = create_three_regime_series(2024, 1.0);
+        let n = data.len();
+        let penalty = 5.0 * PELT::bic_penalty(n, 1.0);
+        let pelt = PELT::new(penalty, 10).with_cost_function(CostFunction::L2);
+
+        let pruned = pelt.run(&data, true);
+        let optimal = pelt.run(&data, false);
+
+        assert_eq!(
+            pruned.change_points, optimal.change_points,
+            "pruning changed the optimal partition"
+        );
+        assert_eq!(pruned.scores.len(), optimal.scores.len());
+        for (a, b) in pruned.scores.iter().zip(optimal.scores.iter()) {
+            assert!(
+                (a - b).abs() < 1e-6,
+                "segment scores differ: {} vs {}",
+                a,
+                b
+            );
+        }
+    }
+
+    /// Pruning equivalence must also hold for a harder, noisier multi-regime series
+    /// at a smaller penalty (more candidate changepoints survive).
+    #[test]
+    fn test_pelt_pruning_equivalence_dense() {
+        let data = create_three_regime_series(7, 2.0);
+        let n = data.len();
+        let penalty = PELT::bic_penalty(n, 4.0);
+        let pelt = PELT::new(penalty, 5).with_cost_function(CostFunction::L2);
+
+        let pruned = pelt.run(&data, true);
+        let optimal = pelt.run(&data, false);
+        assert_eq!(
+            pruned.change_points, optimal.change_points,
+            "pruning changed the optimal partition (dense case)"
+        );
     }
 
     #[test]

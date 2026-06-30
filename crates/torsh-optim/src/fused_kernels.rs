@@ -175,10 +175,11 @@ pub fn fused_rmsprop_step(
     };
 
     // Update squared average: sq_avg = alpha * sq_avg + (1 - alpha) * grad^2
+    // `add` is non-mutating; reassign through the `&mut` so it accumulates.
     square_avg.mul_scalar_(alpha)?;
     let grad_sq = effective_grad.mul_op(&effective_grad)?;
     let grad_sq_term = grad_sq.mul_scalar(1.0 - alpha)?;
-    square_avg.add(&grad_sq_term)?;
+    *square_avg = square_avg.add(&grad_sq_term)?;
 
     // Compute denominator: sqrt(sq_avg) + eps
     let denom = square_avg.sqrt()?.add_scalar(eps)?;
@@ -189,7 +190,7 @@ pub fn fused_rmsprop_step(
     let update = if let Some(buf) = momentum_buffer {
         // Update momentum buffer: buf = momentum * buf + base_update
         buf.mul_scalar_(momentum)?;
-        buf.add(&base_update)?;
+        *buf = buf.add(&base_update)?;
         buf.clone()
     } else {
         base_update
@@ -233,15 +234,16 @@ pub fn fused_adagrad_step(
     };
 
     // Update sum of squares: sum_sq = sum_sq + grad^2
+    // `add`/`sub` are non-mutating; reassign through the `&mut` references.
     let grad_sq = effective_grad.mul_op(&effective_grad)?;
-    sum_of_squares.add(&grad_sq)?;
+    *sum_of_squares = sum_of_squares.add(&grad_sq)?;
 
     // Compute denominator: sqrt(sum_sq) + eps
     let denom = sum_of_squares.sqrt()?.add_scalar(eps)?;
 
     // Compute and apply update: param = param - lr * grad / denom
     let update = effective_grad.div(&denom)?.mul_scalar(lr)?;
-    param.sub(&update)?;
+    *param = param.sub(&update)?;
 
     Ok(())
 }
@@ -283,10 +285,11 @@ pub fn fused_adadelta_step(
     };
 
     // Update squared gradient average: sq_avg = rho * sq_avg + (1 - rho) * grad^2
+    // `add` is non-mutating; reassign through the `&mut` so it accumulates.
     square_avg.mul_scalar_(rho)?;
     let grad_sq = effective_grad.mul_op(&effective_grad)?;
     let grad_sq_term = grad_sq.mul_scalar(1.0 - rho)?;
-    square_avg.add(&grad_sq_term)?;
+    *square_avg = square_avg.add(&grad_sq_term)?;
 
     // Compute RMS values
     let rms_grad = square_avg.add_scalar(eps)?.sqrt()?;
@@ -299,13 +302,14 @@ pub fn fused_adadelta_step(
         .mul_scalar(-1.0)?;
 
     // Update accumulated delta: acc_delta = rho * acc_delta + (1 - rho) * delta^2
+    // `add` is non-mutating; reassign through the `&mut` references.
     acc_delta.mul_scalar_(rho)?;
     let delta_sq = delta.mul_op(&delta)?;
     let delta_sq_term = delta_sq.mul_scalar(1.0 - rho)?;
-    acc_delta.add(&delta_sq_term)?;
+    *acc_delta = acc_delta.add(&delta_sq_term)?;
 
     // Apply update to parameter
-    param.add(&delta)?;
+    *param = param.add(&delta)?;
 
     Ok(())
 }

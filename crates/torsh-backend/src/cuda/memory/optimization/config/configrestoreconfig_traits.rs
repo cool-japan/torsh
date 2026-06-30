@@ -15,4 +15,3 @@ impl Default for ConfigRestoreConfig {
         Self
     }
 }
-

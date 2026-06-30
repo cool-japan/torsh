@@ -130,7 +130,8 @@ impl Optimizer for AdaDelta {
                 let grad_squared = grad.mul_op(&grad)?;
                 square_avg.mul_scalar_(self.rho)?;
                 let grad_term = grad_squared.mul_scalar(1.0 - self.rho)?;
-                square_avg.add(&grad_term)?;
+                // `add` is non-mutating; reassign so the running average accumulates.
+                square_avg = square_avg.add(&grad_term)?;
 
                 // Compute RMS of gradients
                 // std = sqrt(square_avg + eps)
@@ -149,7 +150,8 @@ impl Optimizer for AdaDelta {
                 let delta_squared = delta.mul_op(&delta)?;
                 acc_delta.mul_scalar_(self.rho)?;
                 let delta_term = delta_squared.mul_scalar(1.0 - self.rho)?;
-                acc_delta.add(&delta_term)?;
+                // `add` is non-mutating; reassign so the running average accumulates.
+                acc_delta = acc_delta.add(&delta_term)?;
 
                 // Apply update to parameter
                 *param = param.add(&delta)?;
@@ -177,6 +179,10 @@ impl Optimizer for AdaDelta {
 
     fn add_param_group(&mut self, params: Vec<Arc<RwLock<Tensor>>>, options: HashMap<String, f32>) {
         self.base.add_param_group(params, options);
+    }
+
+    fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {
+        self.base.parameters()
     }
 
     fn state_dict(&self) -> OptimizerResult<OptimizerState> {

@@ -537,11 +537,11 @@ When scirs2_core provides the following modules, uncomment and implement:
 
 ### Files Modified
 
-1. `/Users/kitasan/work/torsh/crates/torsh-distributed/Cargo.toml` - Added flate2 dependency
-2. `/Users/kitasan/work/torsh/crates/torsh-distributed/src/communication_scheduler.rs` - Fixed imports, stubbed SIMD functions
-3. `/Users/kitasan/work/torsh/crates/torsh-distributed/src/metrics.rs` - Fixed typo, commented out unavailable features
-4. `/Users/kitasan/work/torsh/crates/torsh-distributed/src/store/redis.rs` - Added Arc/RwLock imports
-5. `/Users/kitasan/work/torsh/crates/torsh-distributed/src/tensor_parallel.rs` - Fixed Shape errors, commented out unavailable features
+1. `crates/torsh-distributed/Cargo.toml` - Added flate2 dependency
+2. `crates/torsh-distributed/src/communication_scheduler.rs` - Fixed imports, stubbed SIMD functions
+3. `crates/torsh-distributed/src/metrics.rs` - Fixed typo, commented out unavailable features
+4. `crates/torsh-distributed/src/store/redis.rs` - Added Arc/RwLock imports
+5. `crates/torsh-distributed/src/tensor_parallel.rs` - Fixed Shape errors, commented out unavailable features
 
 ### Next Steps (High Priority)
 

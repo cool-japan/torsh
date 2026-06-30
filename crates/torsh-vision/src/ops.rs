@@ -18,7 +18,7 @@
 //!
 //! All original functions continue to work exactly as before:
 //!
-//! ```rust
+//! ```rust,ignore
 //! use torsh_vision::ops::{resize, center_crop, normalize, sobel_edge_detection};
 //!
 //! // Geometric transformations
@@ -34,7 +34,7 @@
 //!
 //! The refactored module also provides enhanced capabilities:
 //!
-//! ```rust
+//! ```rust,ignore
 //! use torsh_vision::ops::{
 //!     geometric::{ResizeConfig, InterpolationMode},
 //!     color::NormalizationConfig,

@@ -7,8 +7,6 @@ use crate::buffer::{generate_buffer_id, BufferHandle};
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 use crate::error::{BackendError, BackendResult};
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-use crate::kernel::{KernelHandle, KernelMetadata};
-#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 use crate::memory::MemoryStats;
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 use crate::metal::indirect_commands::IndirectCommandManager;
@@ -563,23 +561,16 @@ impl BackendResourceManager for MetalBackend {
             .into());
         }
 
-        // For now, return a dummy kernel
-        // In a real implementation, we'd compile the Metal shader code
-        let handle = KernelHandle::Metal {
-            library_id: 0,
-            function_id: 0,
-        };
-
-        let metadata = KernelMetadata::default();
-
-        Ok(Kernel::new(
-            0, // kernel_id
-            device.clone(),
-            descriptor.name.clone(),
-            descriptor.clone(),
-            handle,
-            metadata,
-        ))
+        // HONEST FAILURE: compiling a Metal kernel requires building an `MTLLibrary` from
+        // the descriptor's MSL source (`device.new_library_with_source`) and looking up the
+        // entry-point function to create an `MTLComputePipelineState`. That pipeline is not
+        // yet wired here. Returning a placeholder handle (`library_id: 0, function_id: 0`)
+        // would yield a `Kernel` that cannot actually execute, so we fail loudly instead.
+        Err(BackendError::BackendError(format!(
+            "Metal kernel compilation not yet implemented for kernel '{}': \
+             MSL library/pipeline-state construction is required",
+            descriptor.name
+        )))
     }
 
     fn memory_manager(
@@ -615,9 +606,12 @@ impl BackendResourceManager for MetalBackend {
 #[async_trait::async_trait]
 impl BackendExecutor for MetalBackend {
     async fn synchronize(&self, _device: &Device) -> BackendResult<()> {
-        // Metal operations are typically synchronous when using command buffer commit_and_wait
-        // For now, this is a no-op as we don't have a current command buffer tracking
-        Ok(())
+        // Submit an empty command buffer and block until the device drains all previously
+        // committed work. `MetalDevice::synchronize` performs a real
+        // `commit()` + `wait_until_completed()`, so this is not a no-op.
+        self.device
+            .synchronize()
+            .map_err(|e| BackendError::ComputeError(format!("Metal synchronize failed: {e}")))
     }
 
     async fn copy_buffer(
@@ -639,22 +633,17 @@ impl BackendExecutor for MetalBackend {
             .into());
         }
 
-        // Create a command buffer for the copy operation
-        let command_buffer = self.device.new_command_buffer().map_err(|e| {
-            BackendError::ComputeError(format!("Failed to create command buffer: {:?}", e))
-        })?;
-
-        let blit_encoder = command_buffer.new_blit_command_encoder();
-
-        // For simplicity, we'll copy the entire buffer
-        // In a real implementation, we'd need to get the actual Metal buffer references
-        // from our buffer storage
-
-        blit_encoder.end_encoding();
-        command_buffer.commit();
-        command_buffer.wait_until_completed();
-
-        Ok(())
+        // HONEST FAILURE: `BufferHandle::Metal` only carries the buffer's raw pointer
+        // address (as `u64`) and size, not the owning `metal::Buffer`. A blit copy
+        // requires the actual `metal::Buffer` objects, and reconstructing them from a raw
+        // address is unsound. Until this backend maintains a buffer registry that maps
+        // handle ids back to live `metal::Buffer`s, we must fail loudly rather than commit
+        // an empty command buffer and return `Ok(())` without moving any bytes.
+        Err(BackendError::BackendError(
+            "Metal device-to-device buffer copy not yet implemented: \
+             a buffer registry mapping handle ids to live metal::Buffer objects is required"
+                .to_string(),
+        ))
     }
 
     async fn copy_to_device(
@@ -674,11 +663,17 @@ impl BackendExecutor for MetalBackend {
                 )));
             }
 
-            // In a real implementation, we'd look up the actual Metal buffer
-            // from our storage using buffer_id and copy the data
-            // For now, we'll just return success
-
-            Ok(())
+            // HONEST FAILURE: the destination handle only stores a raw pointer address
+            // and size, not the owning `metal::Buffer`. Writing `src` into the buffer
+            // requires the live `metal::Buffer` (to obtain `contents()` for shared storage
+            // or to drive a blit for managed/private storage). Returning `Ok(())` here
+            // would silently drop the host data and corrupt computations on real Metal
+            // hardware, so we fail loudly instead.
+            Err(BackendError::BackendError(
+                "Metal host-to-device copy not yet implemented: \
+                 a buffer registry mapping handle ids to live metal::Buffer objects is required"
+                    .to_string(),
+            ))
         } else {
             Err(BackendError::UnsupportedOperation {
                 op: "buffer_copy".to_string(),
@@ -705,11 +700,16 @@ impl BackendExecutor for MetalBackend {
                 )));
             }
 
-            // In a real implementation, we'd look up the actual Metal buffer
-            // from our storage using buffer_id and copy the data
-            // For now, we'll just return success
-
-            Ok(())
+            // HONEST FAILURE: the source handle only stores a raw pointer address and
+            // size, not the owning `metal::Buffer`. Reading device data into `dst`
+            // requires the live `metal::Buffer`. Returning `Ok(())` here would leave
+            // `dst` filled with whatever it already contained while pretending the device
+            // values were read back, so we fail loudly instead.
+            Err(BackendError::BackendError(
+                "Metal device-to-host copy not yet implemented: \
+                 a buffer registry mapping handle ids to live metal::Buffer objects is required"
+                    .to_string(),
+            ))
         } else {
             Err(BackendError::UnsupportedOperation {
                 op: "buffer_copy".to_string(),
@@ -738,24 +738,17 @@ impl BackendExecutor for MetalBackend {
             }
         }
 
-        // Create command buffer and encoder
-        let command_buffer = self.device.new_command_buffer().map_err(|e| {
-            BackendError::ComputeError(format!("Failed to create command buffer: {:?}", e))
-        })?;
-
-        let compute_encoder = command_buffer.new_compute_command_encoder();
-
-        // In a real implementation, we'd:
-        // 1. Look up the actual compiled Metal kernel
-        // 2. Set the compute pipeline state
-        // 3. Bind the buffers
-        // 4. Dispatch the threadgroups
-
-        compute_encoder.end_encoding();
-        command_buffer.commit();
-        command_buffer.wait_until_completed();
-
-        Ok(())
+        // HONEST FAILURE: dispatching a kernel requires a compiled
+        // `MTLComputePipelineState`, binding the validated buffers to argument slots, and
+        // dispatching threadgroups. None of that is wired (kernel compilation in
+        // `create_kernel` is itself unimplemented). Committing an empty encoder and
+        // returning `Ok(())` would report success for a computation that never ran, so we
+        // fail loudly instead.
+        Err(BackendError::BackendError(
+            "Metal kernel execution not yet implemented: \
+             a compiled compute pipeline state and argument binding are required"
+                .to_string(),
+        ))
     }
 }
 

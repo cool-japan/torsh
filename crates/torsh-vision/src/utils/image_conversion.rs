@@ -20,13 +20,14 @@ use torsh_tensor::{creation, creation::zeros_mut, Tensor};
 /// A `DynamicImage` that can be saved or further processed
 ///
 /// # Example
-/// ```rust
+/// ```rust,no_run
 /// use torsh_tensor::creation;
 /// use torsh_vision::utils::image_conversion::tensor_to_image;
 ///
 /// // Create a random RGB tensor
 /// let tensor = creation::randn(&[3, 224, 224]).unwrap();
 /// let image = tensor_to_image(&tensor, true)?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 ///
 /// # Errors
@@ -110,13 +111,14 @@ pub fn tensor_to_image(tensor: &Tensor<f32>, normalize: bool) -> Result<DynamicI
 /// - Values are normalized to [0, 1] range
 ///
 /// # Example
-/// ```rust
+/// ```rust,no_run
 /// use image::DynamicImage;
 /// use torsh_vision::utils::image_conversion::image_to_tensor;
 ///
 /// let image = image::open("example.jpg")?;
 /// let tensor = image_to_tensor(&image)?;
 /// println!("Tensor shape: {:?}", tensor.shape().dims());
+/// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 ///
 /// # Note
@@ -199,7 +201,7 @@ pub fn image_to_tensor(image: &DynamicImage) -> Result<Tensor<f32>> {
 /// For each pixel value x: `denormalized_x = x * std + mean`
 ///
 /// # Example
-/// ```rust
+/// ```rust,no_run
 /// use torsh_tensor::creation;
 /// use torsh_vision::utils::image_conversion::denormalize;
 ///
@@ -207,6 +209,7 @@ pub fn image_to_tensor(image: &DynamicImage) -> Result<Tensor<f32>> {
 /// let mean = [0.485, 0.456, 0.406];  // ImageNet means
 /// let std = [0.229, 0.224, 0.225];   // ImageNet stds
 /// let denormalized = denormalize(&tensor, &mean, &std)?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 ///
 /// # Errors

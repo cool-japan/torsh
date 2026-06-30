@@ -6,8 +6,10 @@
 // Framework infrastructure - components designed for future use
 #![allow(dead_code)]
 use crate::CacheManager;
+use reqwest::blocking::Client as BlockingClient;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::io::Write;
 use std::path::PathBuf;
 use torsh_core::error::{Result, TorshError};
 use torsh_nn::Module;
@@ -68,36 +70,136 @@ impl HuggingFaceHub {
         self
     }
 
-    /// List models from HuggingFace Hub
+    /// List models from HuggingFace Hub.
+    ///
+    /// Makes a GET request to `{api_url}/api/models` with the provided search
+    /// parameters and deserializes the JSON response. Returns a real error if the
+    /// HTTP request fails or the response cannot be parsed — never returns hardcoded
+    /// mock data.
     pub fn list_models(&self, search: &HfSearchParams) -> Result<Vec<HfModelInfo>> {
-        let _url = format!("{}/api/models", self.api_url);
-        let _query_params = search.to_query_params();
+        /// Percent-encode a byte slice for use in URL query strings.
+        /// Encodes all bytes except unreserved characters (A-Z a-z 0-9 - _ . ~).
+        fn url_query_encode(input: &[u8]) -> String {
+            let mut out = String::with_capacity(input.len());
+            for &byte in input {
+                match byte {
+                    b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                        out.push(byte as char)
+                    }
+                    _ => out.push_str(&format!("%{:02X}", byte)),
+                }
+            }
+            out
+        }
 
-        // Placeholder: Make HTTP request to HuggingFace API
-        // For now, return mock data
-        Ok(vec![HfModelInfo {
-            id: "facebook/bart-large".to_string(),
-            model_type: Some("bart".to_string()),
-            task: Some("text-generation".to_string()),
-            library: Some("transformers".to_string()),
-            downloads: 1000000,
-            likes: 500,
-            created_at: "2021-01-01T00:00:00Z".to_string(),
-            updated_at: "2023-01-01T00:00:00Z".to_string(),
-            config: None,
-            pipeline_tag: Some("text-generation".to_string()),
-            tags: vec!["text-generation".to_string(), "bart".to_string()],
-        }])
+        // Build URL with query parameters encoded manually to avoid relying on
+        // reqwest's .query() which requires Serialize on the param type.
+        let query_params = search.to_query_params();
+        let query_string: String = query_params
+            .iter()
+            .map(|(k, v)| {
+                format!(
+                    "{}={}",
+                    url_query_encode(k.as_bytes()),
+                    url_query_encode(v.as_bytes()),
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("&");
+
+        let url = if query_string.is_empty() {
+            format!("{}/api/models", self.api_url)
+        } else {
+            format!("{}/api/models?{}", self.api_url, query_string)
+        };
+
+        let mut client_builder = BlockingClient::builder()
+            .user_agent(&self.user_agent)
+            .timeout(std::time::Duration::from_secs(self.timeout));
+
+        if let Some(ref token) = self.token {
+            let mut headers = reqwest::header::HeaderMap::new();
+            let auth_value =
+                reqwest::header::HeaderValue::from_str(&format!("Bearer {}", token))
+                    .map_err(|e| TorshError::InvalidArgument(format!("Invalid token: {}", e)))?;
+            headers.insert(reqwest::header::AUTHORIZATION, auth_value);
+            client_builder = client_builder.default_headers(headers);
+        }
+
+        let client = client_builder
+            .build()
+            .map_err(|e| TorshError::IoError(format!("Failed to build HTTP client: {}", e)))?;
+
+        let response = client
+            .get(&url)
+            .send()
+            .map_err(|e| TorshError::IoError(format!("HTTP request failed for {url}: {e}")))?;
+
+        if !response.status().is_success() {
+            return Err(TorshError::IoError(format!(
+                "HuggingFace API returned {} for /api/models",
+                response.status()
+            )));
+        }
+
+        let models: Vec<HfModelInfo> = response.json().map_err(|e| {
+            TorshError::SerializationError(format!("Failed to parse model list: {}", e))
+        })?;
+
+        Ok(models)
     }
 
-    /// Get model information
+    /// Get model information from HuggingFace Hub API.
+    ///
+    /// Makes a GET request to `{api_url}/api/models/{model_id}` and parses
+    /// the JSON response.  Returns an error if the model is not found or if
+    /// the HTTP request fails.
     pub fn model_info(&self, model_id: &str) -> Result<HfModelInfo> {
-        let _url = format!("{}/api/models/{}", self.api_url, model_id);
+        let url = format!("{}/api/models/{}", self.api_url, model_id);
 
-        // Placeholder: Make HTTP request
-        Err(TorshError::NotImplemented(
-            "HuggingFace model info not yet implemented".to_string(),
-        ))
+        let mut client_builder = BlockingClient::builder()
+            .user_agent(&self.user_agent)
+            .timeout(std::time::Duration::from_secs(self.timeout));
+
+        // Add auth header if token is present
+        if let Some(ref token) = self.token {
+            let mut headers = reqwest::header::HeaderMap::new();
+            let auth_value =
+                reqwest::header::HeaderValue::from_str(&format!("Bearer {}", token))
+                    .map_err(|e| TorshError::InvalidArgument(format!("Invalid token: {}", e)))?;
+            headers.insert(reqwest::header::AUTHORIZATION, auth_value);
+            client_builder = client_builder.default_headers(headers);
+        }
+
+        let client = client_builder
+            .build()
+            .map_err(|e| TorshError::IoError(format!("Failed to build HTTP client: {}", e)))?;
+
+        let response = client
+            .get(&url)
+            .send()
+            .map_err(|e| TorshError::IoError(format!("HTTP request failed for {url}: {e}")))?;
+
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            return Err(TorshError::InvalidArgument(format!(
+                "Model '{}' not found on HuggingFace Hub",
+                model_id
+            )));
+        }
+
+        if !response.status().is_success() {
+            return Err(TorshError::IoError(format!(
+                "HuggingFace API returned {} for model '{}'",
+                response.status(),
+                model_id
+            )));
+        }
+
+        let info: HfModelInfo = response.json().map_err(|e| {
+            TorshError::SerializationError(format!("Failed to parse model info: {}", e))
+        })?;
+
+        Ok(info)
     }
 
     /// Download model from HuggingFace Hub
@@ -144,23 +246,80 @@ impl HuggingFaceHub {
         Ok(())
     }
 
-    /// Download a specific file
+    /// Download a specific file from a model repository.
+    ///
+    /// Streams the file from HuggingFace Hub to `local_path`, creating any
+    /// missing parent directories.  Skips the download if the file already
+    /// exists at `local_path`.
     fn download_file(
         &self,
         model_id: &str,
         filename: &str,
         revision: &str,
-        _local_path: &PathBuf,
+        local_path: &PathBuf,
     ) -> Result<()> {
-        let _url = format!(
+        // Skip if already cached
+        if local_path.exists() {
+            return Ok(());
+        }
+
+        let url = format!(
             "{}/{}/resolve/{}/{}",
             self.api_url, model_id, revision, filename
         );
 
-        // Placeholder: Implement actual file download
-        Err(TorshError::NotImplemented(
-            "File download not yet implemented".to_string(),
-        ))
+        // Build the HTTP client
+        let mut client_builder = BlockingClient::builder()
+            .user_agent(&self.user_agent)
+            .timeout(std::time::Duration::from_secs(self.timeout));
+
+        if let Some(ref token) = self.token {
+            let mut headers = reqwest::header::HeaderMap::new();
+            let auth_value =
+                reqwest::header::HeaderValue::from_str(&format!("Bearer {}", token))
+                    .map_err(|e| TorshError::InvalidArgument(format!("Invalid token: {}", e)))?;
+            headers.insert(reqwest::header::AUTHORIZATION, auth_value);
+            client_builder = client_builder.default_headers(headers);
+        }
+
+        let client = client_builder
+            .build()
+            .map_err(|e| TorshError::IoError(format!("Failed to build HTTP client: {}", e)))?;
+
+        // Create parent directories
+        if let Some(parent) = local_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+
+        // Stream the download to a temporary file, then rename atomically
+        let tmp_path = local_path.with_extension("tmp");
+
+        let response = client
+            .get(&url)
+            .send()
+            .map_err(|e| TorshError::IoError(format!("HTTP request failed for {url}: {e}")))?;
+
+        if !response.status().is_success() {
+            return Err(TorshError::IoError(format!(
+                "Failed to download {} from HuggingFace: HTTP {}",
+                url,
+                response.status()
+            )));
+        }
+
+        let bytes = response
+            .bytes()
+            .map_err(|e| TorshError::IoError(format!("Failed to read response bytes: {}", e)))?;
+
+        {
+            let mut file = std::fs::File::create(&tmp_path)?;
+            file.write_all(&bytes)?;
+        }
+
+        // Atomic rename
+        std::fs::rename(&tmp_path, local_path)?;
+
+        Ok(())
     }
 
     /// List files in a model repository
@@ -567,5 +726,56 @@ mod tests {
 
         let mapped = converter.map_parameter_names("embeddings.LayerNorm.weight", "bert");
         assert_eq!(mapped, Some("embeddings.layer_norm.weight".to_string()));
+    }
+
+    // -----------------------------------------------------------------------
+    // list_models must not return hardcoded data.
+    // In a network-less test environment it must return a real error, not
+    // a Vec containing "facebook/bart-large".
+    // -----------------------------------------------------------------------
+    #[test]
+    fn list_models_does_not_return_hardcoded_bart() {
+        // Point at an unreachable localhost so the HTTP call fails fast.
+        let hub = HuggingFaceHub {
+            api_url: "http://127.0.0.1:1".to_string(), // nothing listens here
+            token: None,
+            cache: CacheManager::new(&std::env::temp_dir().join("torsh_hub_test")).expect("cache"),
+            user_agent: "torsh-test".to_string(),
+            timeout: 2, // 2-second cap so the test finishes quickly
+        };
+        let params = HfSearchParams::new()
+            .with_search("bert".to_string())
+            .with_limit(5);
+        let result = hub.list_models(&params);
+
+        // The call MUST return an error when the network is unavailable.
+        // If it returns Ok, the old hardcoded mock data is still present.
+        assert!(
+            result.is_err(),
+            "list_models returned Ok against a dead endpoint — \
+             hardcoded mock data is still active: {:?}",
+            result.ok()
+        );
+    }
+
+    /// Integration test: requires real HuggingFace network access.
+    /// Run with: cargo test -p torsh-hub -- --ignored list_models_real_network
+    #[test]
+    #[ignore = "requires network access to huggingface.co"]
+    fn list_models_real_network() {
+        let hub = HuggingFaceHub::new();
+        let params = HfSearchParams::new()
+            .with_search("bert".to_string())
+            .with_limit(3);
+        let models = hub.list_models(&params).expect("API call should succeed");
+        assert!(
+            !models.is_empty(),
+            "expected at least one model in search results"
+        );
+        // Must NOT be the old hardcoded bart entry specifically
+        assert!(
+            models.iter().any(|m| !m.id.is_empty()),
+            "all returned models must have non-empty ids"
+        );
     }
 }

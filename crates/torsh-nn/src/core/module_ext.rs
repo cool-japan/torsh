@@ -181,46 +181,52 @@ pub trait ModuleExt: Module {
 
     // === Training Utilities ===
 
-    /// Freeze specific parameters by name pattern
+    /// Freeze parameters whose name contains `pattern` (sets `requires_grad = false`)
+    ///
+    /// Pass an empty pattern (`""`) to freeze every parameter, since every name
+    /// contains the empty string.
     ///
     /// # Arguments
-    /// * `pattern` - String pattern to match parameter names
+    /// * `pattern` - Substring to match against parameter names
     ///
     /// # Returns
     /// * `usize` - Number of parameters frozen
     ///
     /// # Note
-    /// This method currently returns a count but doesn't actually freeze parameters
-    /// because Parameter's requires_grad is immutable. This is a placeholder for
-    /// future implementation when mutable parameter access is available.
+    /// A parameter's `requires_grad` flag is shared across clones (see
+    /// [`crate::Parameter`]), so updating the by-value clones handed out by
+    /// [`Module::all_named_parameters`] is observable on the module's own
+    /// parameters and on any subsequently fetched copies.
     fn freeze_matching(&mut self, pattern: &str) -> usize {
         let mut count = 0;
-        for (name, _param) in self.all_named_parameters() {
+        for (name, param) in self.all_named_parameters() {
             if name.contains(pattern) {
-                // TODO: Implement actual freezing when Parameter supports it
+                param.set_requires_grad(false);
                 count += 1;
             }
         }
         count
     }
 
-    /// Unfreeze specific parameters by name pattern
+    /// Unfreeze parameters whose name contains `pattern` (sets `requires_grad = true`)
+    ///
+    /// Pass an empty pattern (`""`) to unfreeze every parameter, since every name
+    /// contains the empty string.
     ///
     /// # Arguments
-    /// * `pattern` - String pattern to match parameter names
+    /// * `pattern` - Substring to match against parameter names
     ///
     /// # Returns
     /// * `usize` - Number of parameters unfrozen
     ///
     /// # Note
-    /// This method currently returns a count but doesn't actually unfreeze parameters
-    /// because Parameter's requires_grad is immutable. This is a placeholder for
-    /// future implementation when mutable parameter access is available.
+    /// See [`ModuleExt::freeze_matching`] for why mutating the by-value parameter
+    /// clones is observable on the owning module.
     fn unfreeze_matching(&mut self, pattern: &str) -> usize {
         let mut count = 0;
-        for (name, _param) in self.all_named_parameters() {
+        for (name, param) in self.all_named_parameters() {
             if name.contains(pattern) {
-                // TODO: Implement actual unfreezing when Parameter supports it
+                param.set_requires_grad(true);
                 count += 1;
             }
         }
@@ -333,22 +339,18 @@ pub trait ModuleExt: Module {
         Ok(report)
     }
 
-    /// Get device of parameters (if consistent)
+    /// Get the device the module's parameters reside on
     ///
     /// # Returns
-    /// * `Option<DeviceType>` - Device if all parameters are on same device
+    /// * `Option<DeviceType>` - The device of the module's parameters, or `None`
+    ///   only when the module genuinely has no parameters (recursively).
     ///
     /// # Note
-    /// Currently returns None as Parameter doesn't expose device information.
-    /// This is a placeholder for future implementation.
+    /// The device is read from the actual underlying parameter tensors. If a
+    /// module's parameters span multiple devices, the device of the first
+    /// parameter encountered is reported.
     fn device(&self) -> Option<DeviceType> {
-        // TODO: Implement when Parameter exposes device information
-        // For now, assume CPU as default
-        if self.has_parameters() {
-            Some(DeviceType::Cpu)
-        } else {
-            None
-        }
+        self.all_parameters().values().next().map(|p| p.device())
     }
 
     /// Check if all parameters are on CPU
@@ -460,6 +462,108 @@ impl ValidationReport {
 
 #[cfg(test)]
 mod tests {
+    use super::ModuleExt;
+    use crate::layers::Linear;
+    use crate::Module;
+    use torsh_core::device::DeviceType;
+    use torsh_core::error::Result;
+    use torsh_tensor::Tensor;
 
-    // Tests would go here - skipped for brevity
+    /// A module that genuinely owns no parameters, used to verify that `device()`
+    /// honestly reports `None` instead of a fabricated default.
+    struct EmptyModule;
+
+    impl Module for EmptyModule {
+        fn forward(&self, input: &Tensor) -> Result<Tensor> {
+            Ok(input.clone())
+        }
+    }
+
+    #[test]
+    fn test_freeze_unfreeze_sets_requires_grad() {
+        let mut linear = Linear::new(4, 3, true);
+
+        // A Linear(.., bias = true) layer exposes exactly two parameters.
+        let param_count = linear.all_parameters().len();
+        assert_eq!(
+            param_count, 2,
+            "Linear with bias should expose weight + bias"
+        );
+
+        // Freshly created parameters must require gradients.
+        assert!(
+            linear.all_parameters().values().all(|p| p.requires_grad()),
+            "new Linear parameters should require grad"
+        );
+
+        // Freeze every parameter (empty pattern matches all names).
+        let frozen = linear.freeze_matching("");
+        assert_eq!(
+            frozen, param_count,
+            "freeze_matching(\"\") must touch every parameter"
+        );
+
+        // The freeze must be observable on a *fresh* read of the parameters,
+        // proving the flag really mutated shared state (not a throwaway clone).
+        assert!(
+            linear.all_parameters().values().all(|p| !p.requires_grad()),
+            "after freeze no parameter may require grad"
+        );
+        assert_eq!(
+            linear.frozen_parameters().len(),
+            param_count,
+            "all parameters should be reported as frozen"
+        );
+        assert!(
+            linear.trainable_parameters().is_empty(),
+            "no parameter should be trainable after freeze"
+        );
+
+        // Unfreeze every parameter and verify it sticks.
+        let unfrozen = linear.unfreeze_matching("");
+        assert_eq!(unfrozen, param_count);
+        assert!(
+            linear.all_parameters().values().all(|p| p.requires_grad()),
+            "after unfreeze every parameter must require grad"
+        );
+        assert!(linear.frozen_parameters().is_empty());
+    }
+
+    #[test]
+    fn test_freeze_matching_only_affects_matching_names() {
+        let mut linear = Linear::new(4, 3, true);
+
+        // Freeze only the bias; the weight must stay trainable.
+        let frozen = linear.freeze_matching("bias");
+        assert_eq!(frozen, 1, "only the bias parameter should match");
+
+        let params = linear.all_named_parameters();
+        assert!(
+            !params["bias"].requires_grad(),
+            "bias must be frozen after freeze_matching(\"bias\")"
+        );
+        assert!(
+            params["weight"].requires_grad(),
+            "weight must remain trainable"
+        );
+    }
+
+    #[test]
+    fn test_device_reports_real_parameter_device() {
+        let linear = Linear::new(8, 5, true);
+
+        // Parameters are created on CPU, so the module device must be CPU.
+        assert_eq!(linear.device(), Some(DeviceType::Cpu));
+        assert!(linear.is_cpu());
+        assert!(!linear.is_cuda());
+    }
+
+    #[test]
+    fn test_device_is_none_without_parameters() {
+        let empty = EmptyModule;
+        // A parameter-less module must honestly report None, never a fake device.
+        assert_eq!(empty.device(), None);
+        assert!(!empty.is_cpu());
+        assert!(!empty.is_cuda());
+    }
 }

@@ -557,17 +557,17 @@ impl VnniQuantizationOps {
             ).into());
         }
 
-        // This would use actual VNNI instructions (vpdpbusd, vpdpbusds)
-        // For now, return a placeholder result
-        let m = a.shape()[0];
-        let n = b.shape()[1];
-
-        QuantizedTensor::from_data(
-            vec![0; m * n],
-            vec![m, n],
-            a.params().clone(),
-            a.device().clone(),
+        // The real VNNI path (vpdpbusd / vpdpbusds intrinsics) is not yet
+        // emitted. Returning a zero-filled tensor here would silently corrupt
+        // every quantized matmul that routes through VNNI, so fail loudly until
+        // the intrinsic kernel is implemented.
+        Err(TorshError::BackendError(
+            "VNNI INT8 matmul kernel not implemented; requires AVX-512 VNNI \
+             (vpdpbusd) intrinsics. Use HardwareQuantizationOps::qmatmul for the \
+             portable INT8 path."
+                .to_string(),
         )
+        .into())
     }
 
     /// VNNI-accelerated convolution
@@ -580,19 +580,16 @@ impl VnniQuantizationOps {
             return Err(TorshError::BackendError("VNNI not available".to_string()).into());
         }
 
-        // This would implement VNNI-optimized convolution
-        // For now, return a simplified result
-        let batch_size = input.shape()[0];
-        let out_channels = weight.shape()[0];
-        let out_height = input.shape()[2]; // Simplified - no padding/stride
-        let out_width = input.shape()[3];
-
-        QuantizedTensor::from_data(
-            vec![0; batch_size * out_channels * out_height * out_width],
-            vec![batch_size, out_channels, out_height, out_width],
-            input.params().clone(),
-            input.device().clone(),
+        let _ = (input, weight);
+        // No VNNI convolution kernel exists yet; a zero-filled result would be a
+        // silent fabrication. Fail honestly instead.
+        Err(TorshError::BackendError(
+            "VNNI INT8 conv2d kernel not implemented; requires AVX-512 VNNI \
+             intrinsics. Use HardwareQuantizationOps::qconv2d for the portable \
+             INT8 path."
+                .to_string(),
         )
+        .into())
     }
 }
 
@@ -614,11 +611,15 @@ impl Dp4aQuantizationOps {
         }
     }
 
-    /// Detect DP4A support (simplified - would query CUDA properties)
+    /// Detect DP4A support.
+    ///
+    /// DP4A is a CUDA device instruction (compute capability >= 6.1). This crate
+    /// builds without a CUDA driver dependency, so there is no device to query
+    /// here; report `false` rather than fabricating `true`. Real DP4A
+    /// availability must be established from a live CUDA device (compute
+    /// capability >= 6.1) in the CUDA backend.
     fn detect_dp4a() -> bool {
-        // In practice, this would query CUDA device properties
-        // For now, assume available on modern NVIDIA GPUs
-        true
+        false
     }
 
     /// Check if DP4A is available
@@ -646,17 +647,16 @@ impl Dp4aQuantizationOps {
             ).into());
         }
 
-        // This would use CUDA DP4A instructions (__dp4a)
-        // For now, return a placeholder result
-        let m = a.shape()[0];
-        let n = b.shape()[1];
-
-        QuantizedTensor::from_data(
-            vec![0; m * n],
-            vec![m, n],
-            a.params().clone(),
-            a.device().clone(),
+        // The real DP4A path (CUDA `__dp4a` intrinsic) is not yet emitted.
+        // Returning zeros would silently corrupt every quantized matmul routed
+        // through DP4A, so fail loudly until the CUDA kernel is implemented.
+        Err(TorshError::BackendError(
+            "DP4A INT8 matmul kernel not implemented; requires a CUDA device \
+             with the __dp4a intrinsic (compute capability >= 6.1). Use \
+             HardwareQuantizationOps::qmatmul for the portable INT8 path."
+                .to_string(),
         )
+        .into())
     }
 
     /// DP4A-accelerated convolution
@@ -669,18 +669,16 @@ impl Dp4aQuantizationOps {
             return Err(TorshError::BackendError("DP4A not available".to_string()).into());
         }
 
-        // This would implement DP4A-optimized convolution
-        let batch_size = input.shape()[0];
-        let out_channels = weight.shape()[0];
-        let out_height = input.shape()[2];
-        let out_width = input.shape()[3];
-
-        QuantizedTensor::from_data(
-            vec![0; batch_size * out_channels * out_height * out_width],
-            vec![batch_size, out_channels, out_height, out_width],
-            input.params().clone(),
-            input.device().clone(),
+        let _ = (input, weight);
+        // No DP4A convolution kernel exists yet; a zero-filled result would be a
+        // silent fabrication. Fail honestly instead.
+        Err(TorshError::BackendError(
+            "DP4A INT8 conv2d kernel not implemented; requires a CUDA device \
+             with the __dp4a intrinsic (compute capability >= 6.1). Use \
+             HardwareQuantizationOps::qconv2d for the portable INT8 path."
+                .to_string(),
         )
+        .into())
     }
 }
 
@@ -702,11 +700,14 @@ impl TensorCoreQuantizationOps {
         }
     }
 
-    /// Detect Tensor Core support (simplified - would query CUDA properties)
+    /// Detect Tensor Core support.
+    ///
+    /// Tensor Cores are a CUDA GPU feature (compute capability >= 7.0). This
+    /// crate has no CUDA driver dependency to query, so report `false` rather
+    /// than fabricating `true`. Real availability must be established from a live
+    /// CUDA device (compute capability >= 7.0) in the CUDA backend.
     fn detect_tensor_cores() -> bool {
-        // In practice, this would query CUDA device compute capability
-        // Tensor Cores are available on compute capability 7.0+ (Volta and newer)
-        true
+        false
     }
 
     /// Check if Tensor Cores are available
@@ -746,14 +747,16 @@ impl TensorCoreQuantizationOps {
             ).into());
         }
 
-        // This would use Tensor Core WMMA instructions
-        // For now, return a placeholder result
-        QuantizedTensor::from_data(
-            vec![0; m * n],
-            vec![m, n],
-            a.params().clone(),
-            a.device().clone(),
+        // The real WMMA path is not yet emitted. Returning zeros would silently
+        // fabricate the result of every Tensor Core matmul, so fail loudly until
+        // the CUDA WMMA kernel is implemented.
+        Err(TorshError::BackendError(
+            "Tensor Core (WMMA) INT8 matmul kernel not implemented; requires a \
+             CUDA device with Tensor Cores (compute capability >= 7.0). Use \
+             HardwareQuantizationOps::qmatmul for the portable INT8 path."
+                .to_string(),
         )
+        .into())
     }
 
     /// Tensor Core mixed-precision operations
@@ -768,17 +771,17 @@ impl TensorCoreQuantizationOps {
             ).into());
         }
 
-        // This would implement mixed-precision computation using Tensor Cores
-        // For example: INT8 inputs with FP16 or FP32 accumulation
-        let m = a.shape()[0];
-        let n = b.shape()[1];
-
-        QuantizedTensor::from_data(
-            vec![0; m * n],
-            vec![m, n],
-            a.params().clone(),
-            a.device().clone(),
+        let _ = (a, b);
+        // No mixed-precision WMMA kernel exists yet; a zero-filled result would
+        // be a silent fabrication. Fail honestly instead.
+        Err(TorshError::BackendError(
+            "Tensor Core mixed-precision INT8 matmul kernel not implemented; \
+             requires a CUDA device with Tensor Cores (compute capability \
+             >= 7.0). Use HardwareQuantizationOps::qmatmul for the portable INT8 \
+             path."
+                .to_string(),
         )
+        .into())
     }
 }
 
@@ -796,15 +799,18 @@ mod tests {
     #[test]
     fn test_dp4a_ops_creation() {
         let dp4a_ops = Dp4aQuantizationOps::new();
-        // DP4A is assumed available in this test environment
-        assert!(dp4a_ops.is_available());
+        // DP4A requires a live CUDA device query (compute capability >= 6.1),
+        // which this CPU-only build cannot perform, so detection honestly
+        // reports unavailable rather than fabricating availability.
+        assert!(!dp4a_ops.is_available());
     }
 
     #[test]
     fn test_tensor_core_ops_creation() {
         let tc_ops = TensorCoreQuantizationOps::new();
-        // Tensor Cores are assumed available in this test environment
-        assert!(tc_ops.is_available());
+        // Tensor Cores require a live CUDA device query (compute capability
+        // >= 7.0); detection honestly reports unavailable on this CPU-only build.
+        assert!(!tc_ops.is_available());
     }
 
     #[test]

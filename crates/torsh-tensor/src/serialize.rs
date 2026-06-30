@@ -26,14 +26,14 @@
 //! use torsh_tensor::Tensor;
 //!
 //! # fn example() -> torsh_core::error::Result<()> {
-//! let tensor = Tensor::ones([2, 3], torsh_core::device::DeviceType::Cpu)?;
+//! let tensor = Tensor::<f32>::ones(&[2, 3], torsh_core::device::DeviceType::Cpu)?;
 //!
 //! // Save with auto-format detection
 //! let options = SerializationOptions::default();
 //! tensor.save("tensor.bin", &options)?;
 //!
 //! // Load with explicit format
-//! let loaded = Tensor::<f32>::load("tensor.bin", Some(SerializationFormat::Binary))?;
+//! let loaded = Tensor::<f32>::load("tensor.bin")?;
 //! # Ok(())
 //! # }
 //! ```

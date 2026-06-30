@@ -126,21 +126,18 @@ impl<T: TensorElement + Copy + torsh_core::FloatElement> TensorConvenience<T> fo
     }
 
     fn is_contiguous(&self) -> bool {
-        // Check if strides follow row-major order
         let shape_ref = self.shape();
-        let shape = shape_ref.dims();
-        if shape.is_empty() {
-            return true;
+        if shape_ref.dims().is_empty() {
+            return true; // scalar is always contiguous
         }
-
-        let mut _expected_stride = 1;
-        for &dim_size in shape.iter().rev() {
-            _expected_stride *= dim_size;
+        // None means default strides → always contiguous by construction
+        match &self.strides {
+            None => true,
+            Some(strides) => {
+                let expected = self.compute_default_strides();
+                strides == &expected
+            }
         }
-
-        // For now, assume tensors are contiguous
-        // TODO: Add actual stride checking when stride information is available
-        true
     }
 
     fn contiguous(&self) -> Result<Tensor<T>> {
@@ -461,8 +458,7 @@ mod tests {
 ///     .add_scalar(1.0)
 ///     .mul_scalar(2.0)
 ///     .relu()
-///     .sum()
-///     .expect("operation should succeed");
+///     .sum();
 /// ```
 pub trait TensorFluentExt<T: TensorElement> {
     /// Start fluent chaining

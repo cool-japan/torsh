@@ -623,6 +623,7 @@ pub unsafe extern "C" fn torsh_tensor_add_scalar(
 
             let result_id = get_next_id();
 
+            drop(store);
             if let Ok(mut result_store) = get_tensor_store().lock() {
                 result_store.insert(result_id, Box::new(result_impl));
                 return result_id as *mut TorshTensor;
@@ -659,6 +660,7 @@ pub unsafe extern "C" fn torsh_tensor_mul_scalar(
 
             let result_id = get_next_id();
 
+            drop(store);
             if let Ok(mut result_store) = get_tensor_store().lock() {
                 result_store.insert(result_id, Box::new(result_impl));
                 return result_id as *mut TorshTensor;
@@ -737,567 +739,174 @@ pub unsafe extern "C" fn torsh_tensor_div_scalar(
 }
 
 // =============================================================================
-// Activation Functions
+// Additional Creation Operations
 // =============================================================================
 
-/// Apply ReLU activation
+/// Create an identity matrix of size n×n
 #[no_mangle]
-pub unsafe extern "C" fn torsh_tensor_relu(
-    input: *const TorshTensor,
-    out: *mut TorshTensor,
-) -> TorshError {
-    if input.is_null() || out.is_null() {
-        return TorshError::InvalidArgument;
+pub unsafe extern "C" fn torsh_tensor_eye(n: usize) -> *mut TorshTensor {
+    if n == 0 {
+        set_last_error("Size n must be > 0 for identity matrix".to_string());
+        return ptr::null_mut();
     }
 
-    let id_input = input as usize;
-    let id_out = out as usize;
+    let total_size = n * n;
+    let mut data = vec![0.0f32; total_size];
+    for i in 0..n {
+        data[i * n + i] = 1.0f32;
+    }
 
+    let tensor_impl = TensorImpl {
+        data,
+        shape: vec![n, n],
+        dtype: DType::F32,
+    };
+
+    let id = get_next_id();
     if let Ok(mut store) = get_tensor_store().lock() {
-        if let Some(input_impl) = store.get(&id_input).cloned() {
-            let result_data: Vec<f32> = input_impl.data.iter().map(|&x| x.max(0.0)).collect();
-
-            let result_tensor = TensorImpl {
-                data: result_data,
-                shape: input_impl.shape.clone(),
-                dtype: input_impl.dtype,
-            };
-
-            store.insert(id_out, Box::new(result_tensor));
-            return TorshError::Success;
-        }
+        store.insert(id, Box::new(tensor_impl));
+        id as *mut TorshTensor
+    } else {
+        set_last_error("Failed to store tensor".to_string());
+        ptr::null_mut()
     }
-
-    set_last_error("Invalid tensor handle".to_string());
-    TorshError::InvalidArgument
 }
 
-/// Apply sigmoid activation (for R bindings compatibility)
+/// Create a 1D tensor with linearly spaced values from start to end (inclusive)
 #[no_mangle]
-pub unsafe extern "C" fn torsh_tensor_sigmoid(input: *const TorshTensor) -> *mut TorshTensor {
-    if input.is_null() {
-        set_last_error("Null tensor pointer".to_string());
+pub unsafe extern "C" fn torsh_tensor_linspace(
+    start: f64,
+    end: f64,
+    steps: usize,
+) -> *mut TorshTensor {
+    if steps == 0 {
+        set_last_error("steps must be > 0 for linspace".to_string());
         return ptr::null_mut();
     }
 
-    let id_input = input as usize;
+    let data = if steps == 1 {
+        vec![start as f32]
+    } else {
+        let step_size = (end - start) / (steps - 1) as f64;
+        (0..steps)
+            .map(|i| (start + step_size * i as f64) as f32)
+            .collect()
+    };
 
-    if let Ok(store) = get_tensor_store().lock() {
-        if let Some(input_impl) = store.get(&id_input) {
-            let result_data: Vec<f32> = input_impl
-                .data
-                .iter()
-                .map(|&x| 1.0 / (1.0 + (-x).exp()))
-                .collect();
+    let tensor_impl = TensorImpl {
+        data,
+        shape: vec![steps],
+        dtype: DType::F32,
+    };
 
-            let result_tensor = TensorImpl {
-                data: result_data,
-                shape: input_impl.shape.clone(),
-                dtype: input_impl.dtype,
-            };
-
-            let result_id = get_next_id();
-            if let Ok(mut result_store) = get_tensor_store().lock() {
-                result_store.insert(result_id, Box::new(result_tensor));
-                return result_id as *mut TorshTensor;
-            }
-        }
+    let id = get_next_id();
+    if let Ok(mut store) = get_tensor_store().lock() {
+        store.insert(id, Box::new(tensor_impl));
+        id as *mut TorshTensor
+    } else {
+        set_last_error("Failed to store tensor".to_string());
+        ptr::null_mut()
     }
-
-    set_last_error("Failed to apply sigmoid".to_string());
-    ptr::null_mut()
-}
-
-/// Apply tanh activation (for R bindings compatibility)
-#[no_mangle]
-pub unsafe extern "C" fn torsh_tensor_tanh(input: *const TorshTensor) -> *mut TorshTensor {
-    if input.is_null() {
-        set_last_error("Null tensor pointer".to_string());
-        return ptr::null_mut();
-    }
-
-    let id_input = input as usize;
-
-    if let Ok(store) = get_tensor_store().lock() {
-        if let Some(input_impl) = store.get(&id_input) {
-            let result_data: Vec<f32> = input_impl.data.iter().map(|&x| x.tanh()).collect();
-
-            let result_tensor = TensorImpl {
-                data: result_data,
-                shape: input_impl.shape.clone(),
-                dtype: input_impl.dtype,
-            };
-
-            let result_id = get_next_id();
-            if let Ok(mut result_store) = get_tensor_store().lock() {
-                result_store.insert(result_id, Box::new(result_tensor));
-                return result_id as *mut TorshTensor;
-            }
-        }
-    }
-
-    set_last_error("Failed to apply tanh".to_string());
-    ptr::null_mut()
 }
 
 // =============================================================================
-// Mathematical Functions
+// Tensor Manipulation (reshape, clone, detach)
 // =============================================================================
 
-/// Apply exp function (for R bindings compatibility)
+/// Reshape a tensor to a new shape (total elements must be the same)
 #[no_mangle]
-pub unsafe extern "C" fn torsh_tensor_exp(input: *const TorshTensor) -> *mut TorshTensor {
-    if input.is_null() {
-        set_last_error("Null tensor pointer".to_string());
+pub unsafe extern "C" fn torsh_tensor_reshape(
+    tensor: *const TorshTensor,
+    shape: *const usize,
+    ndim: usize,
+) -> *mut TorshTensor {
+    if tensor.is_null() || shape.is_null() || ndim == 0 {
+        set_last_error("Invalid arguments to torsh_tensor_reshape".to_string());
         return ptr::null_mut();
     }
 
-    let id_input = input as usize;
+    let new_shape = slice::from_raw_parts(shape, ndim);
+    let new_total: usize = new_shape.iter().product();
 
+    let id = tensor as usize;
     if let Ok(store) = get_tensor_store().lock() {
-        if let Some(input_impl) = store.get(&id_input) {
-            let result_data: Vec<f32> = input_impl.data.iter().map(|&x| x.exp()).collect();
-
-            let result_tensor = TensorImpl {
-                data: result_data,
-                shape: input_impl.shape.clone(),
-                dtype: input_impl.dtype,
-            };
-
-            let result_id = get_next_id();
-            if let Ok(mut result_store) = get_tensor_store().lock() {
-                result_store.insert(result_id, Box::new(result_tensor));
-                return result_id as *mut TorshTensor;
-            }
-        }
-    }
-
-    set_last_error("Failed to apply exp".to_string());
-    ptr::null_mut()
-}
-
-/// Apply log function (for R bindings compatibility)
-#[no_mangle]
-pub unsafe extern "C" fn torsh_tensor_log(input: *const TorshTensor) -> *mut TorshTensor {
-    if input.is_null() {
-        set_last_error("Null tensor pointer".to_string());
-        return ptr::null_mut();
-    }
-
-    let id_input = input as usize;
-
-    if let Ok(store) = get_tensor_store().lock() {
-        if let Some(input_impl) = store.get(&id_input) {
-            let result_data: Vec<f32> = input_impl.data.iter().map(|&x| x.ln()).collect();
-
-            let result_tensor = TensorImpl {
-                data: result_data,
-                shape: input_impl.shape.clone(),
-                dtype: input_impl.dtype,
-            };
-
-            let result_id = get_next_id();
-            if let Ok(mut result_store) = get_tensor_store().lock() {
-                result_store.insert(result_id, Box::new(result_tensor));
-                return result_id as *mut TorshTensor;
-            }
-        }
-    }
-
-    set_last_error("Failed to apply log".to_string());
-    ptr::null_mut()
-}
-
-/// Apply sqrt function (for R bindings compatibility)
-#[no_mangle]
-pub unsafe extern "C" fn torsh_tensor_sqrt(input: *const TorshTensor) -> *mut TorshTensor {
-    if input.is_null() {
-        set_last_error("Null tensor pointer".to_string());
-        return ptr::null_mut();
-    }
-
-    let id_input = input as usize;
-
-    if let Ok(store) = get_tensor_store().lock() {
-        if let Some(input_impl) = store.get(&id_input) {
-            let result_data: Vec<f32> = input_impl.data.iter().map(|&x| x.sqrt()).collect();
-
-            let result_tensor = TensorImpl {
-                data: result_data,
-                shape: input_impl.shape.clone(),
-                dtype: input_impl.dtype,
-            };
-
-            let result_id = get_next_id();
-            if let Ok(mut result_store) = get_tensor_store().lock() {
-                result_store.insert(result_id, Box::new(result_tensor));
-                return result_id as *mut TorshTensor;
-            }
-        }
-    }
-
-    set_last_error("Failed to apply sqrt".to_string());
-    ptr::null_mut()
-}
-
-/// Apply abs function (for R bindings compatibility)
-#[no_mangle]
-pub unsafe extern "C" fn torsh_tensor_abs(input: *const TorshTensor) -> *mut TorshTensor {
-    if input.is_null() {
-        set_last_error("Null tensor pointer".to_string());
-        return ptr::null_mut();
-    }
-
-    let id_input = input as usize;
-
-    if let Ok(store) = get_tensor_store().lock() {
-        if let Some(input_impl) = store.get(&id_input) {
-            let result_data: Vec<f32> = input_impl.data.iter().map(|&x| x.abs()).collect();
-
-            let result_tensor = TensorImpl {
-                data: result_data,
-                shape: input_impl.shape.clone(),
-                dtype: input_impl.dtype,
-            };
-
-            let result_id = get_next_id();
-            if let Ok(mut result_store) = get_tensor_store().lock() {
-                result_store.insert(result_id, Box::new(result_tensor));
-                return result_id as *mut TorshTensor;
-            }
-        }
-    }
-
-    set_last_error("Failed to apply abs".to_string());
-    ptr::null_mut()
-}
-
-/// Trigonometric sine function
-#[no_mangle]
-pub unsafe extern "C" fn torsh_tensor_sin(input: *const TorshTensor) -> *mut TorshTensor {
-    if input.is_null() {
-        return ptr::null_mut();
-    }
-
-    let id = input as usize;
-    if let Ok(store) = get_tensor_store().lock() {
-        if let Some(input_impl) = store.get(&id) {
-            let result_data: Vec<f32> = input_impl.data.iter().map(|x| x.sin()).collect();
-
-            let result_impl = TensorImpl {
-                data: result_data,
-                shape: input_impl.shape.clone(),
-                dtype: input_impl.dtype,
-            };
-
-            let id = get_next_id();
-
-            drop(store);
-            if let Ok(mut store) = get_tensor_store().lock() {
-                store.insert(id, Box::new(result_impl));
-                return id as *mut TorshTensor;
-            }
-        }
-    }
-    ptr::null_mut()
-}
-
-/// Trigonometric cosine function
-#[no_mangle]
-pub unsafe extern "C" fn torsh_tensor_cos(input: *const TorshTensor) -> *mut TorshTensor {
-    if input.is_null() {
-        return ptr::null_mut();
-    }
-
-    let id = input as usize;
-    if let Ok(store) = get_tensor_store().lock() {
-        if let Some(input_impl) = store.get(&id) {
-            let result_data: Vec<f32> = input_impl.data.iter().map(|x| x.cos()).collect();
-
-            let result_impl = TensorImpl {
-                data: result_data,
-                shape: input_impl.shape.clone(),
-                dtype: input_impl.dtype,
-            };
-
-            let id = get_next_id();
-
-            drop(store);
-            if let Ok(mut store) = get_tensor_store().lock() {
-                store.insert(id, Box::new(result_impl));
-                return id as *mut TorshTensor;
-            }
-        }
-    }
-    ptr::null_mut()
-}
-
-/// Trigonometric tangent function
-#[no_mangle]
-pub unsafe extern "C" fn torsh_tensor_tan(input: *const TorshTensor) -> *mut TorshTensor {
-    if input.is_null() {
-        return ptr::null_mut();
-    }
-
-    let id = input as usize;
-    if let Ok(store) = get_tensor_store().lock() {
-        if let Some(input_impl) = store.get(&id) {
-            let result_data: Vec<f32> = input_impl.data.iter().map(|x| x.tan()).collect();
-
-            let result_impl = TensorImpl {
-                data: result_data,
-                shape: input_impl.shape.clone(),
-                dtype: input_impl.dtype,
-            };
-
-            let id = get_next_id();
-
-            drop(store);
-            if let Ok(mut store) = get_tensor_store().lock() {
-                store.insert(id, Box::new(result_impl));
-                return id as *mut TorshTensor;
-            }
-        }
-    }
-    ptr::null_mut()
-}
-
-// =============================================================================
-// Tensor Manipulation
-// =============================================================================
-
-/// Transpose tensor (for R bindings compatibility)
-#[no_mangle]
-pub unsafe extern "C" fn torsh_tensor_transpose(input: *const TorshTensor) -> *mut TorshTensor {
-    if input.is_null() {
-        set_last_error("Null tensor pointer".to_string());
-        return ptr::null_mut();
-    }
-
-    let id_input = input as usize;
-
-    if let Ok(store) = get_tensor_store().lock() {
-        if let Some(input_impl) = store.get(&id_input) {
-            if input_impl.shape.len() != 2 {
-                set_last_error("Transpose only supported for 2D tensors".to_string());
+        if let Some(tensor_impl) = store.get(&id) {
+            let old_total: usize = tensor_impl.shape.iter().product();
+            if old_total != new_total {
+                set_last_error(format!(
+                    "Cannot reshape tensor of {} elements to shape with {} elements",
+                    old_total, new_total
+                ));
                 return ptr::null_mut();
             }
 
-            let rows = input_impl.shape[0];
-            let cols = input_impl.shape[1];
-            let mut result_data = vec![0.0f32; rows * cols];
-
-            for i in 0..rows {
-                for j in 0..cols {
-                    result_data[j * rows + i] = input_impl.data[i * cols + j];
-                }
-            }
-
-            let result_tensor = TensorImpl {
-                data: result_data,
-                shape: vec![cols, rows],
-                dtype: input_impl.dtype,
+            let result_impl = TensorImpl {
+                data: tensor_impl.data.clone(),
+                shape: new_shape.to_vec(),
+                dtype: tensor_impl.dtype,
             };
 
             let result_id = get_next_id();
+            drop(store);
             if let Ok(mut result_store) = get_tensor_store().lock() {
-                result_store.insert(result_id, Box::new(result_tensor));
+                result_store.insert(result_id, Box::new(result_impl));
                 return result_id as *mut TorshTensor;
             }
         }
     }
 
-    set_last_error("Failed to transpose tensor".to_string());
+    set_last_error("Failed to reshape tensor".to_string());
     ptr::null_mut()
+}
+
+/// Deep-copy (clone) a tensor
+#[no_mangle]
+pub unsafe extern "C" fn torsh_tensor_clone(input: *const TorshTensor) -> *mut TorshTensor {
+    if input.is_null() {
+        set_last_error("Null tensor pointer for clone".to_string());
+        return ptr::null_mut();
+    }
+
+    let id = input as usize;
+    if let Ok(store) = get_tensor_store().lock() {
+        if let Some(tensor_impl) = store.get(&id) {
+            let cloned = TensorImpl {
+                data: tensor_impl.data.clone(),
+                shape: tensor_impl.shape.clone(),
+                dtype: tensor_impl.dtype,
+            };
+
+            let result_id = get_next_id();
+            drop(store);
+            if let Ok(mut result_store) = get_tensor_store().lock() {
+                result_store.insert(result_id, Box::new(cloned));
+                return result_id as *mut TorshTensor;
+            }
+        }
+    }
+
+    set_last_error("Failed to clone tensor".to_string());
+    ptr::null_mut()
+}
+
+/// Detach a tensor from the autograd graph (returns a copy with identical data)
+///
+/// In the current pure-Rust backend there is no autograd graph, so this is
+/// semantically equivalent to `torsh_tensor_clone` — it returns a new tensor
+/// handle containing the same data and shape.
+#[no_mangle]
+pub unsafe extern "C" fn torsh_tensor_detach(input: *const TorshTensor) -> *mut TorshTensor {
+    torsh_tensor_clone(input)
 }
 
 // =============================================================================
-// Reduction Operations
+// Math, activation, reduction, convolution and optimizer primitives
+// (extracted to sibling file to stay within 2000-line policy)
 // =============================================================================
 
-/// Sum all elements in tensor
-#[no_mangle]
-pub unsafe extern "C" fn torsh_tensor_sum_all(tensor: *const TorshTensor) -> *mut TorshTensor {
-    if tensor.is_null() {
-        return ptr::null_mut();
-    }
-
-    let id = tensor as usize;
-    if let Ok(store) = get_tensor_store().lock() {
-        if let Some(tensor_impl) = store.get(&id) {
-            let sum: f32 = tensor_impl.data.iter().sum();
-
-            let result_impl = TensorImpl {
-                data: vec![sum],
-                shape: vec![1],
-                dtype: tensor_impl.dtype,
-            };
-
-            let id = get_next_id();
-
-            drop(store);
-            if let Ok(mut store) = get_tensor_store().lock() {
-                store.insert(id, Box::new(result_impl));
-                return id as *mut TorshTensor;
-            }
-        }
-    }
-    ptr::null_mut()
-}
-
-/// Sum along a dimension
-#[no_mangle]
-pub unsafe extern "C" fn torsh_tensor_sum_dim(
-    tensor: *const TorshTensor,
-    _dim: c_int,
-) -> *mut TorshTensor {
-    if tensor.is_null() {
-        return ptr::null_mut();
-    }
-
-    // For simplicity, just return sum of all elements for now
-    torsh_tensor_sum_all(tensor)
-}
-
-/// Mean of all elements
-#[no_mangle]
-pub unsafe extern "C" fn torsh_tensor_mean_all(tensor: *const TorshTensor) -> *mut TorshTensor {
-    if tensor.is_null() {
-        return ptr::null_mut();
-    }
-
-    let id = tensor as usize;
-    if let Ok(store) = get_tensor_store().lock() {
-        if let Some(tensor_impl) = store.get(&id) {
-            let mean: f32 = tensor_impl.data.iter().sum::<f32>() / tensor_impl.data.len() as f32;
-
-            let result_impl = TensorImpl {
-                data: vec![mean],
-                shape: vec![1],
-                dtype: tensor_impl.dtype,
-            };
-
-            let id = get_next_id();
-
-            drop(store);
-            if let Ok(mut store) = get_tensor_store().lock() {
-                store.insert(id, Box::new(result_impl));
-                return id as *mut TorshTensor;
-            }
-        }
-    }
-    ptr::null_mut()
-}
-
-/// Mean along a dimension
-#[no_mangle]
-pub unsafe extern "C" fn torsh_tensor_mean_dim(
-    tensor: *const TorshTensor,
-    _dim: c_int,
-) -> *mut TorshTensor {
-    if tensor.is_null() {
-        return ptr::null_mut();
-    }
-
-    // For simplicity, just return mean of all elements for now
-    torsh_tensor_mean_all(tensor)
-}
-
-/// Maximum of all elements
-#[no_mangle]
-pub unsafe extern "C" fn torsh_tensor_max_all(tensor: *const TorshTensor) -> *mut TorshTensor {
-    if tensor.is_null() {
-        return ptr::null_mut();
-    }
-
-    let id = tensor as usize;
-    if let Ok(store) = get_tensor_store().lock() {
-        if let Some(tensor_impl) = store.get(&id) {
-            let max: f32 = tensor_impl
-                .data
-                .iter()
-                .cloned()
-                .fold(f32::NEG_INFINITY, f32::max);
-
-            let result_impl = TensorImpl {
-                data: vec![max],
-                shape: vec![1],
-                dtype: tensor_impl.dtype,
-            };
-
-            let id = get_next_id();
-
-            drop(store);
-            if let Ok(mut store) = get_tensor_store().lock() {
-                store.insert(id, Box::new(result_impl));
-                return id as *mut TorshTensor;
-            }
-        }
-    }
-    ptr::null_mut()
-}
-
-/// Maximum along a dimension
-#[no_mangle]
-pub unsafe extern "C" fn torsh_tensor_max_dim(
-    tensor: *const TorshTensor,
-    _dim: c_int,
-) -> *mut TorshTensor {
-    if tensor.is_null() {
-        return ptr::null_mut();
-    }
-
-    // For simplicity, just return max of all elements for now
-    torsh_tensor_max_all(tensor)
-}
-
-/// Minimum of all elements
-#[no_mangle]
-pub unsafe extern "C" fn torsh_tensor_min_all(tensor: *const TorshTensor) -> *mut TorshTensor {
-    if tensor.is_null() {
-        return ptr::null_mut();
-    }
-
-    let id = tensor as usize;
-    if let Ok(store) = get_tensor_store().lock() {
-        if let Some(tensor_impl) = store.get(&id) {
-            let min: f32 = tensor_impl
-                .data
-                .iter()
-                .cloned()
-                .fold(f32::INFINITY, f32::min);
-
-            let result_impl = TensorImpl {
-                data: vec![min],
-                shape: vec![1],
-                dtype: tensor_impl.dtype,
-            };
-
-            let id = get_next_id();
-
-            drop(store);
-            if let Ok(mut store) = get_tensor_store().lock() {
-                store.insert(id, Box::new(result_impl));
-                return id as *mut TorshTensor;
-            }
-        }
-    }
-    ptr::null_mut()
-}
-
-/// Minimum along a dimension
-#[no_mangle]
-pub unsafe extern "C" fn torsh_tensor_min_dim(
-    tensor: *const TorshTensor,
-    _dim: c_int,
-) -> *mut TorshTensor {
-    if tensor.is_null() {
-        return ptr::null_mut();
-    }
-
-    // For simplicity, just return min of all elements for now
-    torsh_tensor_min_all(tensor)
-}
+#[path = "tensor_math.rs"]
+mod tensor_math;
+pub use tensor_math::*;
 
 // =============================================================================
 // Memory Management

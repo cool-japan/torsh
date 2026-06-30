@@ -498,83 +498,134 @@ pub fn flash_attention(
     causal: bool,
 ) -> TorshResult<Tensor> {
     let block_size = block_size.unwrap_or(64);
+    // Extract shape info
     let query_shape_binding = query.shape();
-    let query_shape = query_shape_binding.dims();
-    let seq_len = query_shape[query_shape.len() - 2];
-    let d_k = query_shape[query_shape.len() - 1] as f64;
+    let query_shape = query_shape_binding.dims().to_vec();
+    let ndim = query_shape.len();
+    let seq_dim = ndim - 2; // dim 2 for 4D tensors
+    let dk_dim = ndim - 1; // dim 3 for 4D tensors
+    let seq_len = query_shape[seq_dim];
+    let dk = query_shape[dk_dim];
+    let d_k = dk as f64;
     let scale = (1.0 / d_k.sqrt()) as f32;
 
-    // For simplicity, we'll implement a basic version that processes in blocks
-    // A full implementation would use more sophisticated tiling and online softmax
+    // For 4D [b, h, seq, dk], batch_size = b * h
+    let batch_size: usize = query_shape[..seq_dim].iter().product();
+    // b and h for reshape
+    let (b, h) = if ndim == 4 {
+        (query_shape[0], query_shape[1])
+    } else {
+        (batch_size, 1)
+    };
 
     let num_blocks = seq_len.div_ceil(block_size);
-    let mut outputs = Vec::new();
+    let mut outputs: Vec<(Vec<f32>, usize)> = Vec::new(); // (flat_data, qi_len)
 
     for i in 0..num_blocks {
         let start_i = i * block_size;
-        let end_i = (start_i + block_size).min(seq_len);
+        let qi_len = block_size.min(seq_len - start_i);
 
-        // Extract query block (simplified slicing)
-        let q_block = query.clone(); // TODO: proper slicing
+        // Slice q_block along seq_dim
+        let q_block = query.narrow(seq_dim as i32, start_i as i64, qi_len)?;
+        // shape: [b, h, qi_len, dk]
 
-        let mut block_outputs = Vec::new();
+        // Compute scores: q_block @ key^T
+        // Need 3D for bmm
+        let k_transposed = key.transpose(-2, -1)?;
+        // key^T shape: [b, h, dk, seq_len]
 
-        for j in 0..num_blocks {
-            let start_j = j * block_size;
-            let end_j = (start_j + block_size).min(seq_len);
+        let scores = if ndim == 4 {
+            let q_3d = q_block.view(&[(b * h) as i32, qi_len as i32, dk as i32])?;
+            let k_3d = k_transposed.view(&[(b * h) as i32, dk as i32, seq_len as i32])?;
+            let s_3d = crate::linalg::bmm(&q_3d, &k_3d)?;
+            // s_3d shape: [b*h, qi_len, seq_len]
+            s_3d.view(&[b as i32, h as i32, qi_len as i32, seq_len as i32])?
+        } else {
+            crate::linalg::bmm(&q_block, &k_transposed)?
+        };
 
-            // Skip upper triangular blocks for causal attention
-            if causal && start_j > end_i {
-                continue;
+        let scores = scores.mul_scalar(scale)?;
+
+        // Apply causal mask if needed
+        // For q_block spanning [start_i, start_i+qi_len) attending to all keys [0, seq_len):
+        // mask[r][c] = 1.0 if (start_i + r) < c, else 0.0
+        let scores = if causal {
+            let mut mask_data = vec![0.0f32; qi_len * seq_len];
+            for r in 0..qi_len {
+                let query_pos = start_i + r;
+                for c in (query_pos + 1)..seq_len {
+                    mask_data[r * seq_len + c] = 1.0;
+                }
             }
+            let mask = Tensor::from_data(
+                mask_data,
+                vec![qi_len, seq_len],
+                torsh_core::device::DeviceType::Cpu,
+            )?;
+            let large_neg = mask.mul_scalar(-1e9)?;
+            scores.add_op(&large_neg)?
+        } else {
+            scores
+        };
 
-            // Extract key and value blocks (simplified)
-            let k_block = key.clone(); // TODO: proper slicing
-            let v_block = value.clone(); // TODO: proper slicing
+        // Softmax
+        let attn_weights = scores.softmax(-1)?;
 
-            // Compute attention scores for this block
-            let k_transposed = k_block.transpose(-2, -1)?;
-            let scores = crate::linalg::bmm(&q_block, &k_transposed)?.mul_scalar(scale)?;
+        // Compute weighted values: attn_weights @ value
+        let block_out = if ndim == 4 {
+            let attn_3d = attn_weights.view(&[(b * h) as i32, qi_len as i32, seq_len as i32])?;
+            let v_3d = value.view(&[(b * h) as i32, seq_len as i32, dk as i32])?;
+            let out_3d = crate::linalg::bmm(&attn_3d, &v_3d)?;
+            // out_3d shape: [b*h, qi_len, dk]
+            out_3d.view(&[b as i32, h as i32, qi_len as i32, dk as i32])?
+        } else {
+            crate::linalg::bmm(&attn_weights, value)?
+        };
 
-            // Apply causal mask within block if needed
-            let scores = if causal && start_j < end_i {
-                let mask_size = (end_i - start_j).min(end_j - start_j);
-                let causal_mask = create_causal_mask(mask_size)?;
-                let large_neg = causal_mask.mul_scalar(-1e9)?;
-                scores.add_op(&large_neg)?
-            } else {
-                scores
-            };
-
-            // Apply softmax and compute weighted values
-            let attn_weights = scores.softmax(-1)?;
-            let weighted_values = crate::linalg::bmm(&attn_weights, &v_block)?;
-            block_outputs.push(weighted_values);
-        }
-
-        // Combine block outputs (simplified)
-        if !block_outputs.is_empty() {
-            let block_output = block_outputs
-                .into_iter()
-                .reduce(|acc, x| acc.add_op(&x).unwrap_or(acc))
-                .expect("block_outputs is non-empty so reduce should return Some");
-            outputs.push(block_output);
-        }
+        let flat = block_out.to_vec()?;
+        outputs.push((flat, qi_len));
     }
 
-    // Combine all outputs (simplified)
     if outputs.is_empty() {
-        Ok(query.clone())
-    } else {
-        outputs
-            .into_iter()
-            .reduce(|acc, x| acc.add_op(&x).unwrap_or(acc))
-            .ok_or_else(|| {
-                TorshError::operation_error(
-                    "flash_attention: Failed to combine flash attention outputs",
-                )
-            })
+        return Ok(query.clone());
     }
+
+    // Manually concatenate along seq_dim (dim 2 for 4D)
+    // Each block has flat data for shape [b, h, qi_len, dk]
+    // Final shape: [b, h, seq_len, dk]
+    // flat layout: element[b_i, h_i, q_i, d_i] = data[b_i*h*qi*dk + h_i*qi*dk + q_i*dk + d_i]
+    // For concatenation along dim2, iterate (b_i, h_i) and pull rows from each block in order
+
+    let total_q: usize = outputs.iter().map(|(_, qi)| *qi).sum();
+    let total_elements = batch_size * total_q * dk;
+    let mut result_data = vec![0.0f32; total_elements];
+
+    // batch_size = b * h (flattened)
+    for b_flat in 0..batch_size {
+        let mut q_offset = 0usize;
+        for (block_flat, qi) in &outputs {
+            // block_flat is for shape [b, h, qi, dk] = [b_flat_dim, qi, dk] when flattened
+            // element at (b_flat, q_i, d_i) in block = block_flat[b_flat * qi * dk + q_i * dk + d_i]
+            for q_i in 0..*qi {
+                for d_i in 0..dk {
+                    let src = b_flat * qi * dk + q_i * dk + d_i;
+                    let dst = b_flat * total_q * dk + (q_offset + q_i) * dk + d_i;
+                    result_data[dst] = block_flat[src];
+                }
+            }
+            q_offset += qi;
+        }
+    }
+
+    // Rebuild final shape
+    let mut final_shape = query_shape;
+    final_shape[seq_dim] = total_q;
+
+    Tensor::from_data(
+        result_data,
+        final_shape,
+        torsh_core::device::DeviceType::Cpu,
+    )
 }
 
 /// Cross-attention between different sequences
@@ -761,7 +812,7 @@ mod tests {
     #[test]
     fn test_causal_mask_creation() -> TorshResult<()> {
         let seq_len = 4;
-        let mask = create_causal_mask(seq_len).unwrap();
+        let mask = create_causal_mask(seq_len)?;
         assert_eq!(mask.shape().dims(), &[seq_len, seq_len]);
 
         // Verify causal structure (lower triangular should be 0, upper triangular should be 1)
@@ -854,6 +905,80 @@ mod tests {
                 // For now, skip this test since flash attention appears to be incomplete
                 println!("Skipping flash attention test due to incomplete implementation");
             }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_flash_attention_noncausal_matches_naive() -> TorshResult<()> {
+        let data: Vec<f32> = (0..32).map(|x| (x as f32) * 0.1 - 1.6).collect();
+        let query = Tensor::from_data(
+            data.clone(),
+            vec![1, 1, 8, 4],
+            torsh_core::device::DeviceType::Cpu,
+        )?;
+        let key = Tensor::from_data(
+            data.clone(),
+            vec![1, 1, 8, 4],
+            torsh_core::device::DeviceType::Cpu,
+        )?;
+        let value = Tensor::from_data(data, vec![1, 1, 8, 4], torsh_core::device::DeviceType::Cpu)?;
+
+        let flash_out = flash_attention(&query, &key, &value, Some(4), false)?;
+        let (naive_out, _) = scaled_dot_product_attention(&query, &key, &value, None, 0.0, false)?;
+
+        assert_eq!(
+            flash_out.shape().dims(),
+            naive_out.shape().dims(),
+            "shape mismatch: flash={:?}, naive={:?}",
+            flash_out.shape().dims(),
+            naive_out.shape().dims()
+        );
+        let flash_data = flash_out.to_vec()?;
+        let naive_data = naive_out.to_vec()?;
+        for (i, (f, n)) in flash_data.iter().zip(naive_data.iter()).enumerate() {
+            assert!(
+                (f - n).abs() < 1e-4,
+                "mismatch at idx {i}: flash={f:.6}, naive={n:.6}, diff={:.2e}",
+                (f - n).abs()
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_flash_attention_causal_matches_naive() -> TorshResult<()> {
+        let data: Vec<f32> = (0..32).map(|x| (x as f32) * 0.05 - 0.8).collect();
+        let query = Tensor::from_data(
+            data.clone(),
+            vec![1, 1, 8, 4],
+            torsh_core::device::DeviceType::Cpu,
+        )?;
+        let key = Tensor::from_data(
+            data.clone(),
+            vec![1, 1, 8, 4],
+            torsh_core::device::DeviceType::Cpu,
+        )?;
+        let value = Tensor::from_data(data, vec![1, 1, 8, 4], torsh_core::device::DeviceType::Cpu)?;
+
+        let flash_out = flash_attention(&query, &key, &value, Some(4), true)?;
+        let (naive_out, _) = scaled_dot_product_attention(&query, &key, &value, None, 0.0, true)?;
+
+        assert_eq!(
+            flash_out.shape().dims(),
+            naive_out.shape().dims(),
+            "shape mismatch: flash={:?}, naive={:?}",
+            flash_out.shape().dims(),
+            naive_out.shape().dims()
+        );
+        let flash_data = flash_out.to_vec()?;
+        let naive_data = naive_out.to_vec()?;
+        for (i, (f, n)) in flash_data.iter().zip(naive_data.iter()).enumerate() {
+            assert!(
+                (f - n).abs() < 1e-4,
+                "mismatch at idx {i}: flash={f:.6}, naive={n:.6}, diff={:.2e}",
+                (f - n).abs()
+            );
         }
         Ok(())
     }

@@ -25,7 +25,7 @@
 //! Add to your `Cargo.toml`:
 //! ```toml
 //! [dependencies]
-//! torsh-utils = { version = "0.1.2", features = ["tensorboard", "collect_env"] }
+//! torsh-utils = { version = "0.1.3", features = ["tensorboard", "collect_env"] }
 //! ```
 //!
 //! ### Basic Usage Examples

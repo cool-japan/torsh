@@ -965,7 +965,13 @@ mod tests {
         let recent = detector.get_recent_anomalies(Duration::from_secs(1));
         assert!(!recent.is_empty());
 
-        // Get anomalies from longer ago
+        // Sleep so a real, clock-resolvable interval elapses since the anomaly was
+        // recorded. Without this, on a coarse-resolution (virtualized) monotonic
+        // clock `Instant::now()` can read the same tick as `detected_at`, making a
+        // sub-tick window like `from_nanos(1)` spuriously include the anomaly.
+        std::thread::sleep(Duration::from_millis(10));
+
+        // A window far shorter than the elapsed time must exclude the anomaly.
         let old = detector.get_recent_anomalies(Duration::from_nanos(1));
         assert!(old.is_empty());
     }

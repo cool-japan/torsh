@@ -132,8 +132,9 @@ impl Optimizer for AdaGrad {
                 let step = step_tensor.to_vec().map_err(OptimizerError::TensorError)?[0] as f32;
 
                 // Update sum of squares: sum_of_squares = sum_of_squares + grad^2
+                // `add` is non-mutating; reassign so the accumulator actually grows.
                 let grad_squared = grad.mul_op(&grad).map_err(OptimizerError::TensorError)?;
-                sum_of_squares
+                sum_of_squares = sum_of_squares
                     .add(&grad_squared)
                     .map_err(OptimizerError::TensorError)?;
 
@@ -152,12 +153,13 @@ impl Optimizer for AdaGrad {
                     .map_err(OptimizerError::TensorError)?;
 
                 // Apply update: param = param - clr * grad / std
+                // `sub` is non-mutating; write the new tensor back into `*param`.
                 let update = grad
                     .div(&std)
                     .map_err(OptimizerError::TensorError)?
                     .mul_scalar(clr)
                     .map_err(OptimizerError::TensorError)?;
-                param.sub(&update).map_err(OptimizerError::TensorError)?;
+                *param = param.sub(&update).map_err(OptimizerError::TensorError)?;
 
                 // Update state
                 state.insert("sum_of_squares".to_string(), sum_of_squares);
@@ -182,6 +184,10 @@ impl Optimizer for AdaGrad {
 
     fn add_param_group(&mut self, params: Vec<Arc<RwLock<Tensor>>>, options: HashMap<String, f32>) {
         self.base.add_param_group(params, options);
+    }
+
+    fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {
+        self.base.parameters()
     }
 
     fn state_dict(&self) -> OptimizerResult<OptimizerState> {

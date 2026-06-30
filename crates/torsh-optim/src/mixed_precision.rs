@@ -259,6 +259,10 @@ impl<O: Optimizer> Optimizer for MixedPrecisionOptimizer<O> {
         self.optimizer.add_param_group(params, options);
     }
 
+    fn parameters(&self) -> Vec<Arc<RwLock<Tensor>>> {
+        self.optimizer.parameters()
+    }
+
     fn state_dict(&self) -> OptimizerResult<OptimizerState> {
         self.optimizer.state_dict()
     }

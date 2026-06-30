@@ -21,6 +21,7 @@ torsh-core = { workspace = true }
 torsh-tensor = { workspace = true }
 torsh-special = { workspace = true }
 torsh-linalg = { workspace = true }
+scirs2-linalg = { workspace = true }
 torsh-backend = { workspace = true, features = ["simd"], optional = true }
 
 # Numerical - using SciRS2 ecosystem

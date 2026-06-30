@@ -14,21 +14,20 @@
 //!
 //! # Quick Start
 //!
-//! ```rust
+//! ```rust,no_run
 //! use torsh_vision::utils::visualization_3d::{Visualizer3D, create_3d_visualizer};
-//! use torsh_tensor::Tensor;
-//! use torsh_core::device::DeviceType;
+//! use torsh_tensor::creation::zeros_mut;
 //!
 //! // Create a 3D visualizer
 //! let visualizer = create_3d_visualizer();
 //!
 //! // Visualize a volume (3D tensor)
-//! let volume = Tensor::randn(vec![32, 32, 32], DeviceType::Cpu)?;
+//! let volume = zeros_mut::<f32>(&[32, 32, 32]);
 //! let html = visualizer.visualize_volume(&volume, 0.5)?;
 //! visualizer.save_visualization(&html, "volume.html")?;
 //!
 //! // Visualize feature maps
-//! let feature_map = Tensor::randn(vec![64, 28, 28], DeviceType::Cpu)?;
+//! let feature_map = zeros_mut::<f32>(&[64, 28, 28]);
 //! let html = visualizer.visualize_feature_map(&feature_map, "conv1")?;
 //! visualizer.save_visualization(&html, "feature_map.html")?;
 //! # Ok::<(), torsh_vision::VisionError>(())
@@ -36,16 +35,15 @@
 //!
 //! # Advanced Usage
 //!
-//! ```rust
+//! ```rust,no_run
 //! use torsh_vision::utils::visualization_3d::{Visualizer3D, visualize_activations_3d};
-//! use torsh_tensor::Tensor;
-//! use torsh_core::device::DeviceType;
+//! use torsh_tensor::creation::zeros_mut;
 //!
 //! // Batch process multiple layer activations
 //! let activations = vec![
-//!     Tensor::randn(vec![32, 56, 56], DeviceType::Cpu)?,
-//!     Tensor::randn(vec![64, 28, 28], DeviceType::Cpu)?,
-//!     Tensor::randn(vec![128, 14, 14], DeviceType::Cpu)?,
+//!     zeros_mut::<f32>(&[32, 56, 56]),
+//!     zeros_mut::<f32>(&[64, 28, 28]),
+//!     zeros_mut::<f32>(&[128, 14, 14]),
 //! ];
 //! let layer_names = vec!["conv1".to_string(), "conv2".to_string(), "conv3".to_string()];
 //!
@@ -185,13 +183,12 @@ impl Visualizer3D {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,no_run
     /// use torsh_vision::utils::visualization_3d::Visualizer3D;
-    /// use torsh_tensor::Tensor;
-    /// use torsh_core::device::DeviceType;
+    /// use torsh_tensor::creation::zeros_mut;
     ///
     /// let visualizer = Visualizer3D::new();
-    /// let volume = Tensor::randn(vec![16, 16, 16], DeviceType::Cpu)?;
+    /// let volume = zeros_mut::<f32>(&[16, 16, 16]);
     /// let html = visualizer.visualize_volume(&volume, 0.5)?;
     ///
     /// // Save to file
@@ -255,13 +252,12 @@ impl Visualizer3D {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,no_run
     /// use torsh_vision::utils::visualization_3d::Visualizer3D;
-    /// use torsh_tensor::Tensor;
-    /// use torsh_core::device::DeviceType;
+    /// use torsh_tensor::creation::zeros_mut;
     ///
     /// let visualizer = Visualizer3D::new();
-    /// let feature_map = Tensor::randn(vec![64, 32, 32], DeviceType::Cpu)?;
+    /// let feature_map = zeros_mut::<f32>(&[64, 32, 32]);
     /// let html = visualizer.visualize_feature_map(&feature_map, "conv2_relu")?;
     ///
     /// std::fs::write("feature_map.html", html)?;
@@ -331,15 +327,14 @@ impl Visualizer3D {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,no_run
     /// use torsh_vision::utils::visualization_3d::Visualizer3D;
-    /// use torsh_tensor::Tensor;
-    /// use torsh_core::device::DeviceType;
+    /// use torsh_tensor::creation::zeros_mut;
     ///
     /// let visualizer = Visualizer3D::new();
     ///
     /// // Create a sphere-like mask
-    /// let mask = Tensor::zeros(vec![32, 32, 32], DeviceType::Cpu)?;
+    /// let mask = zeros_mut::<f32>(&[32, 32, 32]);
     /// // ... fill mask with sphere data ...
     ///
     /// let mesh = visualizer.generate_mesh_from_mask(&mask)?;
@@ -789,13 +784,12 @@ impl Visualizer3D {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,no_run
     /// use torsh_vision::utils::visualization_3d::Visualizer3D;
-    /// use torsh_tensor::Tensor;
-    /// use torsh_core::device::DeviceType;
+    /// use torsh_tensor::creation::zeros_mut;
     ///
     /// let visualizer = Visualizer3D::new();
-    /// let volume = Tensor::randn(vec![16, 16, 16], DeviceType::Cpu)?;
+    /// let volume = zeros_mut::<f32>(&[16, 16, 16]);
     /// let html = visualizer.visualize_volume(&volume, 0.3)?;
     ///
     /// visualizer.save_visualization(&html, "my_volume.html")?;
@@ -854,16 +848,15 @@ pub fn create_3d_visualizer() -> Visualizer3D {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,no_run
 /// use torsh_vision::utils::visualization_3d::visualize_activations_3d;
-/// use torsh_tensor::Tensor;
-/// use torsh_core::device::DeviceType;
+/// use torsh_tensor::creation::zeros_mut;
 ///
 /// // Simulate activations from different layers
 /// let activations = vec![
-///     Tensor::randn(vec![32, 64, 64], DeviceType::Cpu)?,  // Early layer
-///     Tensor::randn(vec![64, 32, 32], DeviceType::Cpu)?,  // Middle layer
-///     Tensor::randn(vec![128, 16, 16], DeviceType::Cpu)?, // Deep layer
+///     zeros_mut::<f32>(&[32, 64, 64]),  // Early layer
+///     zeros_mut::<f32>(&[64, 32, 32]),  // Middle layer
+///     zeros_mut::<f32>(&[128, 16, 16]), // Deep layer
 /// ];
 ///
 /// let layer_names = vec![

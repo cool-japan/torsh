@@ -7,8 +7,10 @@
 // Allow unused variables for pool manager stubs
 #![allow(unused_variables)]
 
-use super::allocation::{CudaAllocation, PinnedAllocation, UnifiedAllocation};
-use crate::cuda::error::{CudaError, CudaResult};
+use super::allocation::{
+    size_class as compute_size_class, CudaAllocation, PinnedAllocation, UnifiedAllocation,
+};
+use crate::cuda::error::{CudaError, CudaResult, CustResultExt};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
@@ -518,744 +520,6 @@ pub struct BandwidthOptimization {
     pub duration: Duration,
 }
 
-/// Global pool statistics across all memory types
-#[derive(Debug, Clone)]
-pub struct GlobalPoolStats {
-    /// Total pools managed
-    pub total_pools: usize,
-
-    /// Device pools count
-    pub device_pools: usize,
-
-    /// Unified pools count
-    pub unified_pools: usize,
-
-    /// Pinned pools count
-    pub pinned_pools: usize,
-
-    /// Total memory managed
-    pub total_memory_managed: usize,
-
-    /// Global hit rate
-    pub global_hit_rate: f32,
-
-    /// Cross-pool efficiency
-    pub cross_pool_efficiency: f32,
-
-    /// Memory waste across all pools
-    pub global_memory_waste: f32,
-
-    /// Overall pool health score
-    pub overall_health_score: f32,
-}
-
-/// Resource allocation tracker
-#[derive(Debug)]
-pub struct ResourceTracker {
-    /// Resource usage by device
-    device_usage: HashMap<usize, DeviceResourceUsage>,
-
-    /// Global resource limits
-    global_limits: ResourceLimits,
-
-    /// Resource allocation history
-    allocation_history: Vec<ResourceAllocationEvent>,
-
-    /// Resource pressure indicators
-    pressure_indicators: Vec<ResourcePressureIndicator>,
-}
-
-/// Device-specific resource usage
-#[derive(Debug, Clone)]
-pub struct DeviceResourceUsage {
-    /// Device ID
-    pub device_id: usize,
-
-    /// Total device memory allocated
-    pub device_memory_allocated: usize,
-
-    /// Unified memory allocated on device
-    pub unified_memory_allocated: usize,
-
-    /// Pinned memory associated with device
-    pub pinned_memory_allocated: usize,
-
-    /// Memory utilization percentage
-    pub utilization_percentage: f32,
-
-    /// Resource pressure level
-    pub pressure_level: ResourcePressureLevel,
-}
-
-/// Global resource limits
-#[derive(Debug, Clone)]
-pub struct ResourceLimits {
-    /// Maximum total device memory
-    pub max_device_memory: Option<usize>,
-
-    /// Maximum total unified memory
-    pub max_unified_memory: Option<usize>,
-
-    /// Maximum total pinned memory
-    pub max_pinned_memory: Option<usize>,
-
-    /// Maximum pools per device
-    pub max_pools_per_device: Option<usize>,
-
-    /// Global memory limit across all types
-    pub global_memory_limit: Option<usize>,
-}
-
-/// Resource allocation event
-#[derive(Debug, Clone)]
-pub struct ResourceAllocationEvent {
-    /// Event timestamp
-    pub timestamp: Instant,
-
-    /// Event type
-    pub event_type: AllocationEventType,
-
-    /// Device ID involved
-    pub device_id: Option<usize>,
-
-    /// Memory type
-    pub memory_type: MemoryType,
-
-    /// Size involved
-    pub size: usize,
-
-    /// Success status
-    pub success: bool,
-}
-
-/// Types of allocation events
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AllocationEventType {
-    Allocation,
-    Deallocation,
-    PoolCreation,
-    PoolDestruction,
-    Migration,
-    Optimization,
-}
-
-/// Memory types for tracking
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MemoryType {
-    Device,
-    Unified,
-    Pinned,
-}
-
-/// Resource pressure indicators
-#[derive(Debug, Clone)]
-pub struct ResourcePressureIndicator {
-    /// Indicator type
-    pub indicator_type: PressureIndicatorType,
-
-    /// Current value
-    pub current_value: f32,
-
-    /// Threshold value
-    pub threshold_value: f32,
-
-    /// Severity level
-    pub severity: PressureSeverity,
-
-    /// Recommended action
-    pub recommended_action: String,
-}
-
-/// Types of pressure indicators
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PressureIndicatorType {
-    MemoryUtilization,
-    AllocationFailureRate,
-    PoolFragmentation,
-    PerformanceDegradation,
-}
-
-/// Resource pressure levels
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum ResourcePressureLevel {
-    Low,
-    Medium,
-    High,
-    Critical,
-}
-
-/// Pressure severity levels
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum PressureSeverity {
-    Info,
-    Warning,
-    Error,
-    Critical,
-}
-
-/// Pool optimization engine
-#[derive(Debug)]
-pub struct PoolOptimizationEngine {
-    /// Optimization strategies
-    strategies: Vec<OptimizationStrategy>,
-
-    /// Optimization history
-    history: Vec<OptimizationResult>,
-
-    /// Current optimization state
-    current_state: OptimizationState,
-
-    /// Performance baseline
-    performance_baseline: PerformanceBaseline,
-
-    /// Optimization rules
-    optimization_rules: Vec<OptimizationRule>,
-}
-
-/// Optimization strategies
-#[derive(Debug, Clone)]
-pub struct OptimizationStrategy {
-    /// Strategy name
-    pub name: String,
-
-    /// Target pool types
-    pub target_pool_types: Vec<MemoryType>,
-
-    /// Optimization conditions
-    pub conditions: Vec<OptimizationCondition>,
-
-    /// Expected improvement
-    pub expected_improvement: f32,
-
-    /// Confidence level
-    pub confidence: f32,
-
-    /// Implementation complexity
-    pub complexity: OptimizationComplexity,
-}
-
-/// Optimization conditions
-#[derive(Debug, Clone)]
-pub enum OptimizationCondition {
-    HighFragmentation { threshold: f32 },
-    LowHitRate { threshold: f32 },
-    MemoryPressure { level: ResourcePressureLevel },
-    PerformanceDegradation { threshold: f32 },
-    InefficiientGrowth,
-}
-
-/// Optimization complexity levels
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum OptimizationComplexity {
-    Simple,
-    Moderate,
-    Complex,
-    Advanced,
-}
-
-/// Optimization results
-#[derive(Debug, Clone)]
-pub struct OptimizationResult {
-    /// Optimization timestamp
-    pub timestamp: Instant,
-
-    /// Applied strategy
-    pub strategy: OptimizationStrategy,
-
-    /// Target pools affected
-    pub affected_pools: Vec<String>,
-
-    /// Performance improvement achieved
-    pub improvement_achieved: f32,
-
-    /// Optimization duration
-    pub duration: Duration,
-
-    /// Success status
-    pub success: bool,
-
-    /// Side effects observed
-    pub side_effects: Vec<String>,
-}
-
-/// Current optimization state
-#[derive(Debug, Clone)]
-pub struct OptimizationState {
-    /// Currently running optimizations
-    pub active_optimizations: Vec<ActiveOptimization>,
-
-    /// Optimization queue
-    pub optimization_queue: Vec<QueuedOptimization>,
-
-    /// Last optimization time
-    pub last_optimization: Option<Instant>,
-
-    /// Optimization frequency
-    pub optimization_frequency: Duration,
-
-    /// Total optimizations performed
-    pub total_optimizations: u64,
-}
-
-/// Active optimization tracking
-#[derive(Debug, Clone)]
-pub struct ActiveOptimization {
-    /// Optimization ID
-    pub id: u64,
-
-    /// Strategy being applied
-    pub strategy: OptimizationStrategy,
-
-    /// Start time
-    pub start_time: Instant,
-
-    /// Expected completion time
-    pub expected_completion: Instant,
-
-    /// Current progress
-    pub progress: f32,
-}
-
-/// Queued optimization
-#[derive(Debug, Clone)]
-pub struct QueuedOptimization {
-    /// Optimization ID
-    pub id: u64,
-
-    /// Strategy to apply
-    pub strategy: OptimizationStrategy,
-
-    /// Priority level
-    pub priority: OptimizationPriority,
-
-    /// Queue timestamp
-    pub queued_at: Instant,
-
-    /// Prerequisites
-    pub prerequisites: Vec<String>,
-}
-
-/// Optimization priorities
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum OptimizationPriority {
-    Low,
-    Normal,
-    High,
-    Critical,
-}
-
-/// Performance baseline for comparison
-#[derive(Debug, Clone)]
-pub struct PerformanceBaseline {
-    /// Baseline allocation rate
-    pub allocation_rate: f64,
-
-    /// Baseline hit rate
-    pub hit_rate: f32,
-
-    /// Baseline memory efficiency
-    pub memory_efficiency: f32,
-
-    /// Baseline established time
-    pub established_at: Instant,
-
-    /// Baseline validity duration
-    pub validity_duration: Duration,
-}
-
-/// Optimization rules for automatic optimization
-#[derive(Debug, Clone)]
-pub struct OptimizationRule {
-    /// Rule identifier
-    pub id: String,
-
-    /// Rule description
-    pub description: String,
-
-    /// Condition to trigger rule
-    pub trigger_condition: OptimizationCondition,
-
-    /// Action to take
-    pub action: OptimizationAction,
-
-    /// Rule priority
-    pub priority: OptimizationPriority,
-
-    /// Success rate of this rule
-    pub success_rate: f32,
-}
-
-/// Optimization actions
-#[derive(Debug, Clone)]
-pub enum OptimizationAction {
-    DefragmentPools,
-    AdjustPoolSizes { factor: f32 },
-    RebalanceAllocations,
-    ChangeGrowthStrategy(PoolGrowthStrategy),
-    ForceCleanup,
-    MigrateAllocations { target_location: Location },
-}
-
-/// Memory pressure monitor
-#[derive(Debug)]
-pub struct MemoryPressureMonitor {
-    /// Current pressure levels by device
-    device_pressure: HashMap<usize, ResourcePressureLevel>,
-
-    /// Global pressure level
-    global_pressure: ResourcePressureLevel,
-
-    /// Pressure history
-    pressure_history: Vec<PressureEvent>,
-
-    /// Pressure thresholds
-    pressure_thresholds: PressureThresholds,
-
-    /// Alert conditions
-    alert_conditions: Vec<PressureAlertCondition>,
-}
-
-/// Pressure event recording
-#[derive(Debug, Clone)]
-pub struct PressureEvent {
-    /// Event timestamp
-    pub timestamp: Instant,
-
-    /// Device ID (if device-specific)
-    pub device_id: Option<usize>,
-
-    /// Pressure level
-    pub pressure_level: ResourcePressureLevel,
-
-    /// Trigger cause
-    pub trigger_cause: String,
-
-    /// Mitigation actions taken
-    pub actions_taken: Vec<String>,
-}
-
-/// Pressure monitoring thresholds
-#[derive(Debug, Clone)]
-pub struct PressureThresholds {
-    /// Low pressure threshold
-    pub low_threshold: f32,
-
-    /// Medium pressure threshold
-    pub medium_threshold: f32,
-
-    /// High pressure threshold
-    pub high_threshold: f32,
-
-    /// Critical pressure threshold
-    pub critical_threshold: f32,
-}
-
-/// Pressure alert conditions
-#[derive(Debug, Clone)]
-pub struct PressureAlertCondition {
-    /// Condition name
-    pub name: String,
-
-    /// Pressure level trigger
-    pub trigger_level: ResourcePressureLevel,
-
-    /// Alert message
-    pub alert_message: String,
-
-    /// Recommended actions
-    pub recommended_actions: Vec<String>,
-
-    /// Alert cooldown duration
-    pub cooldown: Duration,
-
-    /// Last alert time
-    pub last_alert: Option<Instant>,
-}
-
-/// Cross-pool analytics engine
-#[derive(Debug)]
-pub struct CrossPoolAnalytics {
-    /// Pool correlation analysis
-    correlations: HashMap<String, PoolCorrelation>,
-
-    /// Cross-pool optimization opportunities
-    optimization_opportunities: Vec<CrossPoolOptimization>,
-
-    /// Resource sharing analysis
-    resource_sharing: ResourceSharingAnalysis,
-
-    /// Performance impact analysis
-    impact_analysis: PerformanceImpactAnalysis,
-}
-
-/// Pool correlation data
-#[derive(Debug, Clone)]
-pub struct PoolCorrelation {
-    /// Pool pair identifier
-    pub pool_pair: String,
-
-    /// Correlation coefficient
-    pub correlation: f64,
-
-    /// Correlation type
-    pub correlation_type: CorrelationType,
-
-    /// Statistical significance
-    pub significance: f64,
-
-    /// Potential for optimization
-    pub optimization_potential: f32,
-}
-
-/// Types of correlations
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CorrelationType {
-    Positive,
-    Negative,
-    NoCorrelation,
-}
-
-/// Cross-pool optimization opportunities
-#[derive(Debug, Clone)]
-pub struct CrossPoolOptimization {
-    /// Optimization identifier
-    pub id: String,
-
-    /// Involved pools
-    pub involved_pools: Vec<String>,
-
-    /// Optimization type
-    pub optimization_type: CrossPoolOptimizationType,
-
-    /// Expected benefit
-    pub expected_benefit: f32,
-
-    /// Implementation complexity
-    pub complexity: OptimizationComplexity,
-
-    /// Risk assessment
-    pub risk_level: RiskLevel,
-}
-
-/// Types of cross-pool optimizations
-#[derive(Debug, Clone)]
-pub enum CrossPoolOptimizationType {
-    /// Rebalance allocations between pools
-    LoadBalancing,
-    /// Share resources between pools
-    ResourceSharing,
-    /// Coordinate growth strategies
-    CoordinatedGrowth,
-    /// Unified cleanup strategy
-    UnifiedCleanup,
-    /// Cross-pool migration
-    CrossPoolMigration,
-}
-
-/// Risk levels for optimizations
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum RiskLevel {
-    Low,
-    Medium,
-    High,
-    VeryHigh,
-}
-
-/// Resource sharing analysis
-#[derive(Debug, Clone)]
-pub struct ResourceSharingAnalysis {
-    /// Sharing opportunities
-    pub opportunities: Vec<SharingOpportunity>,
-
-    /// Current sharing efficiency
-    pub sharing_efficiency: f32,
-
-    /// Potential savings
-    pub potential_savings: usize,
-
-    /// Sharing conflicts
-    pub conflicts: Vec<SharingConflict>,
-}
-
-/// Resource sharing opportunity
-#[derive(Debug, Clone)]
-pub struct SharingOpportunity {
-    /// Opportunity identifier
-    pub id: String,
-
-    /// Pools that can share
-    pub candidate_pools: Vec<String>,
-
-    /// Resource type to share
-    pub resource_type: MemoryType,
-
-    /// Estimated savings
-    pub estimated_savings: usize,
-
-    /// Feasibility score
-    pub feasibility: f32,
-}
-
-/// Resource sharing conflict
-#[derive(Debug, Clone)]
-pub struct SharingConflict {
-    /// Conflict identifier
-    pub id: String,
-
-    /// Conflicting pools
-    pub conflicting_pools: Vec<String>,
-
-    /// Conflict type
-    pub conflict_type: ConflictType,
-
-    /// Severity
-    pub severity: ConflictSeverity,
-
-    /// Resolution suggestions
-    pub resolution_suggestions: Vec<String>,
-}
-
-/// Types of sharing conflicts
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ConflictType {
-    ResourceContention,
-    PerformanceInterference,
-    SecurityConstraint,
-    CompatibilityIssue,
-}
-
-/// Conflict severity levels
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum ConflictSeverity {
-    Minor,
-    Moderate,
-    Major,
-    Critical,
-}
-
-/// Performance impact analysis
-#[derive(Debug, Clone)]
-pub struct PerformanceImpactAnalysis {
-    /// Impact measurements
-    pub impact_measurements: Vec<ImpactMeasurement>,
-
-    /// Overall impact score
-    pub overall_impact: f32,
-
-    /// Performance bottlenecks
-    pub bottlenecks: Vec<PerformanceBottleneck>,
-
-    /// Improvement recommendations
-    pub recommendations: Vec<PerformanceRecommendation>,
-}
-
-/// Individual impact measurement
-#[derive(Debug, Clone)]
-pub struct ImpactMeasurement {
-    /// Measurement identifier
-    pub id: String,
-
-    /// Pool or system affected
-    pub target: String,
-
-    /// Metric measured
-    pub metric: String,
-
-    /// Impact value
-    pub impact_value: f32,
-
-    /// Measurement confidence
-    pub confidence: f32,
-
-    /// Measurement timestamp
-    pub timestamp: Instant,
-}
-
-/// Performance bottleneck identification
-#[derive(Debug, Clone)]
-pub struct PerformanceBottleneck {
-    /// Bottleneck identifier
-    pub id: String,
-
-    /// Location of bottleneck
-    pub location: String,
-
-    /// Bottleneck type
-    pub bottleneck_type: BottleneckType,
-
-    /// Severity assessment
-    pub severity: BottleneckSeverity,
-
-    /// Performance impact
-    pub performance_impact: f32,
-
-    /// Resolution complexity
-    pub resolution_complexity: OptimizationComplexity,
-}
-
-/// Types of performance bottlenecks
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BottleneckType {
-    MemoryBandwidth,
-    AllocationLatency,
-    PoolContention,
-    FragmentationOverhead,
-    MigrationCost,
-}
-
-/// Bottleneck severity levels
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum BottleneckSeverity {
-    Minor,
-    Moderate,
-    Significant,
-    Critical,
-}
-
-/// Performance improvement recommendation
-#[derive(Debug, Clone)]
-pub struct PerformanceRecommendation {
-    /// Recommendation identifier
-    pub id: String,
-
-    /// Recommendation description
-    pub description: String,
-
-    /// Target improvement
-    pub target_improvement: f32,
-
-    /// Implementation effort
-    pub effort_required: EffortLevel,
-
-    /// Risk assessment
-    pub risk: RiskLevel,
-
-    /// Priority level
-    pub priority: RecommendationPriority,
-
-    /// Dependencies
-    pub dependencies: Vec<String>,
-}
-
-/// Effort levels for recommendations
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum EffortLevel {
-    Minimal,
-    Low,
-    Moderate,
-    High,
-    Extensive,
-}
-
-/// Recommendation priorities
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum RecommendationPriority {
-    Optional,
-    Recommended,
-    Important,
-    Critical,
-}
-
 impl UnifiedMemoryPoolManager {
     /// Create new unified memory pool manager
     pub fn new(config: PoolManagerConfig) -> Self {
@@ -1442,6 +706,74 @@ impl UnifiedMemoryPoolManager {
         // Simplified calculation
         0.85
     }
+
+    /// Allocate a `CudaAllocation` from the device pool for `device_id`.
+    ///
+    /// Finds the appropriate size class (next power-of-two >= `size`), reuses a
+    /// free allocation if one is available, otherwise calls `cust::memory::cuda_malloc`
+    /// to allocate a new CUDA device block.
+    pub fn allocate_from_device_pool(
+        &self,
+        size: usize,
+        device_id: usize,
+    ) -> CudaResult<CudaAllocation> {
+        let sc = compute_size_class(size);
+
+        let mut device_pools = self.device_pools.write().map_err(|_| CudaError::Context {
+            message: "Failed to acquire device pools write lock for allocation".to_string(),
+        })?;
+
+        let device_map = device_pools.entry(device_id).or_insert_with(HashMap::new);
+        let pool = device_map
+            .entry(sc)
+            .or_insert_with(|| DevicePool::new(device_id, sc, DevicePoolConfig::default()));
+
+        // Reuse an existing free allocation if available
+        if let Some(mut alloc) = pool.free_allocations.pop() {
+            alloc.in_use = true;
+            pool.active_allocations.push(alloc);
+            pool.stats.total_allocations += 1;
+            pool.stats.cache_hits += 1;
+            pool.last_access = Instant::now();
+            return Ok(alloc);
+        }
+
+        // No free allocation — call the real CUDA allocator
+        let ptr = unsafe { cust::memory::cuda_malloc(sc).cuda_result()? };
+        let alloc = CudaAllocation::new_on_device(ptr, sc, sc, device_id);
+        pool.active_allocations.push(alloc);
+        pool.stats.total_allocations += 1;
+        pool.stats.cache_misses += 1;
+        pool.last_access = Instant::now();
+
+        Ok(alloc)
+    }
+
+    /// Return a `CudaAllocation` back to the device pool for future reuse.
+    ///
+    /// If the pool's free list is at capacity the allocation is kept anyway
+    /// (the pool will trim on the next cleanup pass).
+    pub fn return_to_device_pool(&self, mut alloc: CudaAllocation, device_id: usize) {
+        let sc = alloc.size_class;
+        alloc.in_use = false;
+
+        let Ok(mut device_pools) = self.device_pools.write() else {
+            return;
+        };
+
+        let device_map = device_pools.entry(device_id).or_insert_with(HashMap::new);
+        let pool = device_map
+            .entry(sc)
+            .or_insert_with(|| DevicePool::new(device_id, sc, DevicePoolConfig::default()));
+
+        // Remove from active list (best-effort; compare by device pointer address)
+        let raw = alloc.ptr.as_raw();
+        pool.active_allocations.retain(|a| a.ptr.as_raw() != raw);
+
+        pool.free_allocations.push(alloc);
+        pool.stats.total_deallocations += 1;
+        pool.last_access = Instant::now();
+    }
 }
 
 /// Pool optimization record
@@ -1541,57 +873,6 @@ impl PinnedPool {
     }
 }
 
-impl ResourceTracker {
-    fn new() -> Self {
-        Self {
-            device_usage: HashMap::new(),
-            global_limits: ResourceLimits::default(),
-            allocation_history: Vec::new(),
-            pressure_indicators: Vec::new(),
-        }
-    }
-}
-
-impl PoolOptimizationEngine {
-    fn new() -> Self {
-        Self {
-            strategies: Vec::new(),
-            history: Vec::new(),
-            current_state: OptimizationState::default(),
-            performance_baseline: PerformanceBaseline::default(),
-            optimization_rules: Vec::new(),
-        }
-    }
-}
-
-impl MemoryPressureMonitor {
-    fn new() -> Self {
-        Self {
-            device_pressure: HashMap::new(),
-            global_pressure: ResourcePressureLevel::Low,
-            pressure_history: Vec::new(),
-            pressure_thresholds: PressureThresholds::default(),
-            alert_conditions: Vec::new(),
-        }
-    }
-}
-
-impl CrossPoolAnalytics {
-    fn new() -> Self {
-        Self {
-            correlations: HashMap::new(),
-            optimization_opportunities: Vec::new(),
-            resource_sharing: ResourceSharingAnalysis::default(),
-            impact_analysis: PerformanceImpactAnalysis::default(),
-        }
-    }
-
-    fn identify_optimization_opportunities(&self) -> Vec<CrossPoolOptimization> {
-        // Simplified implementation
-        Vec::new()
-    }
-}
-
 // Default implementations
 impl Default for PoolManagerConfig {
     fn default() -> Self {
@@ -1651,22 +932,6 @@ impl Default for PoolHealthMetrics {
             last_health_check: Instant::now(),
             health_issues: Vec::new(),
             recommended_actions: Vec::new(),
-        }
-    }
-}
-
-impl Default for GlobalPoolStats {
-    fn default() -> Self {
-        Self {
-            total_pools: 0,
-            device_pools: 0,
-            unified_pools: 0,
-            pinned_pools: 0,
-            total_memory_managed: 0,
-            global_hit_rate: 0.0,
-            cross_pool_efficiency: 0.0,
-            global_memory_waste: 0.0,
-            overall_health_score: 1.0,
         }
     }
 }
@@ -1739,74 +1004,9 @@ impl Default for BandwidthOptimizer {
     }
 }
 
-impl Default for ResourceLimits {
-    fn default() -> Self {
-        Self {
-            max_device_memory: None,
-            max_unified_memory: None,
-            max_pinned_memory: None,
-            max_pools_per_device: None,
-            global_memory_limit: None,
-        }
-    }
-}
-
-impl Default for OptimizationState {
-    fn default() -> Self {
-        Self {
-            active_optimizations: Vec::new(),
-            optimization_queue: Vec::new(),
-            last_optimization: None,
-            optimization_frequency: Duration::from_secs(300),
-            total_optimizations: 0,
-        }
-    }
-}
-
-impl Default for PerformanceBaseline {
-    fn default() -> Self {
-        Self {
-            allocation_rate: 0.0,
-            hit_rate: 0.0,
-            memory_efficiency: 1.0,
-            established_at: Instant::now(),
-            validity_duration: Duration::from_secs(3600),
-        }
-    }
-}
-
-impl Default for PressureThresholds {
-    fn default() -> Self {
-        Self {
-            low_threshold: 0.25,
-            medium_threshold: 0.5,
-            high_threshold: 0.75,
-            critical_threshold: 0.9,
-        }
-    }
-}
-
-impl Default for ResourceSharingAnalysis {
-    fn default() -> Self {
-        Self {
-            opportunities: Vec::new(),
-            sharing_efficiency: 0.0,
-            potential_savings: 0,
-            conflicts: Vec::new(),
-        }
-    }
-}
-
-impl Default for PerformanceImpactAnalysis {
-    fn default() -> Self {
-        Self {
-            impact_measurements: Vec::new(),
-            overall_impact: 0.0,
-            bottlenecks: Vec::new(),
-            recommendations: Vec::new(),
-        }
-    }
-}
+#[path = "memory_pools_pinned.rs"]
+mod memory_pools_pinned;
+pub use memory_pools_pinned::*;
 
 #[cfg(test)]
 mod tests {
@@ -1854,56 +1054,5 @@ mod tests {
         assert!(OptimizationPriority::Critical > OptimizationPriority::High);
         assert!(OptimizationPriority::High > OptimizationPriority::Normal);
         assert!(OptimizationPriority::Normal > OptimizationPriority::Low);
-    }
-}
-
-// Type aliases and missing types for compatibility
-
-/// Cross-pool metrics
-#[derive(Debug, Clone, Default)]
-pub struct CrossPoolMetrics {
-    /// Total allocations across all pools
-    pub total_allocations: usize,
-    /// Total memory used across pools
-    pub total_memory_used: usize,
-    /// Sharing efficiency between pools
-    pub sharing_efficiency: f64,
-}
-
-/// Pool coordination strategy
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PoolCoordinationStrategy {
-    /// Pools operate independently
-    Independent,
-    /// Cooperative allocation across pools
-    Cooperative,
-    /// Centralized coordination
-    Centralized,
-}
-
-impl Default for PoolCoordinationStrategy {
-    fn default() -> Self {
-        Self::Cooperative
-    }
-}
-
-/// Resource sharing configuration
-#[derive(Debug, Clone)]
-pub struct ResourceSharingConfig {
-    /// Enable cross-pool sharing
-    pub enable_sharing: bool,
-    /// Maximum percentage of memory that can be shared
-    pub max_sharing_percentage: f64,
-    /// Coordination strategy to use
-    pub strategy: PoolCoordinationStrategy,
-}
-
-impl Default for ResourceSharingConfig {
-    fn default() -> Self {
-        Self {
-            enable_sharing: true,
-            max_sharing_percentage: 0.3,
-            strategy: PoolCoordinationStrategy::default(),
-        }
     }
 }

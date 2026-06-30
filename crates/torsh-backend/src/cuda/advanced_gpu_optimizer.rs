@@ -462,29 +462,119 @@ impl AdvancedGpuOptimizer {
     }
 
     // Helper methods for device capability querying
-    fn query_compute_capability(&self, _device: &Device) -> BackendResult<(u32, u32)> {
-        // In a real implementation, this would query CUDA device properties
-        Ok((8, 6)) // Placeholder for modern GPU
+
+    /// Resolve a backend [`Device`] to the live `cust` CUDA device it names.
+    ///
+    /// Returns an error for non-CUDA devices or when the driver cannot produce
+    /// the requested device, so callers never proceed on fabricated hardware.
+    fn resolve_cuda_device(&self, device: &Device) -> BackendResult<cust::device::Device> {
+        let cuda_index = match device.device_type() {
+            torsh_core::device::DeviceType::Cuda(index) => index,
+            other => {
+                return Err(crate::BackendError::Runtime {
+                    message: format!(
+                        "Advanced GPU optimizer requires a CUDA device, got {:?}",
+                        other
+                    ),
+                });
+            }
+        };
+
+        cust::device::Device::get_device(cuda_index as u32).map_err(|e| {
+            crate::BackendError::Runtime {
+                message: format!("Failed to query CUDA device {}: {}", cuda_index, e),
+            }
+        })
     }
 
-    fn query_memory_bandwidth(&self, _device: &Device) -> BackendResult<f64> {
-        // Query actual memory bandwidth from device
-        Ok(900.0) // GB/s for high-end GPU
+    /// Read a `cust` device attribute, mapping driver failures to a backend error.
+    fn device_attribute(
+        &self,
+        device: &cust::device::Device,
+        attribute: cust::device::DeviceAttribute,
+    ) -> BackendResult<i32> {
+        device
+            .get_attribute(attribute)
+            .map_err(|e| crate::BackendError::Runtime {
+                message: format!("Failed to query CUDA device attribute {:?}: {}", attribute, e),
+            })
     }
 
-    fn query_sm_count(&self, _device: &Device) -> BackendResult<u32> {
-        // Query streaming multiprocessor count
-        Ok(108) // Typical for high-end GPU
+    fn query_compute_capability(&self, device: &Device) -> BackendResult<(u32, u32)> {
+        let cuda_device = self.resolve_cuda_device(device)?;
+        let major = self
+            .device_attribute(&cuda_device, cust::device::DeviceAttribute::ComputeCapabilityMajor)?
+            as u32;
+        let minor = self
+            .device_attribute(&cuda_device, cust::device::DeviceAttribute::ComputeCapabilityMinor)?
+            as u32;
+        Ok((major, minor))
     }
 
-    fn determine_optimal_block_size(&self, _device: &Device, _op_type: &OperationType) -> BackendResult<BlockSizeConfig> {
-        // Use auto-tuning to determine optimal block sizes
+    fn query_memory_bandwidth(&self, device: &Device) -> BackendResult<f64> {
+        let cuda_device = self.resolve_cuda_device(device)?;
+        // Memory clock is reported in kHz, bus width in bits. Peak theoretical
+        // bandwidth for (G)DDR doubles the clock for the dual data rate:
+        //   bytes/s = 2 * clock_hz * (bus_bits / 8)
+        let clock_khz =
+            self.device_attribute(&cuda_device, cust::device::DeviceAttribute::MemoryClockRate)?
+                as f64;
+        let bus_width_bits =
+            self.device_attribute(&cuda_device, cust::device::DeviceAttribute::GlobalMemoryBusWidth)?
+                as f64;
+        let bytes_per_second = 2.0 * clock_khz * 1.0e3 * (bus_width_bits / 8.0);
+        Ok(bytes_per_second / 1.0e9)
+    }
+
+    fn query_sm_count(&self, device: &Device) -> BackendResult<u32> {
+        let cuda_device = self.resolve_cuda_device(device)?;
+        Ok(
+            self.device_attribute(&cuda_device, cust::device::DeviceAttribute::MultiprocessorCount)?
+                as u32,
+        )
+    }
+
+    fn determine_optimal_block_size(&self, device: &Device, op_type: &OperationType) -> BackendResult<BlockSizeConfig> {
+        let cuda_device = self.resolve_cuda_device(device)?;
+        let max_threads_per_block =
+            self.device_attribute(&cuda_device, cust::device::DeviceAttribute::MaxThreadsPerBlock)?
+                as u32;
+        let warp_size =
+            self.device_attribute(&cuda_device, cust::device::DeviceAttribute::WarpSize)? as u32;
+        let sm_count =
+            self.device_attribute(&cuda_device, cust::device::DeviceAttribute::MultiprocessorCount)?
+                as u32;
+        let shared_memory_per_block = self.device_attribute(
+            &cuda_device,
+            cust::device::DeviceAttribute::MaxSharedMemoryPerBlock,
+        )? as u32;
+
+        // Choose a block size from the real per-block thread limit. Reductions
+        // and matmuls favour larger blocks (more reuse / fuller warps); fine
+        // elementwise work uses a smaller, latency-friendly block. All sizes are
+        // clamped to the device's actual maximum and kept warp-aligned.
+        let preferred_threads = match op_type {
+            OperationType::MatrixMultiplication | OperationType::Reduction => 256,
+            OperationType::Convolution => 128,
+            OperationType::ElementwiseOp => 128,
+        };
+        let block_threads = preferred_threads
+            .min(max_threads_per_block)
+            .max(warp_size)
+            / warp_size
+            * warp_size;
+        let block_threads = block_threads.max(warp_size);
+
         Ok(BlockSizeConfig {
-            block_dim: (256, 1, 1),
-            grid_dim: (1024, 1, 1),
-            shared_memory_bytes: 48 * 1024,
-            registers_per_thread: 32,
-            occupancy: 0.75,
+            block_dim: (block_threads, 1, 1),
+            // Saturate every SM with several resident blocks; the launcher
+            // re-clamps to the actual problem size at dispatch time.
+            grid_dim: (sm_count.max(1) * 4, 1, 1),
+            shared_memory_bytes: shared_memory_per_block,
+            // Register usage is a kernel/compiler property, not a device
+            // attribute; report 0 ("not measured") rather than an invented count.
+            registers_per_thread: 0,
+            occupancy: block_threads as f32 / max_threads_per_block.max(1) as f32,
         })
     }
 

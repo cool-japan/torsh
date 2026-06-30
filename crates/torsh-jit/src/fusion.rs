@@ -612,15 +612,60 @@ impl KernelFusion {
         Ok(patterns)
     }
 
-    /// Try to match GELU pattern starting from tanh
+    /// Try to match the GELU approximation pattern starting from a `Tanh` node.
+    ///
+    /// The approximated GELU is:
+    ///   `0.5 * x * (1 + tanh(sqrt(2/π) * (x + 0.044715 * x³)))`
+    ///
+    /// Working forward from the `Tanh` we look for:
+    ///   tanh → Add (tanh_out + constant_1) → Mul (x * add_out) → Mul (scale_out * 0.5)
+    ///
+    /// A minimum-viable pattern requires at least:
+    ///   tanh → (Add or Mul successor) → (Mul successor)
+    /// i.e. the fused group must contain ≥ 3 nodes.  A single `Tanh` node is not
+    /// GELU — returning a singleton would cause the fused kernel to be mis-labelled.
     fn try_match_gelu_from_tanh(
         &self,
-        _graph: &ComputationGraph,
+        graph: &ComputationGraph,
         tanh_node: NodeId,
     ) -> Option<Vec<NodeId>> {
-        // This would implement the full GELU pattern matching
-        // For now, return a simple pattern
-        Some(vec![tanh_node])
+        // Step 1 — the tanh node must have exactly one successor that is Add or Mul.
+        // That successor combines tanh(x) with 1.0 (the "+1" in the formula).
+        let add_node = graph.successors(tanh_node).find(|&s| {
+            graph
+                .node(s)
+                .map(|n| matches!(n.op, Operation::Add | Operation::Mul))
+                .unwrap_or(false)
+        })?;
+
+        // Step 2 — the Add (or Mul) node must have a Mul successor that combines
+        // the partial result with the original input `x`.
+        let mul_x_node = graph.successors(add_node).find(|&s| {
+            graph
+                .node(s)
+                .map(|n| matches!(n.op, Operation::Mul))
+                .unwrap_or(false)
+        })?;
+
+        // Step 3 — optionally find a trailing Mul-by-0.5 (the outer scale).
+        let scale_node = graph.successors(mul_x_node).find(|&s| {
+            graph
+                .node(s)
+                .map(|n| matches!(n.op, Operation::Mul))
+                .unwrap_or(false)
+        });
+
+        let mut pattern = vec![tanh_node, add_node, mul_x_node];
+        if let Some(scale) = scale_node {
+            pattern.push(scale);
+        }
+
+        // Require at least 3 nodes — a bare tanh is not GELU.
+        if pattern.len() >= 3 {
+            Some(pattern)
+        } else {
+            None
+        }
     }
 
     /// Find attention computation patterns

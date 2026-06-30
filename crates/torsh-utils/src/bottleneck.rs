@@ -920,18 +920,87 @@ fn process_operation_times(
         .collect()
 }
 
-/// Get current memory information
+/// Get current memory information from /proc/self/status.
+/// Returns (rss_mb, vmsize_mb). On non-Linux platforms returns (0.0, 0.0).
 fn get_memory_info() -> Result<(f32, f32)> {
-    // This would integrate with the backend memory management
-    // For now, return dummy values
-    Ok((100.0, 200.0))
+    #[cfg(target_os = "linux")]
+    {
+        let status = std::fs::read_to_string("/proc/self/status").map_err(|e| {
+            torsh_core::TorshError::IoError(format!("Failed to read /proc/self/status: {}", e))
+        })?;
+        let mut rss_kb: Option<u64> = None;
+        let mut vmsize_kb: Option<u64> = None;
+        for line in status.lines() {
+            if let Some(rest) = line.strip_prefix("VmRSS:") {
+                rss_kb = rest.split_whitespace().next().and_then(|s| s.parse().ok());
+            } else if let Some(rest) = line.strip_prefix("VmSize:") {
+                vmsize_kb = rest.split_whitespace().next().and_then(|s| s.parse().ok());
+            }
+            if rss_kb.is_some() && vmsize_kb.is_some() {
+                break;
+            }
+        }
+        let rss_mb = rss_kb.unwrap_or(0) as f32 / 1024.0;
+        let vmsize_mb = vmsize_kb.unwrap_or(0) as f32 / 1024.0;
+        return Ok((rss_mb, vmsize_mb));
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        // Memory measurement via /proc/self/status not available on this platform
+        Ok((0.0, 0.0))
+    }
 }
 
-/// Get detailed memory information for profiling
+/// Get detailed memory information for profiling from /proc/self/status and /proc/self/maps.
+/// Returns (allocated_mb, reserved_mb, active_allocations, free_mb).
+/// On non-Linux platforms returns (0.0, 0.0, 0, 0.0).
 fn get_detailed_memory_info() -> Result<(f32, f32, usize, f32)> {
-    // Returns (allocated_mb, reserved_mb, active_allocations, largest_free_block_mb)
-    // This would integrate with advanced memory tracking
-    Ok((120.0, 200.0, 1500, 50.0))
+    #[cfg(target_os = "linux")]
+    {
+        // Read VmRSS (allocated = resident) and VmSize (reserved = virtual) from status
+        let status = std::fs::read_to_string("/proc/self/status").map_err(|e| {
+            torsh_core::TorshError::IoError(format!("Failed to read /proc/self/status: {}", e))
+        })?;
+        let mut rss_kb: Option<u64> = None;
+        let mut vmsize_kb: Option<u64> = None;
+        for line in status.lines() {
+            if let Some(rest) = line.strip_prefix("VmRSS:") {
+                rss_kb = rest.split_whitespace().next().and_then(|s| s.parse().ok());
+            } else if let Some(rest) = line.strip_prefix("VmSize:") {
+                vmsize_kb = rest.split_whitespace().next().and_then(|s| s.parse().ok());
+            }
+            if rss_kb.is_some() && vmsize_kb.is_some() {
+                break;
+            }
+        }
+        let allocated_mb = rss_kb.unwrap_or(0) as f32 / 1024.0;
+        let reserved_mb = vmsize_kb.unwrap_or(0) as f32 / 1024.0;
+
+        // Approximate active allocations from /proc/self/maps line count
+        let active_allocations = std::fs::read_to_string("/proc/self/maps")
+            .map(|s| s.lines().count())
+            .unwrap_or(0);
+
+        // Approximate free memory from /proc/meminfo MemFree
+        let meminfo = std::fs::read_to_string("/proc/meminfo").map_err(|e| {
+            torsh_core::TorshError::IoError(format!("Failed to read /proc/meminfo: {}", e))
+        })?;
+        let mut memfree_kb: Option<u64> = None;
+        for line in meminfo.lines() {
+            if let Some(rest) = line.strip_prefix("MemFree:") {
+                memfree_kb = rest.split_whitespace().next().and_then(|s| s.parse().ok());
+                break;
+            }
+        }
+        let free_mb = memfree_kb.unwrap_or(0) as f32 / 1024.0;
+
+        return Ok((allocated_mb, reserved_mb, active_allocations, free_mb));
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        // Detailed memory measurement via /proc not available on this platform
+        Ok((0.0, 0.0, 0, 0.0))
+    }
 }
 
 /// Setup GPU profiling if available
@@ -946,18 +1015,22 @@ struct GpuProfiler {
     _context: String,
 }
 
-/// Collect GPU profiling data
+/// Collect GPU profiling data.
+///
+/// GPU profiling requires NVML or CUDA runtime linkage which is not currently
+/// linked into this crate. All metrics are reported as 0.0 / empty to clearly
+/// communicate that no measurement was taken. Callers should treat `gpu_profile`
+/// as informational only when no `cuda` feature is active.
 fn collect_gpu_profile_data(_profiler: GpuProfiler) -> Result<GpuProfileData> {
-    // Collect comprehensive GPU metrics
     Ok(GpuProfileData {
-        utilization_percentage: 75.0,
-        memory_utilization_percentage: 60.0,
-        temperature_celsius: 65.0,
-        power_consumption_watts: 150.0,
+        utilization_percentage: 0.0,
+        memory_utilization_percentage: 0.0,
+        temperature_celsius: 0.0,
+        power_consumption_watts: 0.0,
         kernel_executions: vec![],
         memory_transfers: vec![],
-        compute_capability: "8.6".to_string(),
-        occupancy_percentage: 80.0,
+        compute_capability: "unknown".to_string(),
+        occupancy_percentage: 0.0,
     })
 }
 
@@ -1487,6 +1560,64 @@ pub fn print_bottleneck_report(report: &BottleneckReport) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_get_memory_info_nonnegative() {
+        let (alloc, reserved) = get_memory_info().unwrap_or((0.0, 0.0));
+        assert!(
+            alloc >= 0.0,
+            "allocated MB should be non-negative, got {}",
+            alloc
+        );
+        assert!(
+            reserved >= 0.0,
+            "reserved MB should be non-negative, got {}",
+            reserved
+        );
+        #[cfg(target_os = "linux")]
+        {
+            assert!(
+                alloc > 0.0,
+                "allocated MB should be positive on Linux, got {}",
+                alloc
+            );
+        }
+    }
+
+    #[test]
+    fn test_get_detailed_memory_info_nonnegative() {
+        let (alloc, reserved, active_allocs, free_mb) =
+            get_detailed_memory_info().unwrap_or((0.0, 0.0, 0, 0.0));
+        assert!(
+            alloc >= 0.0,
+            "allocated MB should be non-negative, got {}",
+            alloc
+        );
+        assert!(
+            reserved >= 0.0,
+            "reserved MB should be non-negative, got {}",
+            reserved
+        );
+        assert!(
+            free_mb >= 0.0,
+            "free MB should be non-negative, got {}",
+            free_mb
+        );
+        #[cfg(target_os = "linux")]
+        {
+            assert!(
+                alloc > 0.0,
+                "allocated MB should be positive on Linux, got {}",
+                alloc
+            );
+            assert!(
+                active_allocs > 0,
+                "active allocations should be positive on Linux, got {}",
+                active_allocs
+            );
+        }
+        let _ = active_allocs; // used in cfg(linux) branch above
+    }
 
     #[test]
     fn test_process_operation_times() {

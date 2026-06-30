@@ -68,15 +68,14 @@ pub mod multi_stream_usage_examples;
 pub mod occupancy;
 
 // Advanced Performance Optimization Modules
-// TODO: temporarily disabled due to optimization module refactoring
-// #[cfg(cuda_available)]
-// pub mod high_performance_kernels;
-// #[cfg(cuda_available)]
-// pub mod intelligent_task_scheduler;
-// #[cfg(cuda_available)]
-// pub mod kernel_fusion_optimizer;
-// #[cfg(cuda_available)]
-// pub mod performance_optimization_coordinator;
+#[cfg(cuda_available)]
+pub mod high_performance_kernels;
+#[cfg(cuda_available)]
+pub mod intelligent_task_scheduler;
+#[cfg(cuda_available)]
+pub mod kernel_fusion_optimizer;
+#[cfg(cuda_available)]
+pub mod performance_optimization_coordinator;
 
 // Fallback modules when CUDA is not available
 #[cfg(not(cuda_available))]
@@ -171,7 +170,26 @@ pub use occupancy::{
 };
 
 // Advanced Performance Optimization Exports
-// TODO: temporarily disabled due to optimization module refactoring
+//
+// These shorthand re-exports are intentionally left disabled. The modules
+// themselves are public (`pub mod high_performance_kernels;` etc.) so
+// callers can still import via the full module path
+// (e.g. `torsh_backend::cuda::high_performance_kernels::ActivationType`).
+//
+// The shorthand `pub use` forms below cannot be re-enabled as-is because
+// they collide with names that are already re-exported from other CUDA
+// submodules:
+//   * `OptimizationResult`   -- already re-exported from
+//     `multi_stream_orchestrator` (line above) and present in
+//     `performance_optimization_coordinator`.
+//   * `PerformanceMetrics`   -- already re-exported from `occupancy` and
+//     also exists in `performance_optimization_coordinator` (only the
+//     latter is aliased to `CoordinatorPerformanceMetrics`).
+//   * `ActivationType`       -- defined in both `high_performance_kernels`
+//     and `kernel_fusion_optimizer`, so the two re-export blocks cannot
+//     coexist without aliasing one of them.
+// Re-enabling requires aliasing the colliding names; until that refactor
+// happens, prefer the full module path at call sites.
 // #[cfg(cuda_available)]
 // pub use high_performance_kernels::{
 //     ActivationType, ConvolutionImplementation, HighPerformanceKernelManager,
