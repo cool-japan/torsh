@@ -1,6 +1,6 @@
 {
   "name": "@torsh/core",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "description": "ToRSh Deep Learning Framework - Node.js Bindings",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
