@@ -131,25 +131,25 @@ torsh-benches = { version = "0.2.0", path = "crates/torsh-benches" }
 # NOTE: scirs2 meta crate removed to speed up compilation - use specific sub-crates instead
 # NOTE: SciRS2 0.1.1 now includes OxiBLAS 0.1.2 (optimized BLAS/LAPACK) and OxiCode (modern serialization)
 # NOTE: GPU migrated off scirs2-core onto oxicuda (see oxicuda-backend below); "gpu" feature removed.
-scirs2-core = { version = "0.5.1", features = ["simd", "parallel", "memory_management", "serialization", "oxicode", "oxiblas-blas", "oxiblas-lapack", "oxiblas-ndarray", "validation", "types", "random"] }
-scirs2-autograd = { version = "0.5.1" }
-scirs2-special = { version = "0.5.1" }
-scirs2-sparse = { version = "0.5.1" }
-scirs2-optimize = { version = "0.5.1" }
-scirs2-signal = { version = "0.5.1" }
-scirs2-fft = { version = "0.5.1" }
+scirs2-core = { version = "0.6.0", features = ["simd", "parallel", "memory_management", "serialization", "oxicode", "oxiblas-blas", "oxiblas-lapack", "oxiblas-ndarray", "validation", "types", "random"] }
+scirs2-autograd = { version = "0.6.0" }
+scirs2-special = { version = "0.6.0" }
+scirs2-sparse = { version = "0.6.0" }
+scirs2-optimize = { version = "0.6.0" }
+scirs2-signal = { version = "0.6.0" }
+scirs2-fft = { version = "0.6.0" }
 # Additional SciRS2 crates for comprehensive integration
-scirs2-cluster = { version = "0.5.1" }
-scirs2-datasets = { version = "0.5.1" }
-scirs2-graph = { version = "0.5.1" }
-scirs2-metrics = { version = "0.5.1" }
-scirs2-series = { version = "0.5.1" }
-scirs2-spatial = { version = "0.5.1" }
-scirs2-stats = { version = "0.5.1" }
-scirs2-text = { version = "0.5.1" }
-scirs2-vision = { version = "0.5.1" }
-scirs2-linalg = { version = "0.5.1" }
-scirs2-neural = { version = "0.5.1" }
+scirs2-cluster = { version = "0.6.0" }
+scirs2-datasets = { version = "0.6.0" }
+scirs2-graph = { version = "0.6.0" }
+scirs2-metrics = { version = "0.6.0" }
+scirs2-series = { version = "0.6.0" }
+scirs2-spatial = { version = "0.6.0" }
+scirs2-stats = { version = "0.6.0" }
+scirs2-text = { version = "0.6.0" }
+scirs2-vision = { version = "0.6.0" }
+scirs2-linalg = { version = "0.6.0" }
+scirs2-neural = { version = "0.6.0" }
 # OptiRS - Advanced ML optimization (now available on crates.io - still in RC)
 optirs = { version = "0.3.1", default-features = false }
 optirs-core = { version = "0.3.1", default-features = false }
@@ -208,7 +208,7 @@ indexmap = { version = "2.14", features = ["serde"] }
 # libc = "0.2"  # REMOVED: Pure Rust (SciRS2 ecosystem) - replaced with sysinfo
 pyo3 = { version = "0.28.3" }
 numpy = "0.28"
-scirs2-numpy = { version = "0.5.1", default-features = false }  # SciRS2-compatible numpy bindings
+scirs2-numpy = { version = "0.6.0", default-features = false }  # SciRS2-compatible numpy bindings
 
 # Additional utilities
 hostname = "0.4"
