@@ -3,6 +3,7 @@
 //! Tests that verify performance characteristics and robustness under load
 
 use std::time::Instant;
+use torsh_core::Reduction;
 use torsh_nn::container::Sequential;
 use torsh_nn::functional::{binary_cross_entropy, mse_loss, relu, sigmoid, softmax, tanh};
 use torsh_nn::layers::{activation::ReLU, linear::Linear};
@@ -59,7 +60,7 @@ fn test_loss_performance() {
 
     // Test MSE performance
     let start = Instant::now();
-    let _mse_result = mse_loss(&predictions, &targets, "mean").unwrap();
+    let _mse_result = mse_loss(&predictions, &targets, Reduction::Mean).unwrap();
     let mse_time = start.elapsed();
 
     // Test Binary Cross Entropy performance (with valid inputs)
@@ -67,7 +68,7 @@ fn test_loss_performance() {
     let sigmoid_targets = sigmoid(&targets).unwrap();
 
     let start = Instant::now();
-    let _bce_result = binary_cross_entropy(&sigmoid_pred, &sigmoid_targets, None, "mean").unwrap();
+    let _bce_result = binary_cross_entropy(&sigmoid_pred, &sigmoid_targets, None, Reduction::Mean).unwrap();
     let bce_time = start.elapsed();
 
     println!(

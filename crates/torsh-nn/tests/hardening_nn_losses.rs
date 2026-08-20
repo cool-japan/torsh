@@ -169,7 +169,7 @@ fn ls_l1_loss_is_differentiable() {
     let input = param(&INPUT, &DIMS);
     let target = leaf(&TARGET, &DIMS);
 
-    let loss = functional::l1_loss(&input, &target, "mean").expect("forward");
+    let loss = functional::l1_loss(&input, &target, Reduction::Mean).expect("forward");
     assert!(
         loss.requires_grad(),
         "l1_loss must stay attached to its input"
@@ -180,7 +180,7 @@ fn ls_l1_loss_is_differentiable() {
     let numeric = numeric_gradient(&INPUT, |x| {
         let probe = leaf(x, &DIMS);
         let target = leaf(&TARGET, &DIMS);
-        values(&functional::l1_loss(&probe, &target, "mean").expect("probe"))
+        values(&functional::l1_loss(&probe, &target, Reduction::Mean).expect("probe"))
             .iter()
             .sum()
     });
@@ -193,7 +193,7 @@ fn ls_l1_loss_forward_values_are_pinned() {
     let input = leaf(&INPUT, &DIMS);
     let target = leaf(&TARGET, &DIMS);
 
-    let none = functional::l1_loss(&input, &target, "none").expect("none");
+    let none = functional::l1_loss(&input, &target, Reduction::None).expect("none");
     assert_eq!(none.shape().dims(), &DIMS);
     assert_close(
         "l1_loss/none",
@@ -201,11 +201,11 @@ fn ls_l1_loss_forward_values_are_pinned() {
         &[0.5, 0.70000005, 1.1999999, 0.65000004, 1.5, 0.6],
     );
 
-    let mean = functional::l1_loss(&input, &target, "mean").expect("mean");
+    let mean = functional::l1_loss(&input, &target, Reduction::Mean).expect("mean");
     assert!(mean.shape().dims().is_empty());
     assert_close("l1_loss/mean", &values(&mean), &[0.85833335]);
 
-    let sum = functional::l1_loss(&input, &target, "sum").expect("sum");
+    let sum = functional::l1_loss(&input, &target, Reduction::Sum).expect("sum");
     assert!(sum.shape().dims().is_empty());
     assert_close("l1_loss/sum", &values(&sum), &[5.15]);
 }
@@ -226,7 +226,7 @@ fn ls_binary_cross_entropy_is_differentiable() {
     let probs = param(&PROBS, &DIMS);
     let labels = leaf(&LABELS, &DIMS);
 
-    let loss = functional::binary_cross_entropy(&probs, &labels, None, "mean").expect("forward");
+    let loss = functional::binary_cross_entropy(&probs, &labels, None, Reduction::Mean).expect("forward");
     assert!(
         loss.requires_grad(),
         "binary_cross_entropy must stay attached to its input"
@@ -237,7 +237,7 @@ fn ls_binary_cross_entropy_is_differentiable() {
     let numeric = numeric_gradient(&PROBS, |x| {
         let probe = leaf(x, &DIMS);
         let labels = leaf(&LABELS, &DIMS);
-        values(&functional::binary_cross_entropy(&probe, &labels, None, "mean").expect("probe"))
+        values(&functional::binary_cross_entropy(&probe, &labels, None, Reduction::Mean).expect("probe"))
             .iter()
             .sum()
     });
@@ -250,7 +250,7 @@ fn ls_binary_cross_entropy_forward_values_are_pinned() {
     let probs = leaf(&PROBS, &DIMS);
     let labels = leaf(&LABELS, &DIMS);
 
-    let none = functional::binary_cross_entropy(&probs, &labels, None, "none").expect("none");
+    let none = functional::binary_cross_entropy(&probs, &labels, None, Reduction::None).expect("none");
     assert_eq!(none.shape().dims(), &DIMS);
     assert_close(
         "binary_cross_entropy/none",
@@ -265,10 +265,10 @@ fn ls_binary_cross_entropy_forward_values_are_pinned() {
         ],
     );
 
-    let mean = functional::binary_cross_entropy(&probs, &labels, None, "mean").expect("mean");
+    let mean = functional::binary_cross_entropy(&probs, &labels, None, Reduction::Mean).expect("mean");
     assert_close("binary_cross_entropy/mean", &values(&mean), &[0.40854514]);
 
-    let sum = functional::binary_cross_entropy(&probs, &labels, None, "sum").expect("sum");
+    let sum = functional::binary_cross_entropy(&probs, &labels, None, Reduction::Sum).expect("sum");
     assert_close("binary_cross_entropy/sum", &values(&sum), &[2.4512708]);
 }
 
@@ -283,7 +283,7 @@ fn ls_smooth_l1_loss_is_differentiable() {
         let input = param(&INPUT, &DIMS);
         let target = leaf(&TARGET, &DIMS);
 
-        let loss = functional::smooth_l1_loss(&input, &target, beta, "mean").expect("forward");
+        let loss = functional::smooth_l1_loss(&input, &target, beta, Reduction::Mean).expect("forward");
         assert!(
             loss.requires_grad(),
             "smooth_l1_loss (beta={beta}) must stay attached to its input; the \
@@ -295,7 +295,7 @@ fn ls_smooth_l1_loss_is_differentiable() {
         let numeric = numeric_gradient(&INPUT, |x| {
             let probe = leaf(x, &DIMS);
             let target = leaf(&TARGET, &DIMS);
-            values(&functional::smooth_l1_loss(&probe, &target, beta, "mean").expect("probe"))
+            values(&functional::smooth_l1_loss(&probe, &target, beta, Reduction::Mean).expect("probe"))
                 .iter()
                 .sum()
         });
@@ -313,7 +313,7 @@ fn ls_smooth_l1_loss_forward_values_are_pinned() {
     let input = leaf(&INPUT, &DIMS);
     let target = leaf(&TARGET, &DIMS);
 
-    let none = functional::smooth_l1_loss(&input, &target, 1.0, "none").expect("none");
+    let none = functional::smooth_l1_loss(&input, &target, 1.0, Reduction::None).expect("none");
     assert_eq!(none.shape().dims(), &DIMS);
     assert_close(
         "smooth_l1_loss/none/beta=1",
@@ -321,18 +321,18 @@ fn ls_smooth_l1_loss_forward_values_are_pinned() {
         &[0.125, 0.24500003, 0.6999999, 0.21125002, 1.0, 0.18],
     );
 
-    let half = functional::smooth_l1_loss(&input, &target, 0.5, "none").expect("beta=0.5");
+    let half = functional::smooth_l1_loss(&input, &target, 0.5, Reduction::None).expect("beta=0.5");
     assert_close(
         "smooth_l1_loss/none/beta=0.5",
         &values(&half),
         &[0.25, 0.45000005, 0.9499999, 0.40000004, 1.25, 0.35000002],
     );
 
-    let mean = functional::smooth_l1_loss(&input, &target, 1.0, "mean").expect("mean");
+    let mean = functional::smooth_l1_loss(&input, &target, 1.0, Reduction::Mean).expect("mean");
     assert!(mean.shape().dims().is_empty());
     assert_close("smooth_l1_loss/mean", &values(&mean), &[0.41020834]);
 
-    let sum = functional::smooth_l1_loss(&input, &target, 1.0, "sum").expect("sum");
+    let sum = functional::smooth_l1_loss(&input, &target, 1.0, Reduction::Sum).expect("sum");
     assert!(sum.shape().dims().is_empty());
     assert_close("smooth_l1_loss/sum", &values(&sum), &[2.46125]);
 }
@@ -343,7 +343,7 @@ fn ls_smooth_l1_loss_zero_beta_degenerates_to_l1() {
     let input = param(&INPUT, &DIMS);
     let target = leaf(&TARGET, &DIMS);
 
-    let loss = functional::smooth_l1_loss(&input, &target, 0.0, "none").expect("beta=0");
+    let loss = functional::smooth_l1_loss(&input, &target, 0.0, Reduction::None).expect("beta=0");
     assert_close(
         "smooth_l1_loss/beta=0",
         &values(&loss),
@@ -372,7 +372,7 @@ fn ls_huber_loss_is_differentiable() {
         let input = param(&INPUT, &DIMS);
         let target = leaf(&TARGET, &DIMS);
 
-        let loss = functional::huber_loss(&input, &target, delta, "mean").expect("forward");
+        let loss = functional::huber_loss(&input, &target, delta, Reduction::Mean).expect("forward");
         assert!(
             loss.requires_grad(),
             "huber_loss (delta={delta}) must stay attached to its input; \
@@ -384,7 +384,7 @@ fn ls_huber_loss_is_differentiable() {
         let numeric = numeric_gradient(&INPUT, |x| {
             let probe = leaf(x, &DIMS);
             let target = leaf(&TARGET, &DIMS);
-            values(&functional::huber_loss(&probe, &target, delta, "mean").expect("probe"))
+            values(&functional::huber_loss(&probe, &target, delta, Reduction::Mean).expect("probe"))
                 .iter()
                 .sum()
         });
@@ -402,7 +402,7 @@ fn ls_huber_loss_forward_values_are_pinned() {
     let input = leaf(&INPUT, &DIMS);
     let target = leaf(&TARGET, &DIMS);
 
-    let none = functional::huber_loss(&input, &target, 1.0, "none").expect("none");
+    let none = functional::huber_loss(&input, &target, 1.0, Reduction::None).expect("none");
     assert_eq!(none.shape().dims(), &DIMS);
     assert_close(
         "huber_loss/none/delta=1",
@@ -410,18 +410,18 @@ fn ls_huber_loss_forward_values_are_pinned() {
         &[0.125, 0.24500003, 0.6999999, 0.21125002, 1.0, 0.18],
     );
 
-    let half = functional::huber_loss(&input, &target, 0.5, "none").expect("delta=0.5");
+    let half = functional::huber_loss(&input, &target, 0.5, Reduction::None).expect("delta=0.5");
     assert_close(
         "huber_loss/none/delta=0.5",
         &values(&half),
         &[0.125, 0.22500002, 0.47499996, 0.20000002, 0.625, 0.17500001],
     );
 
-    let mean = functional::huber_loss(&input, &target, 1.0, "mean").expect("mean");
+    let mean = functional::huber_loss(&input, &target, 1.0, Reduction::Mean).expect("mean");
     assert!(mean.shape().dims().is_empty());
     assert_close("huber_loss/mean", &values(&mean), &[0.41020834]);
 
-    let sum = functional::huber_loss(&input, &target, 0.5, "sum").expect("sum");
+    let sum = functional::huber_loss(&input, &target, 0.5, Reduction::Sum).expect("sum");
     assert!(sum.shape().dims().is_empty());
     assert_close("huber_loss/sum", &values(&sum), &[1.825]);
 }
@@ -432,7 +432,7 @@ fn ls_huber_loss_zero_delta_is_identically_zero() {
     let input = leaf(&INPUT, &DIMS);
     let target = leaf(&TARGET, &DIMS);
 
-    let loss = functional::huber_loss(&input, &target, 0.0, "none").expect("delta=0");
+    let loss = functional::huber_loss(&input, &target, 0.0, Reduction::None).expect("delta=0");
     assert_close("huber_loss/delta=0", &values(&loss), &[0.0; 6]);
 }
 
@@ -446,7 +446,7 @@ fn ls_wing_loss_is_differentiable() {
     let input = param(&INPUT, &DIMS);
     let target = leaf(&TARGET, &DIMS);
 
-    let loss = functional::wing_loss(&input, &target, 1.0, 0.5, "mean").expect("forward");
+    let loss = functional::wing_loss(&input, &target, 1.0, 0.5, Reduction::Mean).expect("forward");
     assert!(
         loss.requires_grad(),
         "wing_loss must stay attached to its input"
@@ -457,7 +457,7 @@ fn ls_wing_loss_is_differentiable() {
     let numeric = numeric_gradient(&INPUT, |x| {
         let probe = leaf(x, &DIMS);
         let target = leaf(&TARGET, &DIMS);
-        values(&functional::wing_loss(&probe, &target, 1.0, 0.5, "mean").expect("probe"))
+        values(&functional::wing_loss(&probe, &target, 1.0, 0.5, Reduction::Mean).expect("probe"))
             .iter()
             .sum()
     });
@@ -470,7 +470,7 @@ fn ls_wing_loss_forward_values_are_pinned() {
     let input = leaf(&INPUT, &DIMS);
     let target = leaf(&TARGET, &DIMS);
 
-    let none = functional::wing_loss(&input, &target, 1.0, 0.5, "none").expect("none");
+    let none = functional::wing_loss(&input, &target, 1.0, 0.5, Reduction::None).expect("none");
     assert_eq!(none.shape().dims(), &DIMS);
     assert_close(
         "wing_loss/none",
@@ -480,11 +480,11 @@ fn ls_wing_loss_forward_values_are_pinned() {
         ],
     );
 
-    let mean = functional::wing_loss(&input, &target, 1.0, 0.5, "mean").expect("mean");
+    let mean = functional::wing_loss(&input, &target, 1.0, 0.5, Reduction::Mean).expect("mean");
     assert!(mean.shape().dims().is_empty());
     assert_close("wing_loss/mean", &values(&mean), &[1.0145345]);
 
-    let sum = functional::wing_loss(&input, &target, 1.0, 0.5, "sum").expect("sum");
+    let sum = functional::wing_loss(&input, &target, 1.0, 0.5, Reduction::Sum).expect("sum");
     assert!(sum.shape().dims().is_empty());
     assert_close("wing_loss/sum", &values(&sum), &[6.087207]);
 }
@@ -495,7 +495,7 @@ fn ls_wing_loss_zero_width_degenerates_to_l1() {
     let input = leaf(&INPUT, &DIMS);
     let target = leaf(&TARGET, &DIMS);
 
-    let loss = functional::wing_loss(&input, &target, 0.0, 0.5, "none").expect("width=0");
+    let loss = functional::wing_loss(&input, &target, 0.0, 0.5, Reduction::None).expect("width=0");
     assert_close(
         "wing_loss/width=0",
         &values(&loss),
@@ -513,7 +513,7 @@ fn ls_dice_loss_is_differentiable() {
     let probs = param(&PROBS, &DIMS);
     let labels = leaf(&LABELS, &DIMS);
 
-    let loss = functional::dice_loss(&probs, &labels, 1.0, "mean").expect("forward");
+    let loss = functional::dice_loss(&probs, &labels, 1.0, Reduction::Mean).expect("forward");
     assert!(
         loss.requires_grad(),
         "dice_loss must stay attached to its input"
@@ -524,7 +524,7 @@ fn ls_dice_loss_is_differentiable() {
     let numeric = numeric_gradient(&PROBS, |x| {
         let probe = leaf(x, &DIMS);
         let labels = leaf(&LABELS, &DIMS);
-        values(&functional::dice_loss(&probe, &labels, 1.0, "mean").expect("probe"))
+        values(&functional::dice_loss(&probe, &labels, 1.0, Reduction::Mean).expect("probe"))
             .iter()
             .sum()
     });
@@ -537,7 +537,7 @@ fn ls_dice_loss_forward_values_are_pinned() {
     let probs = leaf(&PROBS, &DIMS);
     let labels = leaf(&LABELS, &DIMS);
 
-    let none = functional::dice_loss(&probs, &labels, 1.0, "none").expect("none");
+    let none = functional::dice_loss(&probs, &labels, 1.0, Reduction::None).expect("none");
     assert_eq!(
         none.shape().dims(),
         &[1],
@@ -545,11 +545,11 @@ fn ls_dice_loss_forward_values_are_pinned() {
     );
     assert_close("dice_loss/none", &values(&none), &[0.26086956]);
 
-    let mean = functional::dice_loss(&probs, &labels, 1.0, "mean").expect("mean");
+    let mean = functional::dice_loss(&probs, &labels, 1.0, Reduction::Mean).expect("mean");
     assert!(mean.shape().dims().is_empty());
     assert_close("dice_loss/mean", &values(&mean), &[0.26086956]);
 
-    let sum = functional::dice_loss(&probs, &labels, 1.0, "sum").expect("sum");
+    let sum = functional::dice_loss(&probs, &labels, 1.0, Reduction::Sum).expect("sum");
     assert!(sum.shape().dims().is_empty());
     assert_close("dice_loss/sum", &values(&sum), &[0.26086956]);
 }
@@ -564,7 +564,7 @@ fn ls_tversky_loss_is_differentiable() {
     let probs = param(&PROBS, &DIMS);
     let labels = leaf(&LABELS, &DIMS);
 
-    let loss = functional::tversky_loss(&probs, &labels, 0.3, 0.7, 1.0, "mean").expect("forward");
+    let loss = functional::tversky_loss(&probs, &labels, 0.3, 0.7, 1.0, Reduction::Mean).expect("forward");
     assert!(
         loss.requires_grad(),
         "tversky_loss must stay attached to its input"
@@ -575,7 +575,7 @@ fn ls_tversky_loss_is_differentiable() {
     let numeric = numeric_gradient(&PROBS, |x| {
         let probe = leaf(x, &DIMS);
         let labels = leaf(&LABELS, &DIMS);
-        values(&functional::tversky_loss(&probe, &labels, 0.3, 0.7, 1.0, "mean").expect("probe"))
+        values(&functional::tversky_loss(&probe, &labels, 0.3, 0.7, 1.0, Reduction::Mean).expect("probe"))
             .iter()
             .sum()
     });
@@ -588,15 +588,15 @@ fn ls_tversky_loss_forward_values_are_pinned() {
     let probs = leaf(&PROBS, &DIMS);
     let labels = leaf(&LABELS, &DIMS);
 
-    let none = functional::tversky_loss(&probs, &labels, 0.3, 0.7, 1.0, "none").expect("none");
+    let none = functional::tversky_loss(&probs, &labels, 0.3, 0.7, 1.0, Reduction::None).expect("none");
     assert_eq!(none.shape().dims(), &[1]);
     assert_close("tversky_loss/none", &values(&none), &[0.23173803]);
 
-    let mean = functional::tversky_loss(&probs, &labels, 0.3, 0.7, 1.0, "mean").expect("mean");
+    let mean = functional::tversky_loss(&probs, &labels, 0.3, 0.7, 1.0, Reduction::Mean).expect("mean");
     assert!(mean.shape().dims().is_empty());
     assert_close("tversky_loss/mean", &values(&mean), &[0.23173803]);
 
-    let sum = functional::tversky_loss(&probs, &labels, 0.3, 0.7, 1.0, "sum").expect("sum");
+    let sum = functional::tversky_loss(&probs, &labels, 0.3, 0.7, 1.0, Reduction::Sum).expect("sum");
     assert!(sum.shape().dims().is_empty());
     assert_close("tversky_loss/sum", &values(&sum), &[0.23173803]);
 }
@@ -607,7 +607,7 @@ fn ls_tversky_loss_rejects_out_of_range_weights() {
     let probs = leaf(&PROBS, &DIMS);
     let labels = leaf(&LABELS, &DIMS);
     assert!(
-        functional::tversky_loss(&probs, &labels, 0.8, 0.7, 1.0, "mean").is_err(),
+        functional::tversky_loss(&probs, &labels, 0.8, 0.7, 1.0, Reduction::Mean).is_err(),
         "alpha + beta > 1 must stay an error"
     );
 }
@@ -626,7 +626,7 @@ fn ls_focal_loss_is_differentiable() {
     let logits = param(&LOGITS, &DIMS);
     let classes = focal_classes();
 
-    let loss = functional::focal_loss(&logits, &classes, Some(0.25), 2.0, "mean").expect("forward");
+    let loss = functional::focal_loss(&logits, &classes, Some(0.25), 2.0, Reduction::Mean).expect("forward");
     assert!(
         loss.requires_grad(),
         "focal_loss calls the recording log_softmax and then threw the graph \
@@ -638,7 +638,7 @@ fn ls_focal_loss_is_differentiable() {
     let numeric = numeric_gradient(&LOGITS, |x| {
         let probe = leaf(x, &DIMS);
         let classes = focal_classes();
-        values(&functional::focal_loss(&probe, &classes, Some(0.25), 2.0, "mean").expect("probe"))
+        values(&functional::focal_loss(&probe, &classes, Some(0.25), 2.0, Reduction::Mean).expect("probe"))
             .iter()
             .sum()
     });
@@ -651,7 +651,7 @@ fn ls_focal_loss_forward_values_are_pinned() {
     let logits = leaf(&LOGITS, &DIMS);
     let classes = focal_classes();
 
-    let none = functional::focal_loss(&logits, &classes, Some(0.25), 2.0, "none").expect("none");
+    let none = functional::focal_loss(&logits, &classes, Some(0.25), 2.0, Reduction::None).expect("none");
     assert_eq!(none.shape().dims(), &[2]);
     assert_close(
         "focal_loss/none",
@@ -659,7 +659,7 @@ fn ls_focal_loss_forward_values_are_pinned() {
         &[0.0027731883, 0.25535023],
     );
 
-    let mean = functional::focal_loss(&logits, &classes, Some(0.25), 2.0, "mean").expect("mean");
+    let mean = functional::focal_loss(&logits, &classes, Some(0.25), 2.0, Reduction::Mean).expect("mean");
     assert_eq!(
         mean.shape().dims(),
         &[1],
@@ -667,7 +667,7 @@ fn ls_focal_loss_forward_values_are_pinned() {
     );
     assert_close("focal_loss/mean", &values(&mean), &[0.12906171]);
 
-    let sum = functional::focal_loss(&logits, &classes, Some(0.25), 2.0, "sum").expect("sum");
+    let sum = functional::focal_loss(&logits, &classes, Some(0.25), 2.0, Reduction::Sum).expect("sum");
     assert_eq!(sum.shape().dims(), &[1]);
     assert_close("focal_loss/sum", &values(&sum), &[0.25812343]);
 }
@@ -678,7 +678,7 @@ fn ls_focal_loss_rejects_out_of_range_class() {
     let logits = leaf(&LOGITS, &DIMS);
     let classes = Tensor::<i64>::from_vec(vec![7i64, 0], &[2]).expect("classes");
     assert!(
-        functional::focal_loss(&logits, &classes, None, 2.0, "mean").is_err(),
+        functional::focal_loss(&logits, &classes, None, 2.0, Reduction::Mean).is_err(),
         "a class index outside [0, num_classes) must stay an error"
     );
 }
@@ -693,7 +693,7 @@ fn ls_focal_loss_non_finite_row_entry_yields_nan() {
     let logits = leaf(&[0.5, f32::NEG_INFINITY, 2.0, 0.25, 1.5, -0.5], &DIMS);
     let classes = focal_classes();
 
-    let loss = functional::focal_loss(&logits, &classes, None, 2.0, "none").expect("none");
+    let loss = functional::focal_loss(&logits, &classes, None, 2.0, Reduction::None).expect("none");
     let observed = values(&loss);
     assert!(
         observed[0].is_nan(),
@@ -723,7 +723,7 @@ fn ls_center_loss_is_differentiable_in_features() {
     let centers = leaf(&CENTERS, &[3, 2]);
     let labels = center_labels();
 
-    let loss = functional::center_loss(&features, &labels, &centers, "mean").expect("forward");
+    let loss = functional::center_loss(&features, &labels, &centers, Reduction::Mean).expect("forward");
     assert!(
         loss.requires_grad(),
         "center_loss must stay attached to its features"
@@ -735,7 +735,7 @@ fn ls_center_loss_is_differentiable_in_features() {
         let probe = leaf(x, &[2, 2]);
         let centers = leaf(&CENTERS, &[3, 2]);
         let labels = center_labels();
-        values(&functional::center_loss(&probe, &labels, &centers, "mean").expect("probe"))
+        values(&functional::center_loss(&probe, &labels, &centers, Reduction::Mean).expect("probe"))
             .iter()
             .sum()
     });
@@ -749,7 +749,7 @@ fn ls_center_loss_is_differentiable_in_centers() {
     let centers = param(&CENTERS, &[3, 2]);
     let labels = center_labels();
 
-    let loss = functional::center_loss(&features, &labels, &centers, "sum").expect("forward");
+    let loss = functional::center_loss(&features, &labels, &centers, Reduction::Sum).expect("forward");
     assert!(
         loss.requires_grad(),
         "center_loss must reach the centers too"
@@ -761,7 +761,7 @@ fn ls_center_loss_is_differentiable_in_centers() {
         let features = leaf(&FEATURES, &[2, 2]);
         let probe = leaf(x, &[3, 2]);
         let labels = center_labels();
-        values(&functional::center_loss(&features, &labels, &probe, "sum").expect("probe"))
+        values(&functional::center_loss(&features, &labels, &probe, Reduction::Sum).expect("probe"))
             .iter()
             .sum()
     });
@@ -780,15 +780,15 @@ fn ls_center_loss_forward_values_are_pinned() {
     let centers = leaf(&CENTERS, &[3, 2]);
     let labels = center_labels();
 
-    let none = functional::center_loss(&features, &labels, &centers, "none").expect("none");
+    let none = functional::center_loss(&features, &labels, &centers, Reduction::None).expect("none");
     assert_eq!(none.shape().dims(), &[2]);
     assert_close("center_loss/none", &values(&none), &[1.2962499, 0.80999994]);
 
-    let mean = functional::center_loss(&features, &labels, &centers, "mean").expect("mean");
+    let mean = functional::center_loss(&features, &labels, &centers, Reduction::Mean).expect("mean");
     assert!(mean.shape().dims().is_empty());
     assert_close("center_loss/mean", &values(&mean), &[1.0531249]);
 
-    let sum = functional::center_loss(&features, &labels, &centers, "sum").expect("sum");
+    let sum = functional::center_loss(&features, &labels, &centers, Reduction::Sum).expect("sum");
     assert!(sum.shape().dims().is_empty());
     assert_close("center_loss/sum", &values(&sum), &[2.1062498]);
 }
@@ -800,7 +800,7 @@ fn ls_center_loss_rejects_out_of_range_label() {
     let centers = leaf(&CENTERS, &[3, 2]);
     let labels = Tensor::<i64>::from_vec(vec![1i64, 9], &[2]).expect("labels");
     assert!(
-        functional::center_loss(&features, &labels, &centers, "mean").is_err(),
+        functional::center_loss(&features, &labels, &centers, Reduction::Mean).is_err(),
         "a label outside [0, num_classes) must stay an error"
     );
 }
@@ -816,7 +816,7 @@ fn ls_center_loss_non_finite_unused_center_yields_nan() {
     let centers = leaf(&[f32::INFINITY, 0.5, -1.0, 0.25, 2.0, -0.5], &[3, 2]);
     let labels = center_labels();
 
-    let loss = functional::center_loss(&features, &labels, &centers, "none").expect("none");
+    let loss = functional::center_loss(&features, &labels, &centers, Reduction::None).expect("none");
     assert!(
         values(&loss).iter().all(|v| v.is_nan()),
         "an inf in the unused centre row 0 must make the selection NaN, got {:?}",
@@ -840,7 +840,7 @@ fn ls_infonce_loss_is_differentiable_in_anchor() {
     let negatives = leaf(&NEGATIVES, &[3, 2]);
 
     let loss =
-        functional::infonce_loss(&anchor, &positive, &negatives, 0.2, "mean").expect("forward");
+        functional::infonce_loss(&anchor, &positive, &negatives, 0.2, Reduction::Mean).expect("forward");
     assert!(
         loss.requires_grad(),
         "infonce_loss must stay attached to its anchor"
@@ -853,7 +853,7 @@ fn ls_infonce_loss_is_differentiable_in_anchor() {
         let positive = leaf(&POSITIVE, &[2, 2]);
         let negatives = leaf(&NEGATIVES, &[3, 2]);
         values(
-            &functional::infonce_loss(&probe, &positive, &negatives, 0.2, "mean").expect("probe"),
+            &functional::infonce_loss(&probe, &positive, &negatives, 0.2, Reduction::Mean).expect("probe"),
         )
         .iter()
         .sum()
@@ -869,7 +869,7 @@ fn ls_infonce_loss_is_differentiable_in_positive_and_negatives() {
     let negatives = param(&NEGATIVES, &[3, 2]);
 
     let loss =
-        functional::infonce_loss(&anchor, &positive, &negatives, 0.2, "sum").expect("forward");
+        functional::infonce_loss(&anchor, &positive, &negatives, 0.2, Reduction::Sum).expect("forward");
     loss.backward().expect("backward");
 
     let positive_grad = gradient_of(&positive, "infonce_loss/positive");
@@ -877,7 +877,7 @@ fn ls_infonce_loss_is_differentiable_in_positive_and_negatives() {
         let anchor = leaf(&ANCHOR, &[2, 2]);
         let probe = leaf(x, &[2, 2]);
         let negatives = leaf(&NEGATIVES, &[3, 2]);
-        values(&functional::infonce_loss(&anchor, &probe, &negatives, 0.2, "sum").expect("probe"))
+        values(&functional::infonce_loss(&anchor, &probe, &negatives, 0.2, Reduction::Sum).expect("probe"))
             .iter()
             .sum()
     });
@@ -888,7 +888,7 @@ fn ls_infonce_loss_is_differentiable_in_positive_and_negatives() {
         let anchor = leaf(&ANCHOR, &[2, 2]);
         let positive = leaf(&POSITIVE, &[2, 2]);
         let probe = leaf(x, &[3, 2]);
-        values(&functional::infonce_loss(&anchor, &positive, &probe, 0.2, "sum").expect("probe"))
+        values(&functional::infonce_loss(&anchor, &positive, &probe, 0.2, Reduction::Sum).expect("probe"))
             .iter()
             .sum()
     });
@@ -906,7 +906,7 @@ fn ls_infonce_loss_forward_values_are_pinned() {
     let positive = leaf(&POSITIVE, &[2, 2]);
     let negatives = leaf(&NEGATIVES, &[3, 2]);
 
-    let none = functional::infonce_loss(&anchor, &positive, &negatives, 0.2, "none").expect("none");
+    let none = functional::infonce_loss(&anchor, &positive, &negatives, 0.2, Reduction::None).expect("none");
     assert_eq!(none.shape().dims(), &[2]);
     assert_close(
         "infonce_loss/none",
@@ -914,11 +914,11 @@ fn ls_infonce_loss_forward_values_are_pinned() {
         &[0.095543936, 0.49331966],
     );
 
-    let mean = functional::infonce_loss(&anchor, &positive, &negatives, 0.2, "mean").expect("mean");
+    let mean = functional::infonce_loss(&anchor, &positive, &negatives, 0.2, Reduction::Mean).expect("mean");
     assert!(mean.shape().dims().is_empty());
     assert_close("infonce_loss/mean", &values(&mean), &[0.2944318]);
 
-    let sum = functional::infonce_loss(&anchor, &positive, &negatives, 0.2, "sum").expect("sum");
+    let sum = functional::infonce_loss(&anchor, &positive, &negatives, 0.2, Reduction::Sum).expect("sum");
     assert!(sum.shape().dims().is_empty());
     assert_close("infonce_loss/sum", &values(&sum), &[0.5888636]);
 }
@@ -934,7 +934,7 @@ fn ls_infonce_loss_zero_norm_row_keeps_its_forward_value() {
     let positive = leaf(&POSITIVE, &[2, 2]);
     let negatives = leaf(&NEGATIVES, &[3, 2]);
 
-    let loss = functional::infonce_loss(&anchor, &positive, &negatives, 0.2, "none").expect("none");
+    let loss = functional::infonce_loss(&anchor, &positive, &negatives, 0.2, Reduction::None).expect("none");
     let observed = values(&loss);
     assert_close(
         "infonce_loss/zero-norm row",
@@ -957,7 +957,7 @@ fn ls_cross_entropy_output_stays_on_the_input_device() -> Result<()> {
     let logits = param(&LOGITS, &DIMS);
     let classes = focal_classes();
 
-    let loss = functional::cross_entropy(&logits, &classes, None, "mean", None)?;
+    let loss = functional::cross_entropy(&logits, &classes, None, Reduction::Mean, None)?;
     assert_eq!(
         loss.device(),
         logits.device(),
@@ -966,7 +966,7 @@ fn ls_cross_entropy_output_stays_on_the_input_device() -> Result<()> {
     );
 
     let weight = leaf(&[0.5, 2.0, 1.0], &[3]);
-    let weighted = functional::cross_entropy(&logits, &classes, Some(&weight), "mean", None)?;
+    let weighted = functional::cross_entropy(&logits, &classes, Some(&weight), Reduction::Mean, None)?;
     assert_eq!(
         weighted.device(),
         logits.device(),
@@ -981,39 +981,26 @@ fn ls_cross_entropy_rejects_a_target_batch_mismatch() {
     let logits = leaf(&LOGITS, &DIMS);
     let classes = Tensor::<i64>::from_vec(vec![2i64, 0, 1], &[3]).expect("classes");
     assert!(
-        functional::cross_entropy(&logits, &classes, None, "mean", None).is_err(),
+        functional::cross_entropy(&logits, &classes, None, Reduction::Mean, None).is_err(),
         "three targets for a two-row input must be an error, not an out-of-bounds write"
     );
 }
 
 // ---------------------------------------------------------------------------
-// Reduction-mode coverage: an unknown reduction must stay an error everywhere.
+// Reduction-mode coverage: every Reduction must compile
 // ---------------------------------------------------------------------------
 
 #[test]
-fn ls_every_rewritten_loss_rejects_an_unknown_reduction() {
+fn ls_all_reduction_variants_are_accepted() {
     let _guard = grad_mode_guard();
     let input = leaf(&INPUT, &DIMS);
     let target = leaf(&TARGET, &DIMS);
-    let probs = leaf(&PROBS, &DIMS);
-    let binary = leaf(&LABELS, &DIMS);
-    let logits = leaf(&LOGITS, &DIMS);
-    let classes = focal_classes();
-    let features = leaf(&FEATURES, &[2, 2]);
-    let centers = leaf(&CENTERS, &[3, 2]);
-    let labels = center_labels();
-    let anchor = leaf(&ANCHOR, &[2, 2]);
-    let positive = leaf(&POSITIVE, &[2, 2]);
-    let negatives = leaf(&NEGATIVES, &[3, 2]);
 
-    assert!(functional::smooth_l1_loss(&input, &target, 1.0, "median").is_err());
-    assert!(functional::huber_loss(&input, &target, 1.0, "median").is_err());
-    assert!(functional::wing_loss(&input, &target, 1.0, 0.5, "median").is_err());
-    assert!(functional::dice_loss(&probs, &binary, 1.0, "median").is_err());
-    assert!(functional::tversky_loss(&probs, &binary, 0.3, 0.7, 1.0, "median").is_err());
-    assert!(functional::focal_loss(&logits, &classes, None, 2.0, "median").is_err());
-    assert!(functional::center_loss(&features, &labels, &centers, "median").is_err());
-    assert!(functional::infonce_loss(&anchor, &positive, &negatives, 0.2, "median").is_err());
+    // All four variants must compile and succeed
+    assert!(functional::mse_loss(&input, &target, Reduction::None).is_ok());
+    assert!(functional::mse_loss(&input, &target, Reduction::Mean).is_ok());
+    assert!(functional::mse_loss(&input, &target, Reduction::Sum).is_ok());
+    assert!(functional::mse_loss(&input, &target, Reduction::BatchMean).is_ok());
 }
 
 // ---------------------------------------------------------------------------
@@ -1404,13 +1391,13 @@ fn ls_triplet_margin_loss_forward_values_are_pinned() {
     let negative = leaf(&TRI_NEGATIVE, &TRI_DIMS);
 
     let none =
-        functional::triplet_margin_loss(&anchor, &positive, &negative, TRI_MARGIN, 2.0, "none")
+        functional::triplet_margin_loss(&anchor, &positive, &negative, TRI_MARGIN, 2.0, Reduction::None)
             .expect("none");
     assert_eq!(none.shape().dims(), &[2]);
     assert_close("triplet/p2/none", &values(&none), &[0.85108006, 1.1443866]);
 
     let mean =
-        functional::triplet_margin_loss(&anchor, &positive, &negative, TRI_MARGIN, 2.0, "mean")
+        functional::triplet_margin_loss(&anchor, &positive, &negative, TRI_MARGIN, 2.0, Reduction::Mean)
             .expect("mean");
     assert_eq!(
         mean.shape().dims(),
@@ -1420,18 +1407,18 @@ fn ls_triplet_margin_loss_forward_values_are_pinned() {
     assert_close("triplet/p2/mean", &values(&mean), &[0.99773335]);
 
     let sum =
-        functional::triplet_margin_loss(&anchor, &positive, &negative, TRI_MARGIN, 2.0, "sum")
+        functional::triplet_margin_loss(&anchor, &positive, &negative, TRI_MARGIN, 2.0, Reduction::Sum)
             .expect("sum");
     assert_eq!(sum.shape().dims(), &[1]);
     assert_close("triplet/p2/sum", &values(&sum), &[1.9954667]);
 
     // `p` is a free parameter, not a hardcoded 2.
     let p1 =
-        functional::triplet_margin_loss(&anchor, &positive, &negative, TRI_MARGIN, 1.0, "none")
+        functional::triplet_margin_loss(&anchor, &positive, &negative, TRI_MARGIN, 1.0, Reduction::None)
             .expect("p1");
     assert_close("triplet/p1/none", &values(&p1), &[0.29999995, 0.8000002]);
     let p3 =
-        functional::triplet_margin_loss(&anchor, &positive, &negative, TRI_MARGIN, 3.0, "none")
+        functional::triplet_margin_loss(&anchor, &positive, &negative, TRI_MARGIN, 3.0, Reduction::None)
             .expect("p3");
     assert_close("triplet/p3/none", &values(&p3), &[1.014682, 1.230003]);
 }
@@ -1444,7 +1431,7 @@ fn ls_triplet_margin_loss_keeps_its_rank_conventions() {
     let a1 = leaf(&TRI_ANCHOR, &[4]);
     let p1 = leaf(&TRI_POSITIVE, &[4]);
     let n1 = leaf(&TRI_NEGATIVE, &[4]);
-    let rank1 = functional::triplet_margin_loss(&a1, &p1, &n1, TRI_MARGIN, 2.0, "none")
+    let rank1 = functional::triplet_margin_loss(&a1, &p1, &n1, TRI_MARGIN, 2.0, Reduction::None)
         .expect("rank-1 operands");
     assert_eq!(rank1.shape().dims(), &[4]);
     assert_close(
@@ -1458,7 +1445,7 @@ fn ls_triplet_margin_loss_keeps_its_rank_conventions() {
     let a3 = leaf(&TRI_ANCHOR, &[2, 1, 2]);
     let p3 = leaf(&TRI_POSITIVE, &[2, 1, 2]);
     let n3 = leaf(&TRI_NEGATIVE, &[2, 1, 2]);
-    let rank3 = functional::triplet_margin_loss(&a3, &p3, &n3, TRI_MARGIN, 2.0, "none")
+    let rank3 = functional::triplet_margin_loss(&a3, &p3, &n3, TRI_MARGIN, 2.0, Reduction::None)
         .expect("rank-3 operands");
     assert_eq!(rank3.shape().dims(), &[2]);
     assert_close(
@@ -1476,7 +1463,7 @@ fn ls_triplet_margin_loss_is_differentiable() {
     let negative = leaf(&TRI_NEGATIVE, &TRI_DIMS);
 
     let loss =
-        functional::triplet_margin_loss(&anchor, &positive, &negative, TRI_MARGIN, 2.0, "sum")
+        functional::triplet_margin_loss(&anchor, &positive, &negative, TRI_MARGIN, 2.0, Reduction::Sum)
             .expect("forward");
     assert!(
         loss.requires_grad(),
@@ -1490,7 +1477,7 @@ fn ls_triplet_margin_loss_is_differentiable() {
         let positive = leaf(&TRI_POSITIVE, &TRI_DIMS);
         let negative = leaf(&TRI_NEGATIVE, &TRI_DIMS);
         values(
-            &functional::triplet_margin_loss(&probe, &positive, &negative, TRI_MARGIN, 2.0, "sum")
+            &functional::triplet_margin_loss(&probe, &positive, &negative, TRI_MARGIN, 2.0, Reduction::Sum)
                 .expect("probe"),
         )
         .iter()
@@ -1507,7 +1494,7 @@ fn ls_triplet_margin_loss_gradient_reaches_the_positive_and_negative_legs() {
     let negative = param(&TRI_NEGATIVE, &TRI_DIMS);
 
     let loss =
-        functional::triplet_margin_loss(&anchor, &positive, &negative, TRI_MARGIN, 2.0, "sum")
+        functional::triplet_margin_loss(&anchor, &positive, &negative, TRI_MARGIN, 2.0, Reduction::Sum)
             .expect("forward");
     loss.backward().expect("backward");
     let analytic_positive = gradient_of(&positive, "triplet/positive");
@@ -1518,7 +1505,7 @@ fn ls_triplet_margin_loss_gradient_reaches_the_positive_and_negative_legs() {
         let probe = leaf(x, &TRI_DIMS);
         let negative = leaf(&TRI_NEGATIVE, &TRI_DIMS);
         values(
-            &functional::triplet_margin_loss(&anchor, &probe, &negative, TRI_MARGIN, 2.0, "sum")
+            &functional::triplet_margin_loss(&anchor, &probe, &negative, TRI_MARGIN, 2.0, Reduction::Sum)
                 .expect("probe"),
         )
         .iter()
@@ -1531,7 +1518,7 @@ fn ls_triplet_margin_loss_gradient_reaches_the_positive_and_negative_legs() {
         let positive = leaf(&TRI_POSITIVE, &TRI_DIMS);
         let probe = leaf(x, &TRI_DIMS);
         values(
-            &functional::triplet_margin_loss(&anchor, &positive, &probe, TRI_MARGIN, 2.0, "sum")
+            &functional::triplet_margin_loss(&anchor, &positive, &probe, TRI_MARGIN, 2.0, Reduction::Sum)
                 .expect("probe"),
         )
         .iter()
@@ -1547,7 +1534,7 @@ fn ls_triplet_margin_loss_rejects_an_unknown_reduction() {
     let positive = leaf(&TRI_POSITIVE, &TRI_DIMS);
     let negative = leaf(&TRI_NEGATIVE, &TRI_DIMS);
     assert!(
-        functional::triplet_margin_loss(&anchor, &positive, &negative, TRI_MARGIN, 2.0, "nope")
+        functional::triplet_margin_loss(&anchor, &positive, &negative, TRI_MARGIN, 2.0, Reduction::BatchMean)
             .is_err(),
         "an unknown reduction must stay an error"
     );
@@ -1558,7 +1545,7 @@ fn ls_triplet_margin_loss_rejects_a_rank0_operand() {
     let _guard = grad_mode_guard();
     let scalar = leaf(&[1.0], &[]);
     assert!(
-        functional::triplet_margin_loss(&scalar, &scalar, &scalar, TRI_MARGIN, 2.0, "none")
+        functional::triplet_margin_loss(&scalar, &scalar, &scalar, TRI_MARGIN, 2.0, Reduction::None)
             .is_err(),
         "a 0-D operand has no batch axis; that must be an error, not an index panic"
     );
@@ -1581,16 +1568,16 @@ fn ls_contrastive_loss_forward_values_are_pinned() {
     let target = leaf(&CON_TARGET, &[2]);
 
     let none =
-        functional::contrastive_loss(&out1, &out2, &target, CON_MARGIN, "none").expect("none");
+        functional::contrastive_loss(&out1, &out2, &target, CON_MARGIN, Reduction::None).expect("none");
     assert_eq!(none.shape().dims(), &[2]);
     assert_close("contrastive/none", &values(&none), &[0.58000004, 1.7667185]);
 
     let mean =
-        functional::contrastive_loss(&out1, &out2, &target, CON_MARGIN, "mean").expect("mean");
+        functional::contrastive_loss(&out1, &out2, &target, CON_MARGIN, Reduction::Mean).expect("mean");
     assert_eq!(mean.shape().dims(), &[1]);
     assert_close("contrastive/mean", &values(&mean), &[1.1733593]);
 
-    let sum = functional::contrastive_loss(&out1, &out2, &target, CON_MARGIN, "sum").expect("sum");
+    let sum = functional::contrastive_loss(&out1, &out2, &target, CON_MARGIN, Reduction::Sum).expect("sum");
     assert_eq!(sum.shape().dims(), &[1]);
     assert_close("contrastive/sum", &values(&sum), &[2.3467185]);
 
@@ -1598,7 +1585,7 @@ fn ls_contrastive_loss_forward_values_are_pinned() {
     // similar pair's arm is unaffected by the margin.
     let far = leaf(&[0.5, -0.3, 9.0, 9.0], &CON_DIMS);
     let beyond =
-        functional::contrastive_loss(&out1, &far, &target, CON_MARGIN, "none").expect("beyond");
+        functional::contrastive_loss(&out1, &far, &target, CON_MARGIN, Reduction::None).expect("beyond");
     assert_close("contrastive/beyond-margin", &values(&beyond), &[0.0, 0.0]);
 }
 
@@ -1610,7 +1597,7 @@ fn ls_contrastive_loss_is_differentiable() {
     let target = leaf(&CON_TARGET, &[2]);
 
     let loss =
-        functional::contrastive_loss(&out1, &out2, &target, CON_MARGIN, "sum").expect("forward");
+        functional::contrastive_loss(&out1, &out2, &target, CON_MARGIN, Reduction::Sum).expect("forward");
     assert!(
         loss.requires_grad(),
         "contrastive_loss must stay attached to its embeddings"
@@ -1623,7 +1610,7 @@ fn ls_contrastive_loss_is_differentiable() {
         let out2 = leaf(&CON_OUT2, &CON_DIMS);
         let target = leaf(&CON_TARGET, &[2]);
         values(
-            &functional::contrastive_loss(&probe, &out2, &target, CON_MARGIN, "sum")
+            &functional::contrastive_loss(&probe, &out2, &target, CON_MARGIN, Reduction::Sum)
                 .expect("probe"),
         )
         .iter()
@@ -1639,7 +1626,7 @@ fn ls_contrastive_loss_rejects_an_unknown_reduction() {
     let out2 = leaf(&CON_OUT2, &CON_DIMS);
     let target = leaf(&CON_TARGET, &[2]);
     assert!(
-        functional::contrastive_loss(&out1, &out2, &target, CON_MARGIN, "nope").is_err(),
+        functional::contrastive_loss(&out1, &out2, &target, CON_MARGIN, Reduction::BatchMean).is_err(),
         "an unknown reduction must stay an error"
     );
 }
@@ -1661,12 +1648,12 @@ fn ls_multi_margin_loss_forward_values_are_pinned() {
     let target = mm_target();
 
     let none =
-        functional::multi_margin_loss(&input, &target, 1, MM_MARGIN, None, "none").expect("none");
+        functional::multi_margin_loss(&input, &target, 1, MM_MARGIN, None, Reduction::None).expect("none");
     assert_eq!(none.shape().dims(), &[2]);
     assert_close("multi_margin/p1/none", &values(&none), &[0.6, 0.6]);
 
     let mean =
-        functional::multi_margin_loss(&input, &target, 1, MM_MARGIN, None, "mean").expect("mean");
+        functional::multi_margin_loss(&input, &target, 1, MM_MARGIN, None, Reduction::Mean).expect("mean");
     assert!(
         mean.shape().dims().is_empty(),
         "this loss reduces through `apply_reduction`, which yields a 0-D scalar; \
@@ -1676,17 +1663,17 @@ fn ls_multi_margin_loss_forward_values_are_pinned() {
     assert_close("multi_margin/p1/mean", &values(&mean), &[0.6]);
 
     let sum =
-        functional::multi_margin_loss(&input, &target, 1, MM_MARGIN, None, "sum").expect("sum");
+        functional::multi_margin_loss(&input, &target, 1, MM_MARGIN, None, Reduction::Sum).expect("sum");
     assert!(sum.shape().dims().is_empty());
     assert_close("multi_margin/p1/sum", &values(&sum), &[1.2]);
 
     let p2 =
-        functional::multi_margin_loss(&input, &target, 2, MM_MARGIN, None, "none").expect("p2");
+        functional::multi_margin_loss(&input, &target, 2, MM_MARGIN, None, Reduction::None).expect("p2");
     assert_close("multi_margin/p2/none", &values(&p2), &[0.45, 0.45]);
 
     let weight = leaf(&[2.0, 3.0, 4.0], &[3]);
     let weighted =
-        functional::multi_margin_loss(&input, &target, 1, MM_MARGIN, Some(&weight), "none")
+        functional::multi_margin_loss(&input, &target, 1, MM_MARGIN, Some(&weight), Reduction::None)
             .expect("weighted");
     assert_close(
         "multi_margin/weighted/none",
@@ -1702,7 +1689,7 @@ fn ls_multi_margin_loss_scores_an_out_of_range_target_as_zero() {
     let target = torsh_tensor::Tensor::<i64>::from_vec(vec![1i64, 7], &[2]).expect("target");
 
     let none =
-        functional::multi_margin_loss(&input, &target, 1, MM_MARGIN, None, "none").expect("none");
+        functional::multi_margin_loss(&input, &target, 1, MM_MARGIN, None, Reduction::None).expect("none");
     assert_close("multi_margin/out-of-range", &values(&none), &[0.6, 0.0]);
 }
 
@@ -1713,7 +1700,7 @@ fn ls_multi_margin_loss_is_differentiable() {
     let target = mm_target();
 
     let loss =
-        functional::multi_margin_loss(&input, &target, 1, MM_MARGIN, None, "sum").expect("forward");
+        functional::multi_margin_loss(&input, &target, 1, MM_MARGIN, None, Reduction::Sum).expect("forward");
     assert!(
         loss.requires_grad(),
         "multi_margin_loss must stay attached to its scores"
@@ -1725,7 +1712,7 @@ fn ls_multi_margin_loss_is_differentiable() {
         let probe = leaf(x, &MM_DIMS);
         let target = mm_target();
         values(
-            &functional::multi_margin_loss(&probe, &target, 1, MM_MARGIN, None, "sum")
+            &functional::multi_margin_loss(&probe, &target, 1, MM_MARGIN, None, Reduction::Sum)
                 .expect("probe"),
         )
         .iter()
@@ -1741,7 +1728,7 @@ fn ls_multi_margin_loss_is_differentiable_with_squared_hinge_and_weights() {
     let target = mm_target();
     let weight = leaf(&[2.0, 3.0, 4.0], &[3]);
 
-    let loss = functional::multi_margin_loss(&input, &target, 2, MM_MARGIN, Some(&weight), "sum")
+    let loss = functional::multi_margin_loss(&input, &target, 2, MM_MARGIN, Some(&weight), Reduction::Sum)
         .expect("forward");
     assert!(loss.requires_grad());
     loss.backward().expect("backward");
@@ -1752,7 +1739,7 @@ fn ls_multi_margin_loss_is_differentiable_with_squared_hinge_and_weights() {
         let target = mm_target();
         let weight = leaf(&[2.0, 3.0, 4.0], &[3]);
         values(
-            &functional::multi_margin_loss(&probe, &target, 2, MM_MARGIN, Some(&weight), "sum")
+            &functional::multi_margin_loss(&probe, &target, 2, MM_MARGIN, Some(&weight), Reduction::Sum)
                 .expect("probe"),
         )
         .iter()
@@ -1767,7 +1754,7 @@ fn ls_multi_margin_loss_rejects_a_non_2d_input() {
     let flat = leaf(&MM_INPUT, &[6]);
     let target = mm_target();
     assert!(
-        functional::multi_margin_loss(&flat, &target, 1, MM_MARGIN, None, "none").is_err(),
+        functional::multi_margin_loss(&flat, &target, 1, MM_MARGIN, None, Reduction::None).is_err(),
         "a 1-D score tensor has no class axis; that must be an error, not an index panic"
     );
 }
@@ -1779,7 +1766,7 @@ fn ls_multi_margin_loss_rejects_a_degenerate_exponent() {
     let target = mm_target();
     for p in [0, -1] {
         assert!(
-            functional::multi_margin_loss(&input, &target, p, MM_MARGIN, None, "none").is_err(),
+            functional::multi_margin_loss(&input, &target, p, MM_MARGIN, None, Reduction::None).is_err(),
             "p = {p} cannot be expressed on the clamped hinge (`0^0 == 1`, `0^-1 == inf`) \
              and is outside PyTorch's documented domain, so it must be rejected rather than \
              silently scored differently from the predecessor"
@@ -1788,7 +1775,7 @@ fn ls_multi_margin_loss_rejects_a_degenerate_exponent() {
     // Everything at or above 1 keeps working.
     for p in [1, 2, 3] {
         assert!(
-            functional::multi_margin_loss(&input, &target, p, MM_MARGIN, None, "none").is_ok(),
+            functional::multi_margin_loss(&input, &target, p, MM_MARGIN, None, Reduction::None).is_ok(),
             "p = {p} must stay available"
         );
     }
@@ -1809,7 +1796,7 @@ fn ls_cosine_embedding_loss_accepts_a_batched_target() {
     let input2 = leaf(&COS_IN2, &COS_DIMS);
     let target = leaf(&COS_TARGET, &[2]);
 
-    let none = functional::cosine_embedding_loss(&input1, &input2, &target, COS_MARGIN, "none")
+    let none = functional::cosine_embedding_loss(&input1, &input2, &target, COS_MARGIN, Reduction::None)
         .expect("a rank-1 target over a [N, D] pair is the documented PyTorch shape");
     assert_eq!(
         none.shape().dims(),
@@ -1818,11 +1805,11 @@ fn ls_cosine_embedding_loss_accepts_a_batched_target() {
     );
     assert_close("cosine/none", &values(&none), &[0.2, 0.5936615]);
 
-    let mean = functional::cosine_embedding_loss(&input1, &input2, &target, COS_MARGIN, "mean")
+    let mean = functional::cosine_embedding_loss(&input1, &input2, &target, COS_MARGIN, Reduction::Mean)
         .expect("mean");
     assert_close("cosine/mean", &values(&mean), &[0.39683074]);
 
-    let sum = functional::cosine_embedding_loss(&input1, &input2, &target, COS_MARGIN, "sum")
+    let sum = functional::cosine_embedding_loss(&input1, &input2, &target, COS_MARGIN, Reduction::Sum)
         .expect("sum");
     assert_close("cosine/sum", &values(&sum), &[0.7936615]);
 }
@@ -1838,7 +1825,7 @@ fn ls_cosine_embedding_loss_preserves_the_unbatched_case() {
     let positive = leaf(&[1.0], &[]);
     let negative = leaf(&[-1.0], &[]);
 
-    for reduction in ["none", "mean", "sum"] {
+    for reduction in [Reduction::None, Reduction::Mean, Reduction::Sum] {
         let loss = functional::cosine_embedding_loss(&v1, &v2, &positive, COS_MARGIN, reduction)
             .expect("unbatched");
         assert!(
@@ -1849,7 +1836,7 @@ fn ls_cosine_embedding_loss_preserves_the_unbatched_case() {
         assert_close("cosine/unbatched/pos", &values(&loss), &[0.19999999]);
     }
 
-    let neg = functional::cosine_embedding_loss(&v1, &v2, &negative, COS_MARGIN, "none")
+    let neg = functional::cosine_embedding_loss(&v1, &v2, &negative, COS_MARGIN, Reduction::None)
         .expect("unbatched negative");
     assert_close("cosine/unbatched/neg", &values(&neg), &[0.55]);
 }
@@ -1861,7 +1848,7 @@ fn ls_cosine_embedding_loss_is_differentiable() {
     let input2 = leaf(&COS_IN2, &COS_DIMS);
     let target = leaf(&COS_TARGET, &[2]);
 
-    let loss = functional::cosine_embedding_loss(&input1, &input2, &target, COS_MARGIN, "sum")
+    let loss = functional::cosine_embedding_loss(&input1, &input2, &target, COS_MARGIN, Reduction::Sum)
         .expect("forward");
     assert!(
         loss.requires_grad(),
@@ -1875,7 +1862,7 @@ fn ls_cosine_embedding_loss_is_differentiable() {
         let input2 = leaf(&COS_IN2, &COS_DIMS);
         let target = leaf(&COS_TARGET, &[2]);
         values(
-            &functional::cosine_embedding_loss(&probe, &input2, &target, COS_MARGIN, "sum")
+            &functional::cosine_embedding_loss(&probe, &input2, &target, COS_MARGIN, Reduction::Sum)
                 .expect("probe"),
         )
         .iter()
@@ -1891,7 +1878,7 @@ fn ls_cosine_embedding_loss_rejects_a_target_of_the_wrong_length() {
     let input2 = leaf(&COS_IN2, &COS_DIMS);
     let target = leaf(&[1.0, -1.0, 1.0], &[3]);
     assert!(
-        functional::cosine_embedding_loss(&input1, &input2, &target, COS_MARGIN, "none").is_err(),
+        functional::cosine_embedding_loss(&input1, &input2, &target, COS_MARGIN, Reduction::None).is_err(),
         "three labels for two samples must be an error"
     );
 }

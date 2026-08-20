@@ -3,7 +3,7 @@
 //! This module provides specialized loss functions for specific domains
 //! such as sequence-to-sequence learning, time series, and other advanced applications.
 
-use crate::loss::common::{ReductionType, DISTANCE_FLOOR};
+use crate::loss::common::{ReductionType, ReductionExt, DISTANCE_FLOOR};
 use crate::utils::{function_context, validate_positive};
 use torsh_core::{Result as TorshResult, TorshError};
 use torsh_tensor::Tensor;
@@ -118,10 +118,14 @@ pub fn ctc_loss(
     match reduction {
         ReductionType::None => Ok(loss_tensor),
         ReductionType::Mean => Ok(Tensor::from_vec(
-            vec![total_loss / batch_size as f32],
+            vec![total_loss / loss_tensor.numel() as f32],
             &[1],
         )?),
         ReductionType::Sum => Ok(loss_tensor),
+        ReductionType::BatchMean => Ok(Tensor::from_vec(
+            vec![total_loss / batch_size as f32],
+            &[1],
+        )?),
     }
 }
 
@@ -154,7 +158,7 @@ pub fn seq2seq_loss_with_attention(
         ce_loss
     };
 
-    reduction.apply(total_loss)
+    reduction.apply(&total_loss, None)
 }
 
 /// Temporal Consistency Loss
@@ -203,7 +207,7 @@ pub fn temporal_consistency_loss(
     let smoothness_loss = diff.pow_scalar(2.0)?.mean(None, false)?;
 
     let total_loss = smoothness_loss.mul_scalar(smoothness_weight)?;
-    reduction.apply(total_loss)
+    reduction.apply(&total_loss, None)
 }
 
 /// Wasserstein Loss
@@ -228,7 +232,7 @@ pub fn wasserstein_loss(
 
     // Return negative for minimization
     let loss = wasserstein_distance.neg()?;
-    reduction.apply(loss)
+    reduction.apply(&loss, None)
 }
 
 /// Gradient Penalty Loss
@@ -265,7 +269,7 @@ pub fn gradient_penalty_loss(
     let penalty = grad_norm.sub_scalar(1.0)?.pow_scalar(2.0)?;
     let weighted_penalty = penalty.mul_scalar(penalty_weight)?;
 
-    reduction.apply(weighted_penalty)
+    reduction.apply(&weighted_penalty, None)
 }
 
 // Helper functions

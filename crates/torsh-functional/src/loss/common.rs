@@ -6,27 +6,45 @@
 use torsh_core::Result as TorshResult;
 use torsh_tensor::Tensor;
 
-/// Reduction type for loss functions
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ReductionType {
-    /// No reduction applied
-    None,
-    /// Mean reduction
-    Mean,
-    /// Sum reduction
-    Sum,
+pub use torsh_core::reduction::Reduction as ReductionType;
+
+/// Extension trait for applying reduction to loss tensors.
+/// Cannot be an inherent impl because `Reduction` is defined in `torsh-core`.
+pub trait ReductionExt {
+    /// Reduce a per-element loss tensor using the configured mode.
+    fn apply(&self, loss: &Tensor, batch_size: Option<usize>) -> TorshResult<Tensor>;
 }
 
-impl ReductionType {
-    /// Apply the reduction to a tensor
-    pub fn apply(&self, tensor: Tensor) -> TorshResult<Tensor> {
+/// Extension methods for applying reduction to loss tensors.
+/// Lives here (not in torsh-core) because it depends on Tensor.
+impl ReductionExt for ReductionType {
+
+    /// Reduce a per-element loss to the configured shape.
+    ///
+    /// - `None`: returns the loss unchanged.
+    /// - `Mean`: divides by `numel` (total element count), matching PyTorch `"mean"`.
+    /// - `Sum`: sums all elements.
+    /// - `BatchMean`: divides by `batch_size` (number of samples).
+    ///   Equivalent to PyTorch `"batchmean"`.
+    ///
+    /// Both reduced arms use recording ops (`sum()`, `div_scalar`) so the result
+    /// stays on the autograd graph. `view(&[1])` restores the historical `[1]`
+    /// output shape from the rank-0 tensor `sum()` returns.
+    fn apply(&self, loss: &Tensor, batch_size: Option<usize>) -> TorshResult<Tensor> {
         match self {
-            Self::None => Ok(tensor),
-            Self::Mean => tensor.mean(None, false),
-            Self::Sum => tensor.sum(),
+            Self::None => Ok(loss.clone()),
+            Self::Mean => loss.mean(None, false),
+            Self::Sum => loss.sum(),
+            Self::BatchMean => {
+                let bs = batch_size.unwrap_or_else(|| {
+                    loss.shape().dims().first().copied().unwrap_or(1)
+                });
+                loss.sum()?.div_scalar(bs as f32)
+            }
         }
     }
 }
+
 
 /// Floor applied to a sum of squares (or of `|d|^p`) before the root that turns
 /// it into a distance.

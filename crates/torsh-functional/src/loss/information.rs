@@ -4,6 +4,7 @@
 //! such as KL divergence, mutual information, and entropy-based losses.
 
 use crate::loss::common::ReductionType;
+use crate::loss::common::ReductionExt;
 use crate::utils::{function_context, safe_for_log, safe_log, validate_elementwise_shapes};
 use torsh_core::Result as TorshResult;
 use torsh_tensor::Tensor;
@@ -52,7 +53,7 @@ pub fn kl_div(
         target.mul(&log_ratio)?
     };
 
-    reduction.apply(kl)
+    reduction.apply(&kl, None)
 }
 
 /// Jensen-Shannon divergence loss
@@ -99,7 +100,7 @@ pub fn js_divergence(
     // JS = 0.5 * (KL(P||M) + KL(Q||M))
     let js = kl_input_mixture.add(&kl_target_mixture)?.mul_scalar(0.5)?;
 
-    reduction.apply(js)
+    reduction.apply(&js, None)
 }
 
 /// Cross entropy loss for probability distributions
@@ -128,7 +129,7 @@ pub fn cross_entropy_continuous(
     let log_input = safe_log(input, None, None)?;
     let cross_entropy = target.mul(&log_input)?.neg()?;
 
-    reduction.apply(cross_entropy)
+    reduction.apply(&cross_entropy, None)
 }
 
 /// Mutual information estimation loss
@@ -166,7 +167,7 @@ pub fn mutual_information_loss(
     let mi_estimate = joint_mean.sub(&log_marginal_mean_exp)?;
     let loss = mi_estimate.neg()?; // Negative because we want to maximize MI
 
-    reduction.apply(loss)
+    reduction.apply(&loss, None)
 }
 
 /// Entropy loss
@@ -188,7 +189,7 @@ pub fn entropy_loss(input: &Tensor, reduction: ReductionType) -> TorshResult<Ten
     let log_input = safe_log(input, None, None)?;
     let entropy = input.mul(&log_input)?.neg()?;
 
-    reduction.apply(entropy)
+    reduction.apply(&entropy, None)
 }
 
 #[cfg(test)]

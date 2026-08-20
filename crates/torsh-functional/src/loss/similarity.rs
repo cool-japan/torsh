@@ -3,7 +3,7 @@
 //! This module provides loss functions based on similarity measures and distances,
 //! commonly used for metric learning, face recognition, and similarity learning tasks.
 
-use crate::loss::common::{blend, branch_masks, ReductionType, DISTANCE_FLOOR};
+use crate::loss::common::{blend, branch_masks, ReductionType, ReductionExt, DISTANCE_FLOOR};
 use crate::utils::{validate_elementwise_shapes, validate_range};
 use torsh_core::{Result as TorshResult, TorshError};
 use torsh_tensor::Tensor;
@@ -85,7 +85,7 @@ pub fn cosine_embedding_loss(
         &positive_mask,
         &negative_mask,
     )?;
-    reduction.apply(loss)
+    reduction.apply(&loss, None)
 }
 
 /// Hinge Embedding Loss
@@ -120,7 +120,7 @@ pub fn hinge_embedding_loss(
         &positive_mask,
         &negative_mask,
     )?;
-    reduction.apply(loss)
+    reduction.apply(&loss, None)
 }
 
 /// Margin Ranking Loss
@@ -147,7 +147,7 @@ pub fn margin_ranking_loss(
     let target_diff = target.mul(&diff)?;
     let loss = target_diff.neg()?.add_scalar(margin)?.clamp_min(0.0)?;
 
-    reduction.apply(loss)
+    reduction.apply(&loss, None)
 }
 
 /// Triplet Margin Loss
@@ -183,7 +183,7 @@ pub fn triplet_margin_loss(
         .sub(&neg_dist)?
         .add_scalar(margin)?
         .clamp_min(0.0)?;
-    reduction.apply(loss)
+    reduction.apply(&loss, None)
 }
 
 /// Triplet Margin Loss with Distance Function
@@ -228,7 +228,7 @@ where
         .sub(&neg_dist)?
         .add_scalar(margin)?
         .clamp_min(0.0)?;
-    reduction.apply(loss)
+    reduction.apply(&loss, None)
 }
 
 /// Contrastive Loss
@@ -283,7 +283,7 @@ pub fn contrastive_loss(
         &dissimilar_mask,
     )?;
 
-    reduction.apply(loss)
+    reduction.apply(&loss, None)
 }
 
 /// Per-sample `p`-norm distance `||x1 - x2||_p`, reduced over the feature axis.

@@ -20,6 +20,7 @@ workspace = true
 # Core dependencies
 torsh-core = { workspace = true }
 torsh-tensor = { workspace = true }
+torsh-functional = { workspace = true }
 torsh-autograd = { workspace = true }
 torsh-linalg = { workspace = true }
 

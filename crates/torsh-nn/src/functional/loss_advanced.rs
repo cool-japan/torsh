@@ -5,62 +5,11 @@
 
 use torsh_core::error::{Result, TorshError};
 use torsh_tensor::Tensor;
-
+use torsh_core::reduction::Reduction;
+use torsh_functional::loss::common::ReductionExt;
 // =============================================================================
 // REDUCTION MODES AND FRAMEWORK
 // =============================================================================
-
-/// Reduction modes for loss functions
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Reduction {
-    /// No reduction - return loss for each sample
-    None,
-    /// Mean reduction - average over all samples
-    Mean,
-    /// Sum reduction - sum over all samples
-    Sum,
-}
-
-impl Reduction {
-    pub fn from_str(s: &str) -> Result<Self> {
-        match s.to_lowercase().as_str() {
-            "none" => Ok(Self::None),
-            "mean" => Ok(Self::Mean),
-            "sum" => Ok(Self::Sum),
-            _ => Err(TorshError::InvalidArgument(format!(
-                "Unknown reduction mode: {}",
-                s
-            ))),
-        }
-    }
-
-    /// Reduce a per-element loss to the configured shape.
-    ///
-    /// `Mean` divides by `batch_size` — the *number of samples*, not the number
-    /// of elements — which is what this framework has always done and what the
-    /// callers of [`CustomLoss::compute_loss`] expect.
-    ///
-    /// Both reduced arms used to read the sum out with `to_vec()` and rebuild it
-    /// with `Tensor::from_data`, which returns a detached leaf: every loss in
-    /// this module was non-differentiable the moment it was reduced, however
-    /// carefully its `forward` had been written. `sum()` and `div_scalar` record,
-    /// and `view(&[1])` restores the historical `[1]` output shape from the
-    /// rank-0 tensor `sum()` returns.
-    pub fn apply(&self, loss: &Tensor, batch_size: usize) -> Result<Tensor> {
-        match self {
-            Self::None => Ok(loss.clone()),
-            Self::Mean => {
-                // Compute mean over batch dimension
-                let total_sum = loss.sum()?;
-                total_sum.div_scalar(batch_size as f32)?.view(&[1])
-            }
-            Self::Sum => {
-                // Compute sum over batch dimension
-                loss.sum()?.view(&[1])
-            }
-        }
-    }
-}
 
 /// Trait for custom loss functions
 pub trait CustomLoss: Send + Sync {
@@ -94,7 +43,7 @@ pub trait CustomLoss: Send + Sync {
         self.validate_inputs(predictions, targets)?;
         let raw_loss = self.forward(predictions, targets)?;
         let batch_size = predictions.shape().dims()[0];
-        self.reduction().apply(&raw_loss, batch_size)
+        self.reduction().apply(&raw_loss, Some(batch_size))
     }
 }
 
@@ -121,7 +70,7 @@ impl CustomLoss for SmoothL1Loss {
     /// the `to_vec()`/`from_vec` loop this used to run — but as a composition of
     /// recording ops, so the result stays on the autograd graph.
     fn forward(&self, predictions: &Tensor, targets: &Tensor) -> Result<Tensor> {
-        crate::functional::loss::smooth_l1_loss(predictions, targets, self.beta, "none")
+        crate::functional::loss::smooth_l1_loss(predictions, targets, self.beta, Reduction::None)
     }
 
     fn reduction(&self) -> &Reduction {
@@ -150,7 +99,7 @@ impl CustomLoss for DiceLoss {
     fn forward(&self, predictions: &Tensor, targets: &Tensor) -> Result<Tensor> {
         // Dice loss: 1 - (2 * |intersection| + smooth) / (|pred| + |target| + smooth)
         let probs = predictions.sigmoid()?;
-        crate::functional::loss::dice_loss(&probs, targets, self.smooth, "none")
+        crate::functional::loss::dice_loss(&probs, targets, self.smooth, Reduction::None)
     }
 
     fn reduction(&self) -> &Reduction {
@@ -402,7 +351,7 @@ impl CustomLoss for CategoricalCrossEntropy {
             predictions,
             &targets.cast_i64()?,
             self.weight.as_ref(),
-            "none",
+            Reduction::None,
             None,
         )
     }
@@ -430,7 +379,7 @@ impl CustomLoss for BinaryCrossEntropy {
             predictions,
             targets,
             self.weight.as_ref(),
-            "none",
+            Reduction::None,
         )
     }
 
@@ -463,7 +412,7 @@ impl CustomLoss for FocalLoss {
             &targets.cast_i64()?,
             self.alpha,
             self.gamma,
-            "none",
+            Reduction::None,
         )
     }
 
@@ -491,7 +440,7 @@ impl CustomLoss for HuberLoss {
     /// the strict-versus-inclusive comparison the loop used makes no difference
     /// to the value.
     fn forward(&self, predictions: &Tensor, targets: &Tensor) -> Result<Tensor> {
-        crate::functional::loss::huber_loss(predictions, targets, self.delta, "none")
+        crate::functional::loss::huber_loss(predictions, targets, self.delta, Reduction::None)
     }
 
     fn reduction(&self) -> &Reduction {
@@ -543,7 +492,7 @@ impl KLDivLoss {
 
 impl CustomLoss for KLDivLoss {
     fn forward(&self, predictions: &Tensor, targets: &Tensor) -> Result<Tensor> {
-        crate::functional::loss::kl_div(predictions, targets, "none", self.log_target)
+        crate::functional::loss::kl_div(predictions, targets, Reduction::None, self.log_target)
     }
 
     fn reduction(&self) -> &Reduction {
@@ -564,7 +513,7 @@ impl MSELoss {
 
 impl CustomLoss for MSELoss {
     fn forward(&self, predictions: &Tensor, targets: &Tensor) -> Result<Tensor> {
-        crate::functional::loss::mse_loss(predictions, targets, "none")
+        crate::functional::loss::mse_loss(predictions, targets, Reduction::None)
     }
 
     fn reduction(&self) -> &Reduction {
@@ -618,7 +567,7 @@ impl CustomLoss for NLLLoss {
             &targets.cast_i64()?,
             self.weight.as_ref(),
             self.ignore_index,
-            "none",
+            Reduction::None,
         )
     }
 
@@ -654,7 +603,7 @@ impl CustomLoss for TripletMarginLoss {
             predictions,
             self.margin,
             self.p,
-            "none",
+            Reduction::None,
         )
     }
 
@@ -684,7 +633,7 @@ impl CustomLoss for CosineEmbeddingLoss {
             predictions,
             predictions,
             self.margin,
-            "none",
+            Reduction::None,
         )
     }
 
@@ -716,7 +665,7 @@ impl LossFactory {
                     &targets.cast_i64()?,
                     Some(self.alpha),
                     self.gamma,
-                    "none",
+                    Reduction::None,
                 )
             }
 
@@ -1082,6 +1031,7 @@ impl TensorCast for Tensor {
 mod tests {
     use super::*;
     use approx::assert_relative_eq;
+    use std::str::FromStr;
 
     // =========================================================================
     // REDUCTION TESTS
@@ -1092,46 +1042,83 @@ mod tests {
         assert_eq!(Reduction::from_str("none")?, Reduction::None);
         assert_eq!(Reduction::from_str("mean")?, Reduction::Mean);
         assert_eq!(Reduction::from_str("sum")?, Reduction::Sum);
+        assert_eq!(Reduction::from_str("batchmean")?, Reduction::BatchMean);
         assert_eq!(Reduction::from_str("MEAN")?, Reduction::Mean); // Case insensitive
+        assert_eq!(Reduction::from_str("BatchMean")?, Reduction::BatchMean);
         Ok(())
     }
 
     #[test]
     fn test_reduction_from_str_invalid() {
         assert!(Reduction::from_str("invalid").is_err());
+        assert!(Reduction::from_str("").is_err());
+        assert!(Reduction::from_str("meen").is_err()); // typo
     }
 
     #[test]
     fn test_reduction_none() -> Result<()> {
         let loss = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], &[4])?;
-        let reduced = Reduction::None.apply(&loss, 4)?;
+        let reduced = Reduction::None.apply(&loss, Some(4))?;
 
         let data = reduced.to_vec()?;
         assert_eq!(data.len(), 4);
         assert_relative_eq!(data[0], 1.0, epsilon = 1e-6);
         assert_relative_eq!(data[1], 2.0, epsilon = 1e-6);
+        assert_relative_eq!(data[2], 3.0, epsilon = 1e-6);
+        assert_relative_eq!(data[3], 4.0, epsilon = 1e-6);
         Ok(())
     }
 
     #[test]
     fn test_reduction_mean() -> Result<()> {
         let loss = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], &[4])?;
-        let reduced = Reduction::Mean.apply(&loss, 4)?;
+        let reduced = Reduction::Mean.apply(&loss, Some(4))?;
 
         let data = reduced.to_vec()?;
         assert_eq!(data.len(), 1);
-        assert_relative_eq!(data[0], 2.5, epsilon = 1e-6); // (1+2+3+4)/4 = 2.5
+        // Mean divides by numel (4), matching PyTorch "mean"
+        assert_relative_eq!(data[0], 2.5, epsilon = 1e-6);
         Ok(())
     }
 
     #[test]
     fn test_reduction_sum() -> Result<()> {
         let loss = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], &[4])?;
-        let reduced = Reduction::Sum.apply(&loss, 4)?;
+        let reduced = Reduction::Sum.apply(&loss, Some(4))?;
 
         let data = reduced.to_vec()?;
         assert_eq!(data.len(), 1);
-        assert_relative_eq!(data[0], 10.0, epsilon = 1e-6); // 1+2+3+4 = 10
+        assert_relative_eq!(data[0], 10.0, epsilon = 1e-6);
+        Ok(())
+    }
+
+    #[test]
+    fn test_reduction_batchmean() -> Result<()> {
+        // BatchMean divides by batch_size, not numel.
+        // For a [2, 3] tensor with values 1..6:
+        //   sum = 21, numel = 6, batch_size = 2
+        //   Mean = 21/6 = 3.5, BatchMean = 21/2 = 10.5
+        let loss = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], &[2, 3])?;
+        let reduced = Reduction::BatchMean.apply(&loss, Some(2))?;
+
+        let data = reduced.to_vec()?;
+        assert_eq!(data.len(), 1);
+        assert_relative_eq!(data[0], 10.5, epsilon = 1e-6);
+        Ok(())
+    }
+
+    #[test]
+    fn test_reduction_mean_vs_batchmean_differ_for_nonscalar() -> Result<()> {
+        // Verify that Mean and BatchMean produce different results
+        // when elements per sample > 1
+        let loss = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], &[2, 2])?;
+        let mean_result = Reduction::Mean.apply(&loss, Some(2))?.to_vec()?;
+        let batchmean_result = Reduction::BatchMean.apply(&loss, Some(2))?.to_vec()?;
+
+        // Mean = sum/numel = 10/4 = 2.5
+        assert_relative_eq!(mean_result[0], 2.5, epsilon = 1e-6);
+        // BatchMean = sum/batch_size = 10/2 = 5.0
+        assert_relative_eq!(batchmean_result[0], 5.0, epsilon = 1e-6);
         Ok(())
     }
 
@@ -1147,7 +1134,6 @@ mod tests {
         let loss_fn = SmoothL1Loss::new(1.0, Reduction::None);
         let loss = loss_fn.forward(&predictions, &targets)?;
 
-        // For small differences (< beta), should use 0.5 * diff^2 / beta
         let loss_data = loss.to_vec()?;
         assert_eq!(loss_data.len(), 3);
 
@@ -1164,7 +1150,6 @@ mod tests {
         let loss_fn = SmoothL1Loss::new(1.0, Reduction::None);
         let loss = loss_fn.forward(&predictions, &targets)?;
 
-        // For large differences (>= beta), should use |diff| - 0.5 * beta
         let loss_data = loss.to_vec()?;
         // diff[0] = -2.0, abs = 2.0 >= 1.0, so loss = 2.0 - 0.5 = 1.5
         assert_relative_eq!(loss_data[0], 1.5, epsilon = 1e-5);
@@ -1179,29 +1164,27 @@ mod tests {
 
     #[test]
     fn test_dice_loss_perfect_match() -> Result<()> {
-        // Perfect match should give dice coefficient = 1, loss = 0
-        let predictions = Tensor::from_vec(vec![10.0, 10.0, 10.0, 10.0], &[4])?; // Will sigmoid to ~1
+        let predictions = Tensor::from_vec(vec![10.0, 10.0, 10.0, 10.0], &[4])?;
         let targets = Tensor::from_vec(vec![1.0, 1.0, 1.0, 1.0], &[4])?;
 
         let loss_fn = DiceLoss::new(1e-5, Reduction::None);
         let loss = loss_fn.forward(&predictions, &targets)?;
 
         let loss_data = loss.to_vec()?;
-        assert!(loss_data[0] < 0.1); // Should be close to 0
+        assert!(loss_data[0] < 0.1);
         Ok(())
     }
 
     #[test]
     fn test_dice_loss_no_match() -> Result<()> {
-        // No overlap should give dice coefficient close to 0, loss close to 1
-        let predictions = Tensor::from_vec(vec![-10.0, -10.0, -10.0, -10.0], &[4])?; // Will sigmoid to ~0
+        let predictions = Tensor::from_vec(vec![-10.0, -10.0, -10.0, -10.0], &[4])?;
         let targets = Tensor::from_vec(vec![1.0, 1.0, 1.0, 1.0], &[4])?;
 
         let loss_fn = DiceLoss::new(1e-5, Reduction::None);
         let loss = loss_fn.forward(&predictions, &targets)?;
 
         let loss_data = loss.to_vec()?;
-        assert!(loss_data[0] > 0.9); // Should be close to 1
+        assert!(loss_data[0] > 0.9);
         Ok(())
     }
 
@@ -1218,7 +1201,7 @@ mod tests {
         let loss = loss_fn.forward(&predictions, &targets)?;
 
         let loss_data = loss.to_vec()?;
-        assert!(loss_data[0] < 0.1); // IoU close to 1, loss close to 0
+        assert!(loss_data[0] < 0.1);
         Ok(())
     }
 
@@ -1231,7 +1214,7 @@ mod tests {
         let loss = loss_fn.forward(&predictions, &targets)?;
 
         let loss_data = loss.to_vec()?;
-        assert!(loss_data[0] > 0.9); // IoU close to 0, loss close to 1
+        assert!(loss_data[0] > 0.9);
         Ok(())
     }
 
@@ -1241,19 +1224,18 @@ mod tests {
 
     #[test]
     fn test_focal_loss_basic() -> Result<()> {
-        // Focal loss expects 2D input [batch_size, num_classes]
         let predictions = Tensor::from_vec(
             vec![0.9, 0.1, 0.8, 0.2],
-            &[2, 2], // 2 samples, 2 classes
+            &[2, 2],
         )?;
-        let targets = Tensor::from_vec(vec![1.0, 0.0], &[2])?; // Class indices
+        let targets = Tensor::from_vec(vec![1.0, 0.0], &[2])?;
 
         let loss_fn = FocalLoss::new(Some(0.25), 2.0, Reduction::None);
         let loss = loss_fn.forward(&predictions, &targets)?;
 
         let loss_data = loss.to_vec()?;
-        assert_eq!(loss_data.len(), 2); // One loss per sample
-        assert!(loss_data.iter().all(|&x| x >= 0.0)); // All losses should be non-negative
+        assert_eq!(loss_data.len(), 2);
+        assert!(loss_data.iter().all(|&x| x >= 0.0));
         Ok(())
     }
 
@@ -1272,9 +1254,7 @@ mod tests {
         let loss_data = loss.to_vec()?;
         assert_eq!(loss_data.len(), 4);
 
-        // For pred=0.9, target=1: -log(0.9) ≈ 0.105
         assert!(loss_data[0] > 0.0 && loss_data[0] < 0.2);
-        // For pred=0.1, target=0: -log(0.9) ≈ 0.105
         assert!(loss_data[1] > 0.0 && loss_data[1] < 0.2);
         Ok(())
     }
@@ -1288,7 +1268,7 @@ mod tests {
         let loss = loss_fn.compute_loss(&predictions, &targets)?;
 
         let loss_data = loss.to_vec()?;
-        assert!(loss_data[0] < 1e-5); // Should be very small
+        assert!(loss_data[0] < 1e-5);
         Ok(())
     }
 
@@ -1307,7 +1287,6 @@ mod tests {
         let loss_data = loss.to_vec()?;
         assert_eq!(loss_data.len(), 3);
 
-        // Each diff is 0.5, so (0.5)^2 = 0.25
         assert_relative_eq!(loss_data[0], 0.25, epsilon = 1e-6);
         assert_relative_eq!(loss_data[1], 0.25, epsilon = 1e-6);
         assert_relative_eq!(loss_data[2], 0.25, epsilon = 1e-6);
@@ -1373,7 +1352,6 @@ mod tests {
         let loss_fn = HuberLoss::new(1.0, Reduction::None);
         let loss = loss_fn.forward(&predictions, &targets)?;
 
-        // Small errors use quadratic: 0.5 * error^2
         let loss_data = loss.to_vec()?;
         assert_relative_eq!(loss_data[0], 0.5 * 0.2 * 0.2, epsilon = 1e-5);
         assert_relative_eq!(loss_data[1], 0.5 * 0.3 * 0.3, epsilon = 1e-5);
@@ -1388,9 +1366,7 @@ mod tests {
         let loss_fn = HuberLoss::new(1.0, Reduction::None);
         let loss = loss_fn.forward(&predictions, &targets)?;
 
-        // Large errors use linear: delta * (|error| - 0.5 * delta)
         let loss_data = loss.to_vec()?;
-        // delta=1.0, error=5.0: 1.0 * (5.0 - 0.5) = 4.5
         assert_relative_eq!(loss_data[0], 4.5, epsilon = 1e-5);
         Ok(())
     }
@@ -1407,7 +1383,6 @@ mod tests {
         let loss_fn = HingeLoss::new(1.0, Reduction::None);
         let loss = loss_fn.forward(&predictions, &targets)?;
 
-        // For correct predictions with margin > 1, loss should be 0
         let loss_data = loss.to_vec()?;
         assert_relative_eq!(loss_data[0], 0.0, epsilon = 1e-6);
         assert_relative_eq!(loss_data[1], 0.0, epsilon = 1e-6);
@@ -1422,7 +1397,6 @@ mod tests {
         let loss_fn = HingeLoss::new(1.0, Reduction::None);
         let loss = loss_fn.forward(&predictions, &targets)?;
 
-        // max(0, 1 - (1.0 * -0.5)) = max(0, 1.5) = 1.5
         let loss_data = loss.to_vec()?;
         assert_relative_eq!(loss_data[0], 1.5, epsilon = 1e-6);
         Ok(())

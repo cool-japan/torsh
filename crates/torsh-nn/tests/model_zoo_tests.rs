@@ -366,13 +366,13 @@ fn test_models_with_loss_functions() {
     let target_probs = tensor_2d(&[&[1.0, 0.0, 0.0], &[0.0, 1.0, 0.0]]).unwrap();
 
     // Test with different loss functions
-    let mse_loss_result = mse_loss(&logits, &target_probs, "mean").unwrap();
+    let mse_loss_result = mse_loss(&logits, &target_probs, Reduction::Mean).unwrap();
     assert_eq!(mse_loss_result.shape().dims(), &[0usize; 0]); // Scalar loss
 
     // Apply sigmoid for binary cross entropy
     let sigmoid_logits = sigmoid(&logits).unwrap();
     let bce_loss_result =
-        binary_cross_entropy(&sigmoid_logits, &target_probs, None, "mean").unwrap();
+        binary_cross_entropy(&sigmoid_logits, &target_probs, None, Reduction::Mean).unwrap();
     assert_eq!(bce_loss_result.shape().dims(), &[0usize; 0]); // Scalar loss
 
     // Both losses should be positive

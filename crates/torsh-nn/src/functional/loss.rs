@@ -5,6 +5,9 @@
 
 use torsh_core::error::{Result, TorshError};
 use torsh_tensor::Tensor;
+use torsh_core::reduction::Reduction;
+
+use torsh_functional::loss::common::ReductionExt;
 
 // =============================================================================
 // CLASSIFICATION LOSSES
@@ -24,9 +27,10 @@ pub fn cross_entropy(
     input: &Tensor,
     target: &Tensor<i64>,
     weight: Option<&Tensor>,
-    reduction: &str,
+    reduction: Reduction,
     ignore_index: Option<i64>,
 ) -> Result<Tensor> {
+
     // Enhanced cross entropy implementation using numerically stable log_softmax
 
     // Apply log_softmax for numerical stability
@@ -101,7 +105,7 @@ pub fn binary_cross_entropy(
     input: &Tensor,
     target: &Tensor,
     weight: Option<&Tensor>,
-    reduction: &str,
+    reduction: Reduction,
 ) -> Result<Tensor> {
     // BCE: -(target * log(input) + (1 - target) * log(1 - input))
     let eps = 1e-7; // Small epsilon for numerical stability
@@ -135,7 +139,7 @@ pub fn binary_cross_entropy_with_logits(
     input: &Tensor,
     target: &Tensor,
     weight: Option<&Tensor>,
-    reduction: &str,
+    reduction: Reduction,
     pos_weight: Option<&Tensor>,
 ) -> Result<Tensor> {
     // More numerically stable version that combines sigmoid and BCE
@@ -215,7 +219,7 @@ pub fn multi_margin_loss(
     p: i32,
     margin: f32,
     weight: Option<&Tensor>,
-    reduction: &str,
+    reduction: Reduction,
 ) -> Result<Tensor> {
     let shape_binding = input.shape();
     let input_dims = shape_binding.dims();
@@ -304,7 +308,7 @@ pub fn multi_margin_loss(
 }
 
 /// Multilabel margin loss function
-pub fn multilabel_margin_loss(input: &Tensor, target: &Tensor, reduction: &str) -> Result<Tensor> {
+pub fn multilabel_margin_loss(input: &Tensor, target: &Tensor, reduction: Reduction) -> Result<Tensor> {
     // Simplified multilabel margin loss
     let ones = torsh_tensor::creation::ones_like(input)?;
     let margin_tensor = torsh_tensor::creation::full_like(input, 1.0)?;
@@ -326,7 +330,7 @@ pub fn multilabel_margin_loss(input: &Tensor, target: &Tensor, reduction: &str) 
 // =============================================================================
 
 /// Mean squared error loss function
-pub fn mse_loss(input: &Tensor, target: &Tensor, reduction: &str) -> Result<Tensor> {
+pub fn mse_loss(input: &Tensor, target: &Tensor, reduction: Reduction) -> Result<Tensor> {
     // MSE: (input - target)^2
     let diff = input.sub(target)?;
     let squared_diff = diff.mul_op(&diff)?;
@@ -335,7 +339,7 @@ pub fn mse_loss(input: &Tensor, target: &Tensor, reduction: &str) -> Result<Tens
 }
 
 /// L1 (Mean Absolute Error) loss function
-pub fn l1_loss(input: &Tensor, target: &Tensor, reduction: &str) -> Result<Tensor> {
+pub fn l1_loss(input: &Tensor, target: &Tensor, reduction: Reduction) -> Result<Tensor> {
     // L1: |input - target|
     let diff = input.sub(target)?;
     let abs_diff = diff.abs()?;
@@ -393,7 +397,7 @@ pub fn smooth_l1_loss(
     input: &Tensor,
     target: &Tensor,
     beta: f32,
-    reduction: &str,
+    reduction: Reduction,
 ) -> Result<Tensor> {
     if beta == 0.0 {
         let abs_diff = input.sub(target)?.abs()?;
@@ -431,7 +435,7 @@ pub fn smooth_l1_loss(
 /// loss is identically zero, which is what the `le`/`where_tensor` predecessor
 /// also produced (`0.5 * d^2` was only selected where `|d| <= 0`, and the other
 /// arm carries the factor `delta == 0`).
-pub fn huber_loss(input: &Tensor, target: &Tensor, delta: f32, reduction: &str) -> Result<Tensor> {
+pub fn huber_loss(input: &Tensor, target: &Tensor, delta: f32, reduction: Reduction) -> Result<Tensor> {
     let (inside, outside) = banded_abs_error(input, target, delta)?;
     let quadratic = inside.square()?.mul_scalar(0.5)?;
     let linear = outside.mul_scalar(delta)?;
@@ -452,7 +456,7 @@ pub fn huber_loss(input: &Tensor, target: &Tensor, delta: f32, reduction: &str) 
 pub fn kl_div(
     input: &Tensor,
     target: &Tensor,
-    reduction: &str,
+    reduction: Reduction,
     log_target: bool,
 ) -> Result<Tensor> {
     // Enhanced KL divergence implementation with numerical stability
@@ -486,29 +490,25 @@ pub fn kl_div(
 
     // Handle reduction
     match reduction {
-        "mean" => {
+        Reduction::Mean => {
             // Mean over all elements
             kl_elements.mean(None, false)
         }
-        "sum" => {
+        Reduction::Sum => {
             // Sum over all elements
             kl_elements.sum()
         }
-        "batchmean" => {
+        Reduction::BatchMean => {
             // Sum over all dimensions except batch, then mean over batch
             let batch_size = input.shape().dims()[0] as f32;
             let total_sum = kl_elements.sum()?;
             let batch_size_tensor = torsh_tensor::creation::full(&[1], batch_size)?;
             total_sum.div(&batch_size_tensor)
         }
-        "none" => {
+        Reduction::None => {
             // No reduction, return element-wise losses
             Ok(kl_elements)
         }
-        _ => Err(TorshError::InvalidArgument(format!(
-            "Unknown reduction: {}. Expected 'mean', 'sum', 'batchmean', or 'none'",
-            reduction
-        ))),
     }
 }
 
@@ -549,7 +549,7 @@ pub fn nll_loss(
     target: &Tensor<i64>,
     weight: Option<&Tensor>,
     ignore_index: Option<i64>,
-    reduction: &str,
+    reduction: Reduction,
 ) -> Result<Tensor> {
     // NLL loss assumes log-probabilities as input
     let input_shape_binding = input.shape();
@@ -644,7 +644,7 @@ pub fn focal_loss(
     target: &Tensor<i64>,
     alpha: Option<f32>,
     gamma: f32,
-    reduction: &str,
+    reduction: Reduction,
 ) -> Result<Tensor> {
     // Focal Loss: FL(pt) = -alpha * (1 - pt)^gamma * log(pt)
     // where pt is the probability of the true class
@@ -710,13 +710,10 @@ pub fn focal_loss(
 
     // Apply reduction. The reduced forms keep their historical `[1]` shape.
     match reduction {
-        "mean" => per_sample.mean(None, false)?.view(&[1]),
-        "sum" => per_sample.sum()?.view(&[1]),
-        "none" => Ok(per_sample),
-        _ => Err(TorshError::InvalidArgument(format!(
-            "Invalid reduction mode: '{}'. Expected 'mean', 'sum', or 'none'",
-            reduction
-        ))),
+        Reduction::Mean => per_sample.mean(None, false)?.view(&[1]),
+        Reduction::Sum => per_sample.sum()?.view(&[1]),
+        Reduction::None => Ok(per_sample),
+        Reduction::BatchMean => Err(TorshError::Unimplemented("BatchMean isn't implemented yet".to_string()))
     }
 }
 
@@ -757,7 +754,7 @@ pub fn triplet_margin_loss(
     negative: &Tensor,
     margin: f32,
     p: f32,
-    reduction: &str,
+    reduction: Reduction,
 ) -> Result<Tensor> {
     let anchor_shape_obj = anchor.shape();
     let anchor_shape = anchor_shape_obj.dims();
@@ -777,13 +774,10 @@ pub fn triplet_margin_loss(
 
     // The reduced forms keep their historical `[1]` shape.
     match reduction {
-        "mean" => per_sample.mean(None, false)?.view(&[1]),
-        "sum" => per_sample.sum()?.view(&[1]),
-        "none" => Ok(per_sample),
-        _ => Err(TorshError::InvalidArgument(format!(
-            "Invalid reduction mode: {}. Expected 'mean', 'sum', or 'none'",
-            reduction
-        ))),
+        Reduction::Mean => per_sample.mean(None, false)?.view(&[1]),
+        Reduction::Sum => per_sample.sum()?.view(&[1]),
+        Reduction::None => Ok(per_sample),
+        Reduction::BatchMean => Err(TorshError::Unimplemented("BatchMean isn't implemented yet".to_string()))
     }
 }
 
@@ -837,7 +831,7 @@ pub fn contrastive_loss(
     output2: &Tensor,
     target: &Tensor,
     margin: f32,
-    reduction: &str,
+    reduction: Reduction,
 ) -> Result<Tensor> {
     let output1_shape_obj = output1.shape();
     let output1_shape = output1_shape_obj.dims();
@@ -877,13 +871,10 @@ pub fn contrastive_loss(
 
     // The reduced forms keep their historical `[1]` shape.
     match reduction {
-        "mean" => per_sample.mean(None, false)?.view(&[1]),
-        "sum" => per_sample.sum()?.view(&[1]),
-        "none" => Ok(per_sample),
-        _ => Err(TorshError::InvalidArgument(format!(
-            "Invalid reduction mode: {}. Expected 'mean', 'sum', or 'none'",
-            reduction
-        ))),
+        Reduction::Mean => per_sample.mean(None, false)?.view(&[1]),
+        Reduction::Sum => per_sample.sum()?.view(&[1]),
+        Reduction::None => Ok(per_sample),
+        Reduction::BatchMean => Err(TorshError::Unimplemented("BatchMean isn't implemented yet".to_string()))
     }
 }
 
@@ -933,7 +924,7 @@ pub fn cosine_embedding_loss(
     input2: &Tensor,
     target: &Tensor,
     margin: f32,
-    reduction: &str,
+    reduction: Reduction,
 ) -> Result<Tensor> {
     let input1_shape_obj = input1.shape();
     let input1_shape = input1_shape_obj.dims();
@@ -1044,33 +1035,34 @@ fn p_norm_distance(x1: &Tensor, x2: &Tensor, p: f32, feature_axes: &[i32]) -> Re
 /// Helper function to apply reduction to loss tensors
 fn apply_reduction(
     loss: &Tensor,
-    reduction: &str,
+    reduction: Reduction, // was &str
     ignore_index: Option<i64>,
     target_data: &[i64],
 ) -> Result<Tensor> {
-    match reduction {
-        "mean" => {
-            if let Some(ignore_idx) = ignore_index {
-                // Count non-ignored samples
-                let valid_count =
-                    target_data.iter().filter(|&&idx| idx != ignore_idx).count() as f32;
-                if valid_count > 0.0 {
+    // Handle ignore_index special case first
+    if let Some(ignore_idx) = ignore_index {
+        let valid_count = target_data.iter().filter(|&&idx| idx != ignore_idx).count() as f32;
+        if valid_count > 0.0 {
+            match reduction {
+                Reduction::Mean => {
                     let sum = loss.sum()?;
-                    let count_tensor = torsh_tensor::creation::full(&[1], valid_count)?;
-                    sum.div(&count_tensor)
-                } else {
-                    loss.mean(None, false)
+                    sum.div_scalar(valid_count)?.view(&[1])
                 }
-            } else {
-                loss.mean(None, false)
+                Reduction::Sum => loss.sum()?.view(&[1]),
+                Reduction::None => Ok(loss.clone()),
+                Reduction::BatchMean => {
+                    let sum = loss.sum()?;
+                    sum.div_scalar(valid_count)?.view(&[1])
+                }
             }
+        } else {
+            loss.mean(None, false)
         }
-        "sum" => loss.sum(),
-        "none" => Ok(loss.clone()),
-        _ => Err(TorshError::ComputeError(format!(
-            "Unknown reduction: {}",
-            reduction
-        ))),
+    } else {
+        // No ignore_index — delegate to ReductionExt
+        // For Mean/Sum we need batch_size for BatchMean distinction
+        let batch_size = loss.shape().dims().first().copied().unwrap_or(1);
+        reduction.apply(loss, Some(batch_size))
     }
 }
 
@@ -1148,7 +1140,7 @@ mod tests {
         let positive = Tensor::from_vec(vec![1.1, 1.1], &[1, 2])?;
         let negative = Tensor::from_vec(vec![5.0, 5.0], &[1, 2])?;
 
-        let loss = triplet_margin_loss(&anchor, &positive, &negative, 1.0, 2.0, "mean")?;
+        let loss = triplet_margin_loss(&anchor, &positive, &negative, 1.0, 2.0, Reduction::Mean)?;
         let loss_data = loss.to_vec()?;
 
         // Distance anchor-positive: sqrt((0.1)^2 + (0.1)^2) ≈ 0.141
@@ -1172,7 +1164,7 @@ mod tests {
         let positive = Tensor::from_vec(vec![2.0, 0.0], &[1, 2])?;
         let negative = Tensor::from_vec(vec![1.0, 0.0], &[1, 2])?;
 
-        let loss = triplet_margin_loss(&anchor, &positive, &negative, 0.5, 2.0, "mean")?;
+        let loss = triplet_margin_loss(&anchor, &positive, &negative, 0.5, 2.0, Reduction::Mean)?;
         let loss_data = loss.to_vec()?;
 
         // dist_ap = 2.0, dist_an = 1.0, margin = 0.5
@@ -1207,10 +1199,10 @@ mod tests {
             &[2, 2],
         )?;
 
-        let loss = triplet_margin_loss(&anchor, &positive, &negative, 1.0, 2.0, "none")?;
+        let loss = triplet_margin_loss(&anchor, &positive, &negative, 1.0, 2.0, Reduction::None)?;
         assert_eq!(loss.shape().dims(), &[2]);
 
-        let loss_mean = triplet_margin_loss(&anchor, &positive, &negative, 1.0, 2.0, "mean")?;
+        let loss_mean = triplet_margin_loss(&anchor, &positive, &negative, 1.0, 2.0, Reduction::Mean)?;
         assert_eq!(loss_mean.shape().dims(), &[1]);
 
         Ok(())
@@ -1224,7 +1216,7 @@ mod tests {
         let output2 = Tensor::from_vec(vec![1.1, 2.1], &[1, 2])?;
         let target = Tensor::from_vec(vec![1.0], &[1])?;
 
-        let loss = contrastive_loss(&output1, &output2, &target, 2.0, "mean")?;
+        let loss = contrastive_loss(&output1, &output2, &target, 2.0, Reduction::Mean)?;
         let loss_data = loss.to_vec()?;
 
         // Distance^2 = (0.1)^2 + (0.1)^2 = 0.02
@@ -1245,7 +1237,7 @@ mod tests {
         let output2 = Tensor::from_vec(vec![0.5, 0.0], &[1, 2])?;
         let target = Tensor::from_vec(vec![0.0], &[1])?;
 
-        let loss = contrastive_loss(&output1, &output2, &target, 2.0, "mean")?;
+        let loss = contrastive_loss(&output1, &output2, &target, 2.0, Reduction::Mean)?;
         let loss_data = loss.to_vec()?;
 
         // Distance = 0.5, margin = 2.0
@@ -1265,7 +1257,7 @@ mod tests {
         let output2 = Tensor::from_vec(vec![5.0, 0.0], &[1, 2])?;
         let target = Tensor::from_vec(vec![0.0], &[1])?;
 
-        let loss = contrastive_loss(&output1, &output2, &target, 2.0, "mean")?;
+        let loss = contrastive_loss(&output1, &output2, &target, 2.0, Reduction::Mean)?;
         let loss_data = loss.to_vec()?;
 
         // Distance = 5.0 > margin = 2.0
@@ -1303,10 +1295,10 @@ mod tests {
             &[2],
         )?;
 
-        let loss = contrastive_loss(&output1, &output2, &target, 2.0, "none")?;
+        let loss = contrastive_loss(&output1, &output2, &target, 2.0, Reduction::None)?;
         assert_eq!(loss.shape().dims(), &[2]);
 
-        let loss_mean = contrastive_loss(&output1, &output2, &target, 2.0, "mean")?;
+        let loss_mean = contrastive_loss(&output1, &output2, &target, 2.0, Reduction::Mean)?;
         assert_eq!(loss_mean.shape().dims(), &[1]);
 
         Ok(())
@@ -1319,7 +1311,7 @@ mod tests {
         let negative = Tensor::from_vec(vec![5.0, 5.0, 6.0, 6.0], &[2, 2])?;
 
         // Test "none" reduction
-        let loss_none = triplet_margin_loss(&anchor, &positive, &negative, 1.0, 2.0, "none")?;
+        let loss_none = triplet_margin_loss(&anchor, &positive, &negative, 1.0, 2.0, Reduction::None)?;
         assert_eq!(
             loss_none.shape().dims(),
             &[2],
@@ -1327,7 +1319,7 @@ mod tests {
         );
 
         // Test "mean" reduction
-        let loss_mean = triplet_margin_loss(&anchor, &positive, &negative, 1.0, 2.0, "mean")?;
+        let loss_mean = triplet_margin_loss(&anchor, &positive, &negative, 1.0, 2.0, Reduction::Mean)?;
         assert_eq!(
             loss_mean.shape().dims(),
             &[1],
@@ -1335,7 +1327,7 @@ mod tests {
         );
 
         // Test "sum" reduction
-        let loss_sum = triplet_margin_loss(&anchor, &positive, &negative, 1.0, 2.0, "sum")?;
+        let loss_sum = triplet_margin_loss(&anchor, &positive, &negative, 1.0, 2.0, Reduction::Sum)?;
         assert_eq!(
             loss_sum.shape().dims(),
             &[1],
@@ -1374,7 +1366,7 @@ mod tests {
 ///
 /// # Reference
 /// Milletari et al., "V-Net: Fully Convolutional Neural Networks for Volumetric Medical Image Segmentation", 3DV 2016
-pub fn dice_loss(input: &Tensor, target: &Tensor, smooth: f32, reduction: &str) -> Result<Tensor> {
+pub fn dice_loss(input: &Tensor, target: &Tensor, smooth: f32, reduction: Reduction) -> Result<Tensor> {
     // Validate inputs
     if input.shape().dims() != target.shape().dims() {
         return Err(TorshError::ShapeMismatch {
@@ -1430,7 +1422,7 @@ pub fn tversky_loss(
     alpha: f32,
     beta: f32,
     smooth: f32,
-    reduction: &str,
+    reduction: Reduction,
 ) -> Result<Tensor> {
     // Validate inputs
     if input.shape().dims() != target.shape().dims() {
@@ -1506,7 +1498,7 @@ pub fn wing_loss(
     target: &Tensor,
     width: f32,
     curvature: f32,
-    reduction: &str,
+    reduction: Reduction,
 ) -> Result<Tensor> {
     // Validate inputs
     if input.shape().dims() != target.shape().dims() {
@@ -1570,7 +1562,7 @@ pub fn center_loss(
     features: &Tensor,
     labels: &Tensor<i64>,
     centers: &Tensor,
-    reduction: &str,
+    reduction: Reduction,
 ) -> Result<Tensor> {
     let features_shape_binding = features.shape();
     let features_shape = features_shape_binding.dims();
@@ -1678,7 +1670,7 @@ pub fn infonce_loss(
     positive: &Tensor,
     negatives: &Tensor,
     temperature: f32,
-    reduction: &str,
+    reduction: Reduction,
 ) -> Result<Tensor> {
     let anchor_shape_binding = anchor.shape();
     let anchor_shape = anchor_shape_binding.dims();

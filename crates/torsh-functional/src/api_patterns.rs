@@ -5,6 +5,7 @@
 //! and usability.
 
 use crate::utils::*;
+use crate::loss::common::ReductionExt;
 use torsh_core::{Result as TorshResult, TorshError};
 use torsh_tensor::Tensor;
 
@@ -228,7 +229,7 @@ pub fn example_loss(
 
     // Compute loss (placeholder)
     let loss = input.sub(target)?;
-    reduction.apply(loss)
+    reduction.apply(&loss, None)
 }
 
 #[cfg(test)]

@@ -4,6 +4,7 @@
 //! including cross entropy, negative log likelihood, binary cross entropy, and focal loss.
 
 use crate::loss::common::ReductionType;
+use crate::loss::common::ReductionExt;
 use crate::utils::{function_context, safe_log_prob, validate_elementwise_shapes, validate_range};
 use torsh_core::{Result as TorshResult, TorshError};
 use torsh_tensor::Tensor;
@@ -225,7 +226,7 @@ pub fn binary_cross_entropy(
         loss = loss.mul(w)?;
     }
 
-    reduction.apply(loss)
+    reduction.apply(&loss, None)
 }
 
 /// Binary Cross Entropy with Logits Loss
@@ -273,7 +274,7 @@ pub fn binary_cross_entropy_with_logits(
         loss = loss.mul(w)?;
     }
 
-    reduction.apply(loss)
+    reduction.apply(&loss, None)
 }
 
 /// Multi-class margin loss
@@ -356,7 +357,7 @@ pub fn multi_margin_loss(
 
     let scale_tensor = Tensor::from_data(sample_scale, vec![batch_size], input.device())?;
     let per_sample = row_sum(&hinged)?.mul(&scale_tensor)?;
-    reduction.apply(per_sample)
+    reduction.apply(&per_sample, None)
 }
 
 /// Focal Loss
@@ -399,7 +400,7 @@ pub fn focal_loss(
     let neg_alpha = Tensor::from_data(vec![-alpha; batch_size], vec![batch_size], input.device())?;
     let loss_tensor = modulating.mul(&log_p_t)?.mul(&neg_alpha)?;
 
-    reduction.apply(loss_tensor)
+    reduction.apply(&loss_tensor, None)
 }
 
 /// Cross entropy loss with label smoothing

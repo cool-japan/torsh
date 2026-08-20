@@ -58,6 +58,7 @@ pub mod perf_metrics;
 pub mod perf_monitor; // Real-time performance monitoring (NEW)
 pub mod perf_regression;
 pub mod profiling;
+pub mod reduction; // Unified Reduction enum (NEW)
 pub mod runtime_config;
 pub mod scirs2_bridge;
 pub mod shape;
@@ -209,6 +210,7 @@ pub use profiling::{
     OperationRecord, OperationStats, OperationType, PerformanceBottleneck, PerformanceProfiler,
     ProfilerConfig,
 };
+pub use reduction::Reduction;
 pub use runtime_config::{
     ConfigPreset, DebugLevel, MemoryTrackingConfig, MonitoringScope, OperationConfig,
     RuntimeConfig, RuntimeConfigSnapshot, ValidationLevel,
@@ -557,6 +559,7 @@ pub mod prelude {
     pub use crate::dtype::{DType, TensorElement};
     pub use crate::error::{Result, TorshError};
     pub use crate::shape::Shape;
+    pub use crate::reduction::Reduction;
 
     // SciRS2 unified modules for new code
     #[cfg(feature = "std")]

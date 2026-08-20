@@ -3,6 +3,7 @@
 //! This test suite validates end-to-end neural network functionality including
 //! model construction, training loops, serialization, and real-world scenarios.
 
+use torsh_core::Reduction;
 use torsh_core::TorshError;
 use torsh_nn::container::Sequential;
 use torsh_nn::functional::losses::l1_loss;
@@ -449,7 +450,7 @@ fn test_loss_functions() -> Result<()> {
     let targets = randn::<f32>(&[batch_size, num_classes])?;
 
     // Test MSE using functional interface
-    let mse_loss_result = mse_loss(&predictions, &targets, "mean")?;
+    let mse_loss_result = mse_loss(&predictions, &targets, Reduction::Mean)?;
     // Scalar losses have empty shape [] (like PyTorch)
     assert!(
         mse_loss_result.shape().dims().len() <= 1,
@@ -458,7 +459,7 @@ fn test_loss_functions() -> Result<()> {
     );
 
     // Test L1 using functional interface
-    let l1_loss_result = l1_loss(&predictions, &targets, "mean")?;
+    let l1_loss_result = l1_loss(&predictions, &targets, Reduction::Mean)?;
     assert!(
         l1_loss_result.shape().dims().len() <= 1,
         "Loss should be scalar or 1D, got shape {:?}",
@@ -509,7 +510,7 @@ fn test_gradient_computation() -> Result<()> {
     assert_eq!(output.shape().dims(), &[2, 10]);
 
     // Compute loss using functional interface
-    let loss = mse_loss(&output, &target, "mean")?;
+    let loss = mse_loss(&output, &target, Reduction::Mean)?;
 
     // Verify loss is scalar or 1D (scalar losses have empty shape [] in PyTorch style)
     assert!(

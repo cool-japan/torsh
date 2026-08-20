@@ -116,7 +116,7 @@ fn test_basic_gradient_check() {
 
     // Create a simple function: MSE loss
     let loss_fn = |x: &torsh_tensor::Tensor| -> torsh_core::error::Result<torsh_tensor::Tensor> {
-        mse_loss(x, &target, "mean")
+        mse_loss(x, &target, Reduction::Mean)
     };
 
     // Check gradient with default config
@@ -200,7 +200,7 @@ fn test_chain_rule_gradients() {
     let composed_fn =
         |x: &torsh_tensor::Tensor| -> torsh_core::error::Result<torsh_tensor::Tensor> {
             let sigmoid_out = sigmoid(x)?;
-            mse_loss(&sigmoid_out, &target, "mean")
+            mse_loss(&sigmoid_out, &target, Reduction::Mean)
         };
 
     let config = GradCheckConfig {
@@ -325,7 +325,7 @@ fn test_loss_gradients() {
 
     // Test MSE loss gradients
     let mse_fn = |pred: &torsh_tensor::Tensor| -> torsh_core::error::Result<torsh_tensor::Tensor> {
-        mse_loss(pred, &targets, "mean")
+        mse_loss(pred, &targets, Reduction::Mean)
     };
 
     let result = gradcheck(&module, &predictions, mse_fn);
@@ -334,7 +334,7 @@ fn test_loss_gradients() {
     // Test Binary Cross Entropy gradients (ensure predictions are in valid range)
     let sigmoid_pred = sigmoid(&predictions).unwrap();
     let bce_fn = |pred: &torsh_tensor::Tensor| -> torsh_core::error::Result<torsh_tensor::Tensor> {
-        binary_cross_entropy(pred, &targets, None, "mean")
+        binary_cross_entropy(pred, &targets, None, Reduction::Mean)
     };
 
     let result = gradcheck(&module, &sigmoid_pred, bce_fn);
@@ -371,21 +371,21 @@ fn test_reduction_gradients() {
 
     // Test mean reduction
     let mean_fn = |x: &torsh_tensor::Tensor| -> torsh_core::error::Result<torsh_tensor::Tensor> {
-        mse_loss(x, &target, "mean")
+        mse_loss(x, &target, Reduction::Mean)
     };
     let result = gradcheck(&module, &input, mean_fn);
     assert!(result.is_ok(), "Gradient check failed for mean reduction");
 
     // Test sum reduction
     let sum_fn = |x: &torsh_tensor::Tensor| -> torsh_core::error::Result<torsh_tensor::Tensor> {
-        mse_loss(x, &target, "sum")
+        mse_loss(x, &target, Reduction::Mean)
     };
     let result = gradcheck(&module, &input, sum_fn);
     assert!(result.is_ok(), "Gradient check failed for sum reduction");
 
     // Test no reduction (elementwise)
     let none_fn = |x: &torsh_tensor::Tensor| -> torsh_core::error::Result<torsh_tensor::Tensor> {
-        let unreduced = mse_loss(x, &target, "none")?;
+        let unreduced = mse_loss(x, &target, Reduction::None)?;
         unreduced.mean(None, false) // Reduce to scalar for gradient checking
     };
     let result = gradcheck(&module, &input, none_fn);

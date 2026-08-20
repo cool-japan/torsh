@@ -144,7 +144,8 @@ pub use loss::{center_loss, dice_loss, infonce_loss, tversky_loss, wing_loss};
 // =============================================================================
 
 // Advanced loss framework
-pub use loss_advanced::{CustomLoss, LossBuilder, LossFactory, Reduction};
+pub use loss_advanced::{CustomLoss, LossBuilder, LossFactory};
+pub use torsh_core::reduction::Reduction;
 
 // Advanced loss implementations
 pub use loss_advanced::{
@@ -198,12 +199,13 @@ pub mod activations {
 /// Convenient loss functions with standardized API
 pub mod losses {
     pub use super::loss::*;
+    pub use super::Reduction;
 
     /// MSE loss with configuration
     pub fn mse_loss_configured(
         input: &crate::Tensor,
         target: &crate::Tensor,
-        reduction: &str,
+        reduction: Reduction,
         config: &super::FunctionalConfig,
     ) -> super::FuncResult<crate::Tensor> {
         crate::validate_inputs!(
@@ -219,7 +221,7 @@ pub mod losses {
     pub fn l1_loss_configured(
         input: &crate::Tensor,
         target: &crate::Tensor,
-        reduction: &str,
+        reduction: Reduction,
         config: &super::FunctionalConfig,
     ) -> super::FuncResult<crate::Tensor> {
         crate::validate_inputs!(
@@ -237,7 +239,7 @@ pub mod losses {
         target: &crate::Tensor<i64>,
         weight: Option<&crate::Tensor>,
         ignore_index: Option<i64>,
-        reduction: &str,
+        reduction: Reduction,
         config: &super::FunctionalConfig,
     ) -> super::FuncResult<crate::Tensor> {
         crate::validate_inputs!(
@@ -449,7 +451,7 @@ mod examples {
 
         // Use loss functions
         let predictions = torsh_tensor::creation::randn::<f32>(&[4, 10]).unwrap();
-        let _mse_loss = mse_loss(&predictions, &target, "mean").unwrap();
+        let _mse_loss = mse_loss(&predictions, &target, Reduction::Mean).unwrap();
     }
 
     #[test]

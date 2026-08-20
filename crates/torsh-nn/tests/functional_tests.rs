@@ -140,14 +140,14 @@ fn test_loss_functions() {
     let pred = tensor_2d(&[&[1.0, 2.0, 3.0]]).unwrap();
     let target = tensor_2d(&[&[1.5, 2.5, 2.5]]).unwrap();
 
-    let mse_loss_result = mse_loss(&pred, &target, "mean").unwrap();
+    let mse_loss_result = mse_loss(&pred, &target, Reduction::Mean).unwrap();
     let mse_data = mse_loss_result.to_vec().unwrap();
 
     // Expected MSE: ((1-1.5)^2 + (2-2.5)^2 + (3-2.5)^2) / 3 = (0.25 + 0.25 + 0.25) / 3 = 0.25
     assert_relative_eq!(mse_data[0], 0.25, epsilon = 1e-5);
 
     // Test MSE with sum reduction
-    let mse_sum = mse_loss(&pred, &target, "sum").unwrap();
+    let mse_sum = mse_loss(&pred, &target, Reduction::Sum).unwrap();
     let mse_sum_data = mse_sum.to_vec().unwrap();
     assert_relative_eq!(mse_sum_data[0], 0.75, epsilon = 1e-5); // 0.25 * 3
 
@@ -155,7 +155,7 @@ fn test_loss_functions() {
     let pred_bce = tensor_2d(&[&[0.8, 0.2, 0.9]]).unwrap();
     let target_bce = tensor_2d(&[&[1.0, 0.0, 1.0]]).unwrap();
 
-    let bce_result = binary_cross_entropy(&pred_bce, &target_bce, None, "mean").unwrap();
+    let bce_result = binary_cross_entropy(&pred_bce, &target_bce, None, Reduction::Mean).unwrap();
     let bce_data = bce_result.to_vec().unwrap();
 
     // BCE should be positive for non-perfect predictions
@@ -164,7 +164,7 @@ fn test_loss_functions() {
     // Test perfect predictions should give near-zero loss
     let perfect_pred = tensor_2d(&[&[1.0, 0.0, 1.0]]).unwrap();
     let perfect_target = tensor_2d(&[&[1.0, 0.0, 1.0]]).unwrap();
-    let perfect_bce = binary_cross_entropy(&perfect_pred, &perfect_target, None, "mean").unwrap();
+    let perfect_bce = binary_cross_entropy(&perfect_pred, &perfect_target, None, Reduction::Mean).unwrap();
     let perfect_bce_data = perfect_bce.to_vec().unwrap();
     assert!(perfect_bce_data[0] < 1e-5); // Should be very close to 0
 }

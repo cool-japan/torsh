@@ -12,7 +12,7 @@
 //! the *values* down against an independent reference kernel so the delegation
 //! cannot silently change what the functions compute.
 
-use torsh_core::error::Result;
+use torsh_core::{Reduction, error::Result};
 use torsh_nn::functional;
 use torsh_tensor::Tensor;
 
@@ -139,7 +139,7 @@ fn ls_cross_entropy_backward_matches_finite_differences() {
     let logits = Tensor::from_vec(logits_data.clone(), &dims)
         .expect("logits")
         .requires_grad_(true);
-    let loss = functional::cross_entropy(&logits, &target, None, "mean", None).expect("forward");
+    let loss = functional::cross_entropy(&logits, &target, None, Reduction::Mean, None).expect("forward");
     assert!(
         loss.requires_grad(),
         "cross_entropy must stay attached to its logits; a detached log_softmax \
@@ -156,7 +156,7 @@ fn ls_cross_entropy_backward_matches_finite_differences() {
 
     let target_for_fd = target.clone();
     let numeric = numeric_gradient(&logits_data, &dims, move |x| {
-        functional::cross_entropy(x, &target_for_fd, None, "mean", None)
+        functional::cross_entropy(x, &target_for_fd, None, Reduction::Mean, None)
     });
     assert_matches_finite_differences("cross_entropy", &analytic, &numeric);
 }
@@ -174,7 +174,7 @@ fn ls_cross_entropy_backward_matches_finite_differences_with_weights() {
         .expect("logits")
         .requires_grad_(true);
     let loss =
-        functional::cross_entropy(&logits, &target, Some(&weight), "sum", None).expect("forward");
+        functional::cross_entropy(&logits, &target, Some(&weight), Reduction::Sum, None).expect("forward");
     assert!(loss.requires_grad(), "weighted cross_entropy must record");
 
     loss.backward().expect("backward");
@@ -187,7 +187,7 @@ fn ls_cross_entropy_backward_matches_finite_differences_with_weights() {
     let target_for_fd = target.clone();
     let weight_for_fd = weight.clone();
     let numeric = numeric_gradient(&logits_data, &dims, move |x| {
-        functional::cross_entropy(x, &target_for_fd, Some(&weight_for_fd), "sum", None)
+        functional::cross_entropy(x, &target_for_fd, Some(&weight_for_fd), Reduction::Sum, None)
     });
     assert_matches_finite_differences("weighted cross_entropy", &analytic, &numeric);
 }
@@ -323,7 +323,7 @@ fn ls_nll_loss_backward_matches_finite_differences() {
     let log_probs = Tensor::from_vec(log_prob_data.clone(), &dims)
         .expect("log probs")
         .requires_grad_(true);
-    let loss = functional::nll_loss(&log_probs, &target, None, None, "mean").expect("forward");
+    let loss = functional::nll_loss(&log_probs, &target, None, None, Reduction::Mean).expect("forward");
     assert!(
         loss.requires_grad(),
         "nll_loss must stay attached to its log-probabilities"
@@ -338,7 +338,7 @@ fn ls_nll_loss_backward_matches_finite_differences() {
 
     let target_for_fd = target.clone();
     let numeric = numeric_gradient(&log_prob_data, &dims, move |x| {
-        functional::nll_loss(x, &target_for_fd, None, None, "mean")
+        functional::nll_loss(x, &target_for_fd, None, None, Reduction::Mean)
     });
     assert_matches_finite_differences("nll_loss", &analytic, &numeric);
 }
@@ -358,7 +358,7 @@ fn ls_nll_loss_backward_matches_finite_differences_with_weight_and_ignore_index(
         .expect("log probs")
         .requires_grad_(true);
     let loss =
-        functional::nll_loss(&log_probs, &target, Some(&weight), Some(0), "sum").expect("forward");
+        functional::nll_loss(&log_probs, &target, Some(&weight), Some(0), Reduction::Sum).expect("forward");
     assert!(loss.requires_grad(), "weighted nll_loss must record");
 
     loss.backward().expect("backward");
@@ -371,7 +371,7 @@ fn ls_nll_loss_backward_matches_finite_differences_with_weight_and_ignore_index(
     let target_for_fd = target.clone();
     let weight_for_fd = weight.clone();
     let numeric = numeric_gradient(&log_prob_data, &dims, move |x| {
-        functional::nll_loss(x, &target_for_fd, Some(&weight_for_fd), Some(0), "sum")
+        functional::nll_loss(x, &target_for_fd, Some(&weight_for_fd), Some(0), Reduction::Sum)
     });
     assert_matches_finite_differences("weighted nll_loss", &analytic, &numeric);
 }
@@ -391,7 +391,7 @@ fn ls_cross_entropy_mean_with_ignore_index_matches_finite_differences() {
     let logits = Tensor::from_vec(logits_data.clone(), &dims)
         .expect("logits")
         .requires_grad_(true);
-    let loss = functional::cross_entropy(&logits, &target, None, "mean", Some(1)).expect("forward");
+    let loss = functional::cross_entropy(&logits, &target, None, Reduction::Mean, Some(1)).expect("forward");
     assert!(
         loss.requires_grad(),
         "cross_entropy must record through the valid-count mean branch"
@@ -406,7 +406,7 @@ fn ls_cross_entropy_mean_with_ignore_index_matches_finite_differences() {
 
     let target_for_fd = target.clone();
     let numeric = numeric_gradient(&logits_data, &dims, move |x| {
-        functional::cross_entropy(x, &target_for_fd, None, "mean", Some(1))
+        functional::cross_entropy(x, &target_for_fd, None, Reduction::Mean, Some(1))
     });
     assert_matches_finite_differences("cross_entropy(mean, ignore_index)", &analytic, &numeric);
 
@@ -427,7 +427,7 @@ fn ls_nll_loss_mean_with_ignore_index_matches_finite_differences() {
     let log_probs = Tensor::from_vec(log_prob_data.clone(), &dims)
         .expect("log probs")
         .requires_grad_(true);
-    let loss = functional::nll_loss(&log_probs, &target, None, Some(1), "mean").expect("forward");
+    let loss = functional::nll_loss(&log_probs, &target, None, Some(1), Reduction::Mean).expect("forward");
     assert!(
         loss.requires_grad(),
         "nll_loss must record through the valid-count mean branch"
@@ -442,7 +442,7 @@ fn ls_nll_loss_mean_with_ignore_index_matches_finite_differences() {
 
     let target_for_fd = target.clone();
     let numeric = numeric_gradient(&log_prob_data, &dims, move |x| {
-        functional::nll_loss(x, &target_for_fd, None, Some(1), "mean")
+        functional::nll_loss(x, &target_for_fd, None, Some(1), Reduction::Mean)
     });
     assert_matches_finite_differences("nll_loss(mean, ignore_index)", &analytic, &numeric);
 }
@@ -463,7 +463,7 @@ fn ls_nll_loss_non_finite_entry_poisons_only_its_own_row() {
     .expect("log probs");
     let target = Tensor::<i64>::from_vec(vec![1i64, 0], &[2]).expect("target");
 
-    let per_sample = functional::nll_loss(&log_probs, &target, None, None, "none")
+    let per_sample = functional::nll_loss(&log_probs, &target, None, None, Reduction::None)
         .expect("forward")
         .to_vec()
         .expect("values");

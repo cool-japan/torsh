@@ -3,7 +3,7 @@
 //! This module provides loss functions commonly used for regression tasks,
 //! including mean squared error, L1 loss, and other regression-specific losses.
 
-use crate::loss::common::{blend, branch_masks, ReductionType};
+use crate::loss::common::{blend, branch_masks, ReductionType, ReductionExt};
 use crate::utils::{
     function_context, validate_elementwise_shapes, validate_non_empty, validate_positive,
 };
@@ -66,7 +66,7 @@ pub fn mse_loss(input: &Tensor, target: &Tensor, reduction: ReductionType) -> To
         )
     })?;
 
-    reduction.apply(squared).map_err(|e| {
+    reduction.apply(&squared, None).map_err(|e| {
         TorshError::config_error_with_context(
             &format!("Failed to apply reduction: {}", e),
             &context,
@@ -90,7 +90,7 @@ pub fn l1_loss(input: &Tensor, target: &Tensor, reduction: ReductionType) -> Tor
     validate_elementwise_shapes(input, target)?;
     let diff = input.sub(target)?;
     let abs_diff = diff.abs()?;
-    reduction.apply(abs_diff)
+    reduction.apply(&abs_diff, None)
 }
 
 /// Smooth L1 Loss (Huber Loss)
@@ -139,7 +139,7 @@ pub fn smooth_l1_loss(
     let l1_component = abs_diff.sub_scalar(0.5 * beta)?;
 
     let smooth_l1 = blend(&l2_component, &l1_component, &inside_mask, &outside_mask)?;
-    reduction.apply(smooth_l1)
+    reduction.apply(&smooth_l1, None)
 }
 
 /// Poisson Negative Log Likelihood Loss
@@ -190,7 +190,7 @@ pub fn poisson_nll_loss(
         loss = loss.add(&stirling)?;
     }
 
-    reduction.apply(loss)
+    reduction.apply(&loss, None)
 }
 
 /// Gaussian Negative Log Likelihood Loss
@@ -233,7 +233,7 @@ pub fn gaussian_nll_loss(
         loss = loss.add_scalar(0.5 * (2.0 * std::f32::consts::PI).ln())?;
     }
 
-    reduction.apply(loss)
+    reduction.apply(&loss, None)
 }
 
 #[cfg(test)]
