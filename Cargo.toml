@@ -214,8 +214,8 @@ hostname = "0.4"
 rustc-version = "0.4"
 which = "8.0"
 sysinfo = "0.39"
-oxiarc-archive = { version = "0.4.1", default-features = false }
-oxiarc-core = { version = "0.4.1" }
+oxiarc-archive = { version = "0.4.2", default-features = false }
+oxiarc-core = { version = "0.4.2" }
 # reqwest with a provider-less rustls backend: no aws-lc-rs (BoringSSL/C) in the
 # default build. The pure-Rust RustCrypto crypto provider + webpki roots are wired
 # in at each client-build site (see the per-crate `tls` helper modules).
@@ -280,10 +280,10 @@ hex = "0.4"
 semver = "1.0"
 
 # Advanced compression for package management (COOLJAPAN Pure Rust Policy)
-oxiarc-deflate = "0.4.1"
-oxiarc-zstd = "0.4.1"
+oxiarc-deflate = "0.4.2"
+oxiarc-zstd = "0.4.2"
 # oxiarc-lzma replaces the non-COOLJAPAN `lzma-rs` crate (Pure Rust LZMA/LZMA2).
-oxiarc-lzma = "0.4.1"
+oxiarc-lzma = "0.4.2"
 
 # Security features for package signing and encryption
 # Pure-Rust RustCrypto AEAD + KDF (replaces the C/asm `ring` dependency).
