@@ -276,7 +276,7 @@ fn rstorch(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // ========================================================================
 
     // Add framework information
-    m.add("__author__", "COOLJAPAN OU (Team Kitasan)")?;
+    m.add("__author__", "COOLJAPAN OU (Team KitaSan)")?;
     m.add("__license__", "Apache-2.0")?;
 
     Ok(())

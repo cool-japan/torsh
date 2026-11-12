@@ -635,7 +635,7 @@ ToRSh is licensed under the Apache License, Version 2.0. See [LICENSE](./LICENSE
 </div>
 ## Sponsorship
 
-Torsh is developed and maintained by **COOLJAPAN OU (Team Kitasan)**.
+Torsh is developed and maintained by **COOLJAPAN OU (Team KitaSan)**.
 
 If you find Torsh useful, please consider sponsoring the project to support continued development of the Pure Rust ecosystem.
 

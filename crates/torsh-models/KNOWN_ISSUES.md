@@ -267,4 +267,4 @@ If you encounter issues not listed here or need assistance:
 
 **Last Updated:** 2026-01-28
 **Version:** 0.1.0
-**Maintainer:** COOLJAPAN OU (Team Kitasan)
+**Maintainer:** COOLJAPAN OU (Team KitaSan)
